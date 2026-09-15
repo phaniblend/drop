@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DropshipOS System Design & Technical Specification</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --heading: #58a6ff;
+      --subtext: #8b949e;
+      --code-bg: #090d13;
+      --inline-code: #21262d;
+      --btn: #238636;
+      --btn-hover: #2ea043;
+      --table-header: #21262d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2.5rem 1rem;
+    }
+
+    .container {
+      max-width: 1020px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    h1, h2, h3 {
+      color: #f0f6fc;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      color: var(--heading);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-top: 0;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+      margin-top: 2.5rem;
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      color: #79c0ff;
+      margin-top: 1.2rem;
+    }
+
+    p {
+      margin-bottom: 1.2rem;
+    }
+
+    ul, ol {
+      margin-bottom: 1.4rem;
+      padding-left: 1.8rem;
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    hr {
+      border: 0;
+      height: 1px;
+      background: var(--border);
+      margin: 2.2rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.8rem;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--table-header);
+      color: #f0f6fc;
+      font-weight: 600;
+    }
+
+    td {
+      background-color: rgba(9, 13, 19, 0.4);
+    }
+
+    pre {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.2rem;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      color: #e6edf3;
+      margin-bottom: 1.6rem;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85em;
+    }
+
+    :not(pre) > code {
+      background-color: var(--inline-code);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      color: #f0f6fc;
+    }
+
+    .formula-banner {
+      background-color: var(--code-bg);
+      border-left: 4px solid var(--heading);
+      padding: 1.1rem;
+      margin-bottom: 1.6rem;
+      font-family: ui-monospace, Menlo, monospace;
+      color: #7ee787;
+      font-size: 0.95rem;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1.5rem;
+    }
+
+    .download-btn {
+      background-color: var(--btn);
+      color: #ffffff;
+      border: none;
+      padding: 0.65rem 1.3rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.92rem;
+      transition: background-color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .download-btn:hover {
+      background-color: var(--btn-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="toolbar">
+      <button class="download-btn" onclick="downloadSelf()">⬇ Save Specification (.html)</button>
+    </div>
+
+    <h1>DropshipOS: System Design & Technical Specification</h1>
+    <p>This document specifies the technical architecture, public API surface, database models, and execution code for <strong>DropshipOS</strong>—an automated system handling product discovery, headless scraping, AI enrichment, Shopify publishing, and real-time ad margin protection.</p>
+
+    <hr>
+
+    <h2>1. System Architecture & Component Interaction</h2>
+    <pre><code>                          ┌─────────────────────────────────────┐
+                          │         DropshipOS Web UI           │
+                          │   (Next.js 15 / React / Tailwind)   │
+                          └──────────────────┬──────────────────┘
+                                             │ REST / tRPC
+                                             ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   Core Node.js Backend                                 │
+│                                                                                        │
+│  ┌──────────────────────┐   ┌───────────────────────────┐   ┌───────────────────────┐  │
+│  │   Discovery Engine   │   │  Scraper Worker (BullMQ)  │   │  AI Copy & Clean Svc  │  │
+│  │ AliExpress Search/API│   │   Playwright / Proxies    │   │  Claude 3.5 / Sharp   │  │
+│  └──────────┬───────────┘   └─────────────┬─────────────┘   └───────────┬───────────┘  │
+│             │                             │                             │              │
+│             └─────────────────────────────┼─────────────────────────────┘              │
+│                                           ▼                                            │
+│                              PostgreSQL + Redis Queue                                  │
+│                                           │                                            │
+│             ┌─────────────────────────────┴─────────────────────────────┐              │
+│             ▼                                                           ▼              │
+│  ┌──────────────────────┐                                   ┌───────────────────────┐  │
+│  │ Shopify Publisher    │                                   │ Ad Monitor & Guard    │  │
+│  │ GraphQL Admin API    │                                   │ Meta v26 & TikTok APIs│  │
+│  └──────────┬───────────┘                                   └───────────┬───────────┘  │
+└─────────────┼───────────────────────────────────────────────────────────┼──────────────┘
+              │ GraphQL                                                   │ Webhooks/REST
+              ▼                                                           ▼
+    [ Shopify Storefront ]                                      [ Meta / TikTok Ads ]</code></pre>
+
+    <hr>
+
+    <h2>2. External APIs & Public Services</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Endpoint / Target</th>
+          <th>Purpose</th>
+          <th>Auth Scheme</th>
+          <th>Notes & Limits</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Shopify Admin API</strong></td>
+          <td><code>/admin/api/2026-07/graphql.json</code></td>
+          <td>Product creation, variant mapping, orders capture</td>
+          <td><code>X-Shopify-Access-Token</code></td>
+          <td>GraphQL leaky bucket (1,000 pts max, 100 pts/sec refill)</td>
+        </tr>
+        <tr>
+          <td><strong>Meta Marketing API</strong></td>
+          <td><code>https://graph.facebook.com/v26.0/</code></td>
+          <td>Hourly ad set spend, ROAS polling, automated pause</td>
+          <td>Bearer Token (User/System)</td>
+          <td>Rate limit: 200 calls/hr per ad account</td>
+        </tr>
+        <tr>
+          <td><strong>TikTok Marketing API</strong></td>
+          <td><code>https://business-api.tiktok.com/open_api/v1.3/</code></td>
+          <td>Campaign analytics and ad group status toggle</td>
+          <td><code>Access-Token</code> header</td>
+          <td>Rate limit: 10 QPS per advertiser account</td>
+        </tr>
+        <tr>
+          <td><strong>AliExpress Open API</strong></td>
+          <td><code>aliexpress.ds.recommend.feed.get</code></td>
+          <td>Wholesale catalog discovery and variant inventory lookup</td>
+          <td>App Key + Signature (HMAC-SHA256)</td>
+          <td>Requires Taobao/AliExpress Dropshipper Developer Account</td>
+        </tr>
+        <tr>
+          <td><strong>SerpApi (Google Lens)</strong></td>
+          <td><code>https://serpapi.com/search.json?engine=google_lens</code></td>
+          <td>Reverse visual match from competitor ads to AliExpress URLs</td>
+          <td><code>api_key</code> query parameter</td>
+          <td>Used as visual discovery fallback</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr>
+
+    <h2>3. Database Schema (PostgreSQL DDL)</h2>
+    <pre><code>CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Tenant / Dropshipper Profile
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    shopify_domain VARCHAR(255),
+    shopify_access_token TEXT,
+    meta_access_token TEXT,
+    tiktok_access_token TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Master Products Catalog
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    shopify_product_id VARCHAR(64) UNIQUE,
+    supplier_source VARCHAR(32) DEFAULT 'aliexpress',
+    supplier_url TEXT NOT NULL,
+    raw_title TEXT NOT NULL,
+    clean_title TEXT,
+    base_cost NUMERIC(10, 2) NOT NULL,
+    shipping_cost NUMERIC(10, 2) DEFAULT 0.00,
+    retail_price NUMERIC(10, 2) NOT NULL,
+    markup_multiplier NUMERIC(4, 2) DEFAULT 3.00,
+    status VARCHAR(32) DEFAULT 'draft',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. SKU Mapping Table
+CREATE TABLE product_variants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    shopify_variant_id VARCHAR(64) UNIQUE,
+    supplier_sku_id VARCHAR(64) NOT NULL,
+    variant_name VARCHAR(255) NOT NULL,
+    variant_cost NUMERIC(10, 2) NOT NULL,
+    variant_price NUMERIC(10, 2) NOT NULL,
+    inventory_count INT DEFAULT 0,
+    supplier_image_url TEXT,
+    clean_image_url TEXT
+);
+
+-- 4. Campaign Monitoring & Attribution
+CREATE TABLE campaign_trackers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    platform VARCHAR(32) NOT NULL, -- 'meta' | 'tiktok'
+    ad_account_id VARCHAR(64) NOT NULL,
+    campaign_id VARCHAR(64) NOT NULL,
+    ad_set_id VARCHAR(64) NOT NULL,
+    ad_set_name VARCHAR(255),
+    spend_limit_threshold NUMERIC(10, 2) DEFAULT 50.00,
+    min_roas_threshold NUMERIC(4, 2) DEFAULT 1.20,
+    spend_today NUMERIC(10, 2) DEFAULT 0.00,
+    revenue_today NUMERIC(10, 2) DEFAULT 0.00,
+    orders_count INT DEFAULT 0,
+    is_paused BOOLEAN DEFAULT FALSE,
+    last_polled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Customer Orders
+CREATE TABLE orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    shopify_order_id VARCHAR(64) UNIQUE NOT NULL,
+    order_number VARCHAR(64) NOT NULL,
+    total_revenue NUMERIC(10, 2) NOT NULL,
+    total_cogs NUMERIC(10, 2) NOT NULL,
+    payment_fee NUMERIC(10, 2) NOT NULL,
+    net_margin NUMERIC(10, 2) NOT NULL,
+    fulfillment_status VARCHAR(32) DEFAULT 'pending_batch',
+    supplier_order_id VARCHAR(64),
+    tracking_number VARCHAR(128),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_products_user ON products(user_id);
+CREATE INDEX idx_trackers_adset ON campaign_trackers(ad_set_id);
+CREATE INDEX idx_orders_fulfillment ON orders(fulfillment_status);</code></pre>
+
+    <hr>
+
+    <h2>4. Core Modules Implementation</h2>
+
+    <h3>Module A: Playwright Supplier Scraper (<code>scraper.ts</code>)</h3>
+    <p>Extracts pricing, variant definitions, and uncompressed media by reading <code>window.runParams</code> rather than unstable front-end DOM classes.</p>
+    <pre><code>import { chromium } from 'playwright-extra';
+import stealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+chromium.use(stealthPlugin());
+
+export interface ParsedSupplierPayload {
+  title: string;
+  baseCost: number;
+  galleryImages: string[];
+  variants: Array<{
+    skuId: string;
+    attributes: string;
+    cost: number;
+    stock: number;
+    imageUrl?: string;
+  }>;
+}
+
+export async function scrapeSupplierUrl(targetUrl: string): Promise&lt;ParsedSupplierPayload&gt; {
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 }
+  });
+
+  const page = await context.newPage();
+
+  try {
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+
+    const rawPayload = await page.evaluate(() => {
+      const scripts = Array.from(document.querySelectorAll('script'));
+      const scriptWithParams = scripts.find(s => s.innerText && s.innerText.includes('window.runParams'));
+      return scriptWithParams ? scriptWithParams.innerText : null;
+    });
+
+    await browser.close();
+
+    if (!rawPayload) {
+      throw new Error('Hydration script (window.runParams) not found on supplier page.');
+    }
+
+    return parseHydrationData(rawPayload);
+  } catch (error) {
+    await browser.close();
+    throw error;
+  }
+}
+
+function parseHydrationData(scriptContent: string): ParsedSupplierPayload {
+  const matched = scriptContent.match(/data:\s*(\{.*?\})\s*,\s*csrfToken/s);
+  if (!matched || !matched[1]) {
+    throw new Error('Regex failed to isolate JSON data chunk from script');
+  }
+
+  const payload = JSON.parse(matched[1]);
+  const productInfo = payload.productInfoComponent || {};
+  const priceInfo = payload.priceComponent || {};
+  const skuInfo = payload.skuComponent || {};
+  const imageInfo = payload.imageComponent || {};
+
+  return {
+    title: productInfo.subject || 'Imported Wholesale Product',
+    baseCost: parseFloat(priceInfo.origPrice?.minAmount?.value || '0.00'),
+    galleryImages: (imageInfo.imagePathList || []).map((img: string) => img.replace(/_\d+x\d+\.jpg$/, '')),
+    variants: (skuInfo.skuPriceList || []).map((sku: any) => ({
+      skuId: String(sku.skuId),
+      attributes: sku.skuAttr || 'Default',
+      cost: parseFloat(sku.skuVal?.actSkuCalPrice || sku.skuVal?.skuCalPrice || '0.00'),
+      stock: sku.skuVal?.availQuantity || 0,
+      imageUrl: sku.skuPropertyImagePath
+    }))
+  };
+}</code></pre>
+
+    <h3>Module B: Shopify GraphQL Publisher (<code>publisher.ts</code>)</h3>
+    <p>Constructs and pushes products, variants, and markup pricing using the Shopify GraphQL Admin API (version <code>2026-07</code>).</p>
+    <pre><code>import { GraphQLClient, gql } from 'graphql-request';
+
+const shopifyClient = new GraphQLClient(
+  `https://${process.env.SHOPIFY_STORE_DOMAIN}.myshopify.com/admin/api/2026-07/graphql.json`,
+  {
+    headers: {
+      'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN!,
+      'Content-Type': 'application/json',
+    },
+  }
+);
+
+interface TransformedProductInput {
+  title: string;
+  descriptionHtml: string;
+  tags: string[];
+  variants: Array<{
+    sku: string;
+    cost: number;
+    title: string;
+  }>;
+}
+
+export async function publishProductToShopify(data: TransformedProductInput) {
+  const mutation = gql`
+    mutation ProductCreateWithVariants($input: ProductInput!) {
+      productCreate(input: $input) {
+        product {
+          id
+          title
+          handle
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                sku
+                price
+              }
+            }
+          }
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    input: {
+      title: data.title,
+      descriptionHtml: data.descriptionHtml,
+      vendor: 'DropshipOS Node',
+      status: 'DRAFT',
+      tags: data.tags,
+      variants: data.variants.map((v) => ({
+        sku: v.sku,
+        price: (v.cost * 3.0).toFixed(2),
+        compareAtPrice: (v.cost * 4.5).toFixed(2),
+        inventoryManagement: 'SHOPIFY'
+      }))
+    }
+  };
+
+  const res: any = await shopifyClient.request(mutation, variables);
+
+  if (res.productCreate.userErrors.length > 0) {
+    throw new Error(`Shopify publishing failed: ${JSON.stringify(res.productCreate.userErrors)}`);
+  }
+
+  return res.productCreate.product;
+}</code></pre>
+
+    <h3>Module C: Margin Guard & Meta Ad Pause Engine (<code>marginGuard.ts</code>)</h3>
+    <p>Calculates real-time unit margins and triggers an automated campaign freeze if an ad set breaches safety thresholds.</p>
+    
+    <div class="formula-banner">
+      Net Profit = Attributed Revenue - Total COGS - Current Ad Spend - (Attributed Revenue × 0.029 + $0.30)
+    </div>
+
+    <pre><code>import axios from 'axios';
+
+const META_API_VERSION = 'v26.0';
+
+export async function getHourlyAdSpend(adSetId: string, accessToken: string): Promise&lt;number&gt; {
+  const response = await axios.get(
+    `https://graph.facebook.com/${META_API_VERSION}/${adSetId}/insights`,
+    {
+      params: {
+        access_token: accessToken,
+        fields: 'spend',
+        date_preset: 'today'
+      }
+    }
+  );
+
+  const data = response.data.data;
+  return data && data.length > 0 ? parseFloat(data[0].spend) : 0.00;
+}
+
+export async function pauseAdSet(adSetId: string, accessToken: string): Promise&lt;boolean&gt; {
+  const response = await axios.post(
+    `https://graph.facebook.com/${META_API_VERSION}/${adSetId}`,
+    { status: 'PAUSED' },
+    { params: { access_token: accessToken } }
+  );
+
+  return response.data.success === true;
+}
+
+export async function runSafetyCircuitCheck(
+  adSetId: string,
+  metaToken: string,
+  attributedRevenue: number,
+  totalCogs: number,
+  spendThreshold: number = 50.00
+): Promise&lt;{ actionTaken: string; netProfit: number }&gt; {
+  const currentSpend = await getHourlyAdSpend(adSetId, metaToken);
+  const processorFees = attributedRevenue > 0 ? (attributedRevenue * 0.029) + 0.30 : 0;
+  const netProfit = attributedRevenue - totalCogs - currentSpend - processorFees;
+
+  if (currentSpend >= spendThreshold && netProfit < 0) {
+    await pauseAdSet(adSetId, metaToken);
+    return { actionTaken: 'KILLED_CAMPAIGN', netProfit };
+  }
+
+  return { actionTaken: 'MAINTAINED', netProfit };
+}</code></pre>
+
+    <hr>
+
+    <h2>5. Implementation Roadmap</h2>
+    <ul>
+      <li><strong>Phase 1: Ingestion & Scraping Microservice (Days 1–10):</strong> Deploy Playwright worker pool with residential proxy rotation; parse hydration objects from AliExpress/CJ.</li>
+      <li><strong>Phase 2: Content Transformation & Shopify Storefront (Days 11–18):</strong> Image cleaning pipeline via Sharp; LLM copy structuring; Shopify GraphQL Admin API product pipeline.</li>
+      <li><strong>Phase 3: Real-Time Margin Guard & Webhooks (Days 19–28):</strong> Shopify <code>orders/create</code> webhooks; Meta v26.0 and TikTok marketing APIs; 15-minute cron circuit breaker.</li>
+      <li><strong>Phase 4: Dashboard UI & Batch Fulfillment Session (Days 29–35):</strong> Real-time net margin dashboard; one-click batch supplier checkout and address injection.</li>
+    </ul>
+  </div>
+
+  <script>
+    function downloadSelf() {
+      const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "DropshipOS-System-Design.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

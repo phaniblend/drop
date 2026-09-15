@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #07090d;
+  --bg-elev: #0d1218;
+  --surface: #121923;
+  --surface-2: #18212c;
+  --line: #263140;
+  --line-strong: #334155;
+  --ink: #e8eef6;
+  --muted: #8b9bb0;
+  --faint: #5d6d82;
+  --accent: #4aa3ff;
+  --accent-2: #7cc0ff;
+  --accent-dim: rgba(74, 163, 255, 0.14);
+  --profit: #3ee0a0;
+  --profit-dim: rgba(62, 224, 160, 0.12);
+  --loss: #ff6b7a;
+  --loss-dim: rgba(255, 107, 122, 0.12);
+  --warn: #f0b429;
+  --warn-dim: rgba(240, 180, 41, 0.12);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-profit: var(--profit);
+  --color-loss: var(--loss);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100%;
+}
+
+body {
+  background-image:
+    radial-gradient(1200px 500px at 80% -10%, rgba(74, 163, 255, 0.08), transparent 55%),
+    radial-gradient(900px 400px at -10% 110%, rgba(62, 224, 160, 0.05), transparent 50%),
+    linear-gradient(var(--bg), var(--bg));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

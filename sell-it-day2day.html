@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DropshipOS Interactive Workflow</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --active-text: #58a6ff;
+      --accent: #238636;
+      --accent-hover: #2ea043;
+      --node-unlocked: #238636;
+      --node-active: #58a6ff;
+      --node-locked: #21262d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 1rem 2rem;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .title-group h1 {
+      font-size: 1.25rem;
+      color: #f0f6fc;
+      font-weight: 600;
+    }
+
+    .title-group p {
+      font-size: 0.85rem;
+      color: #8b949e;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      background-color: var(--card-bg);
+      color: #c9d1d9;
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background-color: #21262d;
+      border-color: #8b949e;
+    }
+
+    .btn-primary {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 65px);
+    }
+
+    #viz-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(#161b22 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .sidebar {
+      width: 380px;
+      background-color: var(--card-bg);
+      border-left: 1px solid var(--border);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+      width: fit-content;
+    }
+
+    .badge-unlocked {
+      background: rgba(35, 134, 54, 0.2);
+      color: #3fb950;
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .step-number {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--active-text);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .step-instruction {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
+    .step-detail {
+      font-size: 0.9rem;
+      color: #8b949e;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      background-color: var(--accent);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
+      transition: background 0.2s;
+      margin-top: auto;
+    }
+
+    .action-btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    /* Node & Link Styling */
+    .link {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 2px;
+      transition: stroke 0.3s ease;
+    }
+
+    .link.revealed {
+      stroke: var(--accent);
+      stroke-dasharray: 4, 4;
+      animation: dash 1s linear infinite;
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -8;
+      }
+    }
+
+    .node {
+      cursor: pointer;
+    }
+
+    .node circle {
+      stroke-width: 2px;
+      transition: all 0.3s ease;
+    }
+
+    .node.locked circle {
+      fill: var(--node-locked);
+      stroke: #30363d;
+      cursor: not-allowed;
+    }
+
+    .node.unlocked circle {
+      fill: #161b22;
+      stroke: var(--node-unlocked);
+    }
+
+    .node.active circle {
+      fill: var(--node-active);
+      stroke: #79c0ff;
+      filter: drop-shadow(0 0 6px rgba(88, 166, 255, 0.6));
+    }
+
+    .node text {
+      font-size: 11px;
+      fill: #8b949e;
+      pointer-events: none;
+      font-family: inherit;
+    }
+
+    .node.active text, .node.unlocked text {
+      fill: #f0f6fc;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>DropshipOS Workflow Navigator</h1>
+      <p>Click the active step to advance through the execution pipeline</p>
+    </div>
+    <div class="controls">
+      <button class="btn" id="btn-reset">Reset Workflow</button>
+      <button class="btn btn-primary" id="btn-download">Save Interactive HTML</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <div id="viz-container">
+      <svg id="canvas"></svg>
+    </div>
+
+    <div class="sidebar">
+      <span class="badge badge-unlocked" id="step-badge">Active Step</span>
+      <div class="step-number" id="step-num">Step 1 of 42</div>
+      <div class="step-instruction" id="step-title">Open the dashboard</div>
+      <div class="step-detail" id="step-desc">Open your browser and navigate to http://localhost:3000 (or your hosted tool URL).</div>
+      <button class="action-btn" id="btn-next">Complete Step & Advance ➔</button>
+    </div>
+  </div>
+
+  <script>
+    const stepsData = [
+      { id: 1, label: "Open Tool", desc: "Open your browser and navigate to http://localhost:3000 (or your hosted tool URL)." },
+      { id: 2, label: "Log In", desc: "Log in using your email and master password." },
+      { id: 3, label: "Check Profit/ROAS", desc: "Look at the top summary banner to check your Net Cash Profit (Today) and Active ROAS." },
+      { id: 4, label: "Safety Alerts", desc: "Check the Safety Circuit Alerts card to see if any bleeding ad sets were auto-paused overnight." },
+      { id: 5, label: "Fulfillment Tab", desc: "Click on the Fulfillment Queue tab in the top navigation bar." },
+      { id: 6, label: "Review Orders", desc: "Review the list of new unfulfilled orders waiting for supplier purchase." },
+      { id: 7, label: "Supplier Checkout", desc: "Click the green 'Open Supplier Batch Checkout' button." },
+      { id: 8, label: "Verify Addresses", desc: "When the supplier checkout window opens, verify that all customer shipping addresses were automatically populated into the form." },
+      { id: 9, label: "Pay Supplier", desc: "Click 'Pay Now' on the supplier portal to authorize the batch payment with your credit card." },
+      { id: 10, label: "Return to Tool", desc: "Close the supplier tab and return to the tool dashboard." },
+      { id: 11, label: "Mark Paid", desc: "Click the 'Mark Batch as Paid' button in the tool to update the order statuses." },
+      { id: 12, label: "Discovery Tab", desc: "Click on the Product Discovery tab in the sidebar." },
+      { id: 13, label: "Search Bar", desc: "Click inside the search input bar labeled 'Enter Niche or Problem Keyword'." },
+      { id: 14, label: "Enter Query", desc: "Type your product query (for example: ultrasonic teeth plaque remover)." },
+      { id: 15, label: "Select Market", desc: "Select your target marketplace from the dropdown (e.g., AliExpress - US Dispatch)." },
+      { id: 16, label: "Find Products", desc: "Click the blue 'Find High-Velocity Products' button." },
+      { id: 17, label: "Browse Cards", desc: "Scroll through the generated list of product cards." },
+      { id: 18, label: "Review Margins", desc: "Check the 30-Day Orders count and Estimated Margin % on each card." },
+      { id: 19, label: "Import & Enrich", desc: "Pick the top-performing item and click the '1-Click Import & Enrich' button on that card." },
+      { id: 20, label: "Wait for Scrape", desc: "Wait 5 to 10 seconds while the backend scraper pulls the images, specs, and variants." },
+      { id: 21, label: "Draft Listings", desc: "Click on the Draft Listings tab in the navigation menu." },
+      { id: 22, label: "Open Editor", desc: "Click on the newly imported product title to open the editor view." },
+      { id: 23, label: "Clean Images", desc: "Look at the gallery photos and click the 'Clean Images' toggle to confirm watermarks and foreign badges are stripped." },
+      { id: 24, label: "Review Copy", desc: "Review the AI-generated product title and benefit bullet points in the copy editor." },
+      { id: 25, label: "Tweak Copy", desc: "Adjust any copy phrasing directly in the text fields if you want custom branding tweaks." },
+      { id: 26, label: "Pricing Matrix", desc: "Scroll down to the Variant & Pricing Matrix." },
+      { id: 27, label: "Check Markups", desc: "Check the automated retail prices to ensure your markup is set to at least 3x base cost." },
+      { id: 28, label: "Publish Draft", desc: "Click the purple 'Publish to Shopify as Draft' button." },
+      { id: 29, label: "Confirm ID", desc: "Confirm the success modal that displays your new Shopify Product ID." },
+      { id: 30, label: "Ad Hooks Tab", desc: "Click on the Marketing & Ad Hooks sub-tab under that product." },
+      { id: 31, label: "Copy Hooks", desc: "Copy the 3 AI-generated short-form video hooks to your clipboard." },
+      { id: 32, label: "Copy UTM URL", desc: "Copy the generated product URL containing your tracking UTM parameters." },
+      { id: 33, label: "Film Creatives", desc: "Step away from your computer to film or edit 2 to 3 short video clips using your physical sample and the generated hooks." },
+      { id: 34, label: "Open Ad Manager", desc: "Open your TikTok Ads Manager or Meta Ads Manager in a new browser tab." },
+      { id: 35, label: "Launch Campaign", desc: "Create a new campaign, upload your video creative, paste the tracking URL, and set your daily budget (e.g., $20/day)." },
+      { id: 36, label: "Copy Ad Set ID", desc: "Copy the newly generated Ad Set ID from Meta or TikTok." },
+      { id: 37, label: "Margin Guard", desc: "Switch back to your tool tab and navigate to the Margin Guard section." },
+      { id: 38, label: "Register Ad Set", desc: "Click the '+ Register New Ad Set' button." },
+      { id: 39, label: "Link Product", desc: "Paste your Ad Set ID into the text field and select the corresponding product from the dropdown." },
+      { id: 40, label: "Configure Rules", desc: "Set your Auto-Kill Spend Limit (e.g., $50.00) and Minimum Target ROAS (e.g., 1.20)." },
+      { id: 41, label: "Activate Guard", desc: "Click 'Save & Activate Watchdog'." },
+      { id: 42, label: "Telemetry Live", desc: "Click on the Live Operations tab before closing the app to leave the live financial telemetry running." }
+    ];
+
+    let currentStepIndex = 0;
+
+    // Layout configuration: snake grid pattern
+    const nodeRadius = 18;
+    const cols = 6;
+    const xSpacing = 130;
+    const ySpacing = 90;
+    const xOffset = 80;
+    const yOffset = 70;
+
+    const nodes = stepsData.map((d, i) => {
+      const row = Math.floor(i / cols);
+      const colInRow = i % cols;
+      // Snake pattern: even rows go L-to-R, odd rows go R-to-L
+      const col = row % 2 === 0 ? colInRow : cols - 1 - colInRow;
+      return {
+        ...d,
+        index: i,
+        x: xOffset + col * xSpacing,
+        y: yOffset + row * ySpacing
+      };
+    });
+
+    const links = [];
+    for (let i = 0; i < nodes.length - 1; i++) {
+      links.push({
+        source: nodes[i],
+        target: nodes[i + 1],
+        index: i
+      });
+    }
+
+    const svg = d3.select("#canvas");
+    const g = svg.append("g");
+
+    // Zoom & Pan setup
+    const zoom = d3.zoom()
+      .scaleExtent([0.5, 2.5])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+      });
+    svg.call(zoom);
+
+    // Draw connecting paths
+    const linkElements = g.selectAll(".link")
+      .data(links)
+      .enter()
+      .append("path")
+      .attr("class", "link")
+      .attr("d", d => {
+        return `M ${d.source.x} ${d.source.y} L ${d.target.x} ${d.target.y}`;
+      });
+
+    // Draw nodes
+    const nodeElements = g.selectAll(".node")
+      .data(nodes)
+      .enter()
+      .append("g")
+      .attr("class", d => `node ${d.index === 0 ? "active" : "locked"}`)
+      .attr("transform", d => `translate(${d.x},${d.y})`)
+      .on("click", (event, d) => {
+        if (d.index <= currentStepIndex) {
+          advanceTo(d.index === currentStepIndex ? currentStepIndex + 1 : d.index);
+        }
+      });
+
+    nodeElements.append("circle")
+      .attr("r", nodeRadius);
+
+    nodeElements.append("text")
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "middle")
+      .text(d => d.id);
+
+    nodeElements.append("text")
+      .attr("dy", 30)
+      .attr("text-anchor", "middle")
+      .text(d => d.label);
+
+    function updateVisuals() {
+      // Update nodes state
+      nodeElements.attr("class", d => {
+        if (d.index === currentStepIndex) return "node active";
+        if (d.index < currentStepIndex) return "node unlocked";
+        return "node locked";
+      });
+
+      // Update link lines
+      linkElements.attr("class", d => {
+        return `link ${d.index < currentStepIndex ? "revealed" : ""}`;
+      });
+
+      // Update sidebar
+      const current = stepsData[currentStepIndex];
+      document.getElementById("step-num").innerText = `Step ${current.id} of ${stepsData.length}`;
+      document.getElementById("step-title").innerText = current.label;
+      document.getElementById("step-desc").innerText = current.desc;
+
+      if (currentStepIndex === stepsData.length - 1) {
+        document.getElementById("btn-next").innerText = "Workflow Completed ✓";
+        document.getElementById("btn-next").disabled = true;
+      } else {
+        document.getElementById("btn-next").innerText = "Complete Step & Advance ➔";
+        document.getElementById("btn-next").disabled = false;
+      }
+
+      // Smooth pan to current active node
+      const activeNode = nodes[currentStepIndex];
+      const containerRect = document.getElementById("viz-container").getBoundingClientRect();
+      const targetTransform = d3.zoomIdentity
+        .translate(containerRect.width / 2 - activeNode.x, containerRect.height / 2 - activeNode.y)
+        .scale(1.1);
+
+      svg.transition()
+        .duration(450)
+        .call(zoom.transform, targetTransform);
+    }
+
+    function advanceTo(targetIdx) {
+      if (targetIdx < stepsData.length) {
+        currentStepIndex = targetIdx;
+        updateVisuals();
+      }
+    }
+
+    document.getElementById("btn-next").addEventListener("click", () => {
+      advanceTo(currentStepIndex + 1);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      advanceTo(0);
+    });
+
+    document.getElementById("btn-download").addEventListener("click", () => {
+      const docString = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([docString], { type: "text/html;charset=utf-8" });
+      const dlLink = document.createElement("a");
+      dlLink.href = URL.createObjectURL(blob);
+      dlLink.download = "DropshipOS-Interactive-Workflow.html";
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+    });
+
+    // Initial render setup
+    updateVisuals();
+  </script>
+</body>
+</html>

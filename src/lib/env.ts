@@ -1,0 +1,46 @@
+import "server-only";
+
+function read(name: string) {
+  return process.env[name]?.trim() || "";
+}
+
+export function integrationStatus() {
+  const shopify = Boolean(read("SHOPIFY_STORE_DOMAIN") && read("SHOPIFY_ADMIN_TOKEN"));
+  const meta = Boolean(read("META_ACCESS_TOKEN"));
+  const tiktok = Boolean(read("TIKTOK_ACCESS_TOKEN"));
+  const aliexpress = Boolean(read("ALIEXPRESS_APP_KEY") && read("ALIEXPRESS_APP_SECRET"));
+  const serp = Boolean(read("SERPAPI_KEY"));
+  const ai = Boolean(read("AI_GATEWAY_API_KEY") || read("VERCEL_OIDC_TOKEN"));
+  const scrape = read("ENABLE_HEADLESS_SCRAPE") === "true";
+
+  return {
+    shopify,
+    meta,
+    tiktok,
+    aliexpress,
+    serp,
+    ai,
+    scrape,
+    demo: !shopify && !meta && !tiktok && !aliexpress,
+    liveCount: [shopify, meta, tiktok, aliexpress, serp, ai].filter(Boolean).length,
+  };
+}
+
+export const env = {
+  databaseUrl: read("DATABASE_URL"),
+  shopifyDomain: read("SHOPIFY_STORE_DOMAIN").replace(/\.myshopify\.com$/i, ""),
+  shopifyToken: read("SHOPIFY_ADMIN_TOKEN"),
+  shopifyWebhookSecret: read("SHOPIFY_WEBHOOK_SECRET"),
+  metaToken: read("META_ACCESS_TOKEN"),
+  metaAdAccountId: read("META_AD_ACCOUNT_ID"),
+  tiktokToken: read("TIKTOK_ACCESS_TOKEN"),
+  tiktokAdvertiserId: read("TIKTOK_ADVERTISER_ID"),
+  aliexpressAppKey: read("ALIEXPRESS_APP_KEY"),
+  aliexpressAppSecret: read("ALIEXPRESS_APP_SECRET"),
+  aliexpressAccessToken: read("ALIEXPRESS_ACCESS_TOKEN"),
+  serpApiKey: read("SERPAPI_KEY"),
+  aiGatewayKey: read("AI_GATEWAY_API_KEY"),
+  aiModel: read("AI_GATEWAY_MODEL") || "anthropic/claude-sonnet-4.6",
+  enableHeadlessScrape: read("ENABLE_HEADLESS_SCRAPE") === "true",
+  cronSecret: read("CRON_SECRET"),
+};
