@@ -1,2 +1,5 @@
+[variables]
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
 [start]
 cmd = "npm run start"
