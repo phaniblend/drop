@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDb } from "@/lib/db";
-import { orders, orderItems, products } from "@/lib/db/schema";
-import { DEMO_USER_ID, logActivity } from "@/lib/db/seed";
+import { orders, orderItems, products, users } from "@/lib/db/schema";
+import { logActivity } from "@/lib/db/seed";
 import { env } from "@/lib/env";
 import { netProfit, processorFee } from "@/lib/money";
 import { nid, nowIso } from "@/lib/utils";
@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
   };
 
   const db = await ensureDb();
+  const [operator] = await db.select({ id: users.id }).from(users).limit(1);
+  if (!operator) {
+    return NextResponse.json({ error: "No operator signed in yet" }, { status: 503 });
+  }
   const catalog = await db.select().from(products);
   const revenue = parseFloat(payload.total_price || "0");
   const cogsGuess = catalog.length
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
   const id = nid("ord");
   await db.insert(orders).values({
     id,
-    userId: DEMO_USER_ID,
+    userId: operator.id,
     shopifyOrderId: String(payload.id ?? `hook-${Date.now()}`),
     orderNumber: String(payload.name ?? `#${Date.now().toString().slice(-5)}`),
     customerName: payload.shipping_address?.name || payload.email || "Customer",

@@ -9,7 +9,7 @@ export function TaskToggle({ id, done, title, detail }: { id: string; done: bool
     <label className={`flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3 py-3 ${done ? "opacity-60" : "bg-bg"} ${pending ? "opacity-70" : ""}`}>
       <input
         type="checkbox"
-        className="mt-1 h-4 w-4 accent-[#4aa3ff]"
+        className="mt-1 h-4 w-4 accent-[#5B5FFF]"
         checked={done}
         onChange={(e) => start(() => toggleTask(id, e.target.checked))}
       />

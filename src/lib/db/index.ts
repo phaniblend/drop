@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL DEFAULT 'Operator',
-  store_name TEXT NOT NULL DEFAULT 'DropshipOS Store',
+  store_name TEXT NOT NULL DEFAULT 'SetoStore',
   shopify_domain TEXT,
   shopify_access_token TEXT,
   meta_access_token TEXT,
@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS users (
   fee_rate REAL NOT NULL DEFAULT 0.029,
   fee_fixed REAL NOT NULL DEFAULT 0.3,
   timezone TEXT NOT NULL DEFAULT 'America/Chicago',
+  sentinel_settings TEXT NOT NULL DEFAULT '{"enabled":true,"hookSpend":5,"minCtr":1.5,"maxCpc":1.8,"intentSpend":15}',
+  dayparting_enabled INTEGER NOT NULL DEFAULT 0,
+  subscription_tier TEXT NOT NULL DEFAULT 'trial_5',
+  subscription_status TEXT NOT NULL DEFAULT 'active',
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  products_imported_count INTEGER NOT NULL DEFAULT 0,
+  lens_searches_count INTEGER NOT NULL DEFAULT 0,
+  billing_cycle_start TEXT,
+  billing_cycle_end TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS products (
@@ -75,6 +85,8 @@ CREATE TABLE IF NOT EXISTS products (
   shipping_days INTEGER NOT NULL DEFAULT 14,
   status TEXT NOT NULL DEFAULT 'draft',
   niche TEXT NOT NULL DEFAULT 'general',
+  organic_status TEXT NOT NULL DEFAULT 'pending',
+  organic_views_json TEXT NOT NULL DEFAULT '[0,0,0]',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS product_variants (
@@ -103,6 +115,11 @@ CREATE TABLE IF NOT EXISTS campaign_trackers (
   revenue_today REAL NOT NULL DEFAULT 0,
   orders_count INTEGER NOT NULL DEFAULT 0,
   is_paused INTEGER NOT NULL DEFAULT 0,
+  impressions REAL NOT NULL DEFAULT 0,
+  clicks REAL NOT NULL DEFAULT 0,
+  add_to_cart_count INTEGER NOT NULL DEFAULT 0,
+  pause_reason TEXT,
+  pause_source TEXT,
   last_polled_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS orders (
@@ -182,19 +199,78 @@ CREATE INDEX IF NOT EXISTS idx_products_user ON products(user_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_trackers_adset ON campaign_trackers(ad_set_id);
 CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(fulfillment_status);
+CREATE INDEX IF NOT EXISTS idx_users_subscription ON users(id, subscription_tier, products_imported_count);
 `;
+
+async function addMissingColumns(
+  client: Client,
+  table: string,
+  columns: Array<[string, string]>,
+) {
+  const info = await client.execute(`PRAGMA table_info(${table})`);
+  const names = new Set(
+    info.rows.map((row) => String((row as { name?: string }).name ?? (row as unknown as string[])[1] ?? "")),
+  );
+  for (const [name, ddl] of columns) {
+    if (!names.has(name)) {
+      try {
+        await client.execute(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+      } catch {
+        /* column may already exist */
+      }
+    }
+  }
+}
+
+async function migrateUsersBilling(client: Client) {
+  await addMissingColumns(client, "users", [
+    ["subscription_tier", "TEXT NOT NULL DEFAULT 'trial_5'"],
+    ["subscription_status", "TEXT NOT NULL DEFAULT 'active'"],
+    ["stripe_customer_id", "TEXT"],
+    ["stripe_subscription_id", "TEXT"],
+    ["products_imported_count", "INTEGER NOT NULL DEFAULT 0"],
+    ["lens_searches_count", "INTEGER NOT NULL DEFAULT 0"],
+    ["billing_cycle_start", "TEXT"],
+    ["billing_cycle_end", "TEXT"],
+    [
+      "sentinel_settings",
+      `TEXT NOT NULL DEFAULT '{"enabled":true,"hookSpend":5,"minCtr":1.5,"maxCpc":1.8,"intentSpend":15}'`,
+    ],
+    ["dayparting_enabled", "INTEGER NOT NULL DEFAULT 0"],
+  ]);
+}
+
+async function migrateAdProtection(client: Client) {
+  await addMissingColumns(client, "products", [
+    ["organic_status", "TEXT NOT NULL DEFAULT 'pending'"],
+    ["organic_views_json", "TEXT NOT NULL DEFAULT '[0,0,0]'"],
+  ]);
+  await addMissingColumns(client, "campaign_trackers", [
+    ["impressions", "REAL NOT NULL DEFAULT 0"],
+    ["clicks", "REAL NOT NULL DEFAULT 0"],
+    ["add_to_cart_count", "INTEGER NOT NULL DEFAULT 0"],
+    ["pause_reason", "TEXT"],
+    ["pause_source", "TEXT"],
+  ]);
+}
 
 export async function ensureDb() {
   if (!globalForDb.dropshipReady) {
     globalForDb.dropshipReady = (async () => {
       const client = getClient();
       await client.executeMultiple(DDL);
+      await migrateUsersBilling(client);
+      await migrateAdProtection(client);
       const db = getDb();
       await seedIfEmpty(db);
       return db;
     })();
   }
-  return globalForDb.dropshipReady;
+  const db = await globalForDb.dropshipReady;
+  const client = getClient();
+  await migrateUsersBilling(client);
+  await migrateAdProtection(client);
+  return db;
 }
 
 export async function resetReadyCache() {

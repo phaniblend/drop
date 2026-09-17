@@ -1,14 +1,24 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { importFromFeed, importFromSupplierUrl, importProductsCsv } from "@/app/actions/products";
+import {
+  importFromFeed,
+  importFromSupplierUrl,
+  importProductsCsv,
+  importScrapedListing,
+  searchDiscover,
+} from "@/app/actions/products";
 import { visualSearch } from "@/app/actions/ops";
 import { winningScore, unitMargin, suggestedRetail } from "@/lib/money";
 import { money, pct } from "@/lib/utils";
 import type { FeedProduct } from "@/lib/supplier-feed";
+import { isAliExpressItemUrl } from "@/lib/aliexpress-url";
+import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
+import { emitPaywall, hasPaywall, type PaywallPayload } from "@/lib/paywall";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { Thumb } from "./thumb";
+import { CompetitorAdsPanel } from "./competitor-ads-panel";
 
 const NICHES = ["all", "home", "car", "pet", "beauty", "health", "outdoors"] as const;
 
@@ -29,41 +39,125 @@ export function DiscoverDesk({
   const [url, setUrl] = useState("");
   const [csv, setCsv] = useState("");
   const [lensUrl, setLensUrl] = useState("");
-  const [lens, setLens] = useState<Array<{ title: string; link: string; source: string }>>([]);
+  const [lens, setLens] = useState<
+    Array<{ title: string; link: string; source: string; price?: number; factory: boolean }>
+  >([]);
+  const [factoryBest, setFactoryBest] = useState<{
+    title: string;
+    link: string;
+    source: string;
+    price?: number;
+  } | null>(null);
   const [lensWarning, setLensWarning] = useState("");
   const [error, setError] = useState("");
+  const [liveRows, setLiveRows] = useState<FeedProduct[] | null>(null);
+  const [searchError, setSearchError] = useState("");
   const [pending, start] = useTransition();
+  const [scraping, setScraping] = useState(false);
+
+  useEffect(() => {
+    if (!aliLive) {
+      setLiveRows(null);
+      setSearchError("");
+      return;
+    }
+    if (query.trim().length < 2) {
+      setLiveRows([]);
+      setSearchError("");
+      return;
+    }
+    const t = window.setTimeout(() => {
+      start(async () => {
+        const res = await searchDiscover(query, niche);
+        setLiveRows(res.items);
+        setSearchError(res.error ?? "");
+      });
+    }, 450);
+    return () => window.clearTimeout(t);
+  }, [aliLive, query, niche]);
 
   const rows = useMemo(() => {
+    if (aliLive) return liveRows ?? [];
     const q = query.trim().toLowerCase();
     return feed.filter((p) => {
       const hay = `${p.title} ${p.cleanTitle} ${p.tags.join(" ")}`.toLowerCase();
       return (!q || hay.includes(q)) && (niche === "all" || p.niche === niche);
     });
-  }, [feed, query, niche]);
+  }, [aliLive, liveRows, feed, query, niche]);
+
+  async function runImportUrl(target: string) {
+    setError("");
+    if (!isAliExpressItemUrl(target)) {
+      setError("Paste a valid AliExpress item link, like https://www.aliexpress.com/item/123.html");
+      return;
+    }
+
+    setScraping(true);
+    try {
+      const scrapeRes = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: target.trim() }),
+      });
+      const json = (await scrapeRes.json()) as {
+        ok?: boolean;
+        data?: ScrapedListing;
+        error?: string;
+      } & Partial<PaywallPayload>;
+      if (json.code && json.message) {
+        emitPaywall({
+          code: json.code,
+          message: json.message,
+          limit: json.limit,
+          used: json.used,
+          resource: json.resource,
+        });
+        return;
+      }
+      if (!scrapeRes.ok || !json.ok || !json.data) {
+        setError(json.error || "Could not scrape that listing.");
+        return;
+      }
+      const saved = await importScrapedListing(json.data);
+      if (hasPaywall(saved)) {
+        emitPaywall(saved.paywall);
+        return;
+      }
+      router.push(`/catalog/${saved.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setScraping(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Discover</p>
-        <h1 className="mt-1 text-2xl font-semibold">Find something worth testing</h1>
+        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Find something worth testing</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Demo feed is scored for margin, stock, and ship time. Paste a supplier URL or drop a CSV from
-          your current tool to onboard an existing catalog.
+          {aliLive
+            ? "Search hits AliExpress live. Import URL scrapes the listing into a catalog draft."
+            : "Paste an AliExpress item URL to scrape a live listing into a catalog draft. Search still uses the sandbox feed until Open Platform keys exist."}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
+        <Badge tone="accent">URL scrape live</Badge>
         <Badge tone={aliLive ? "profit" : "line"}>
-          AliExpress {aliLive ? "live" : "demo feed"}
+          Search {aliLive ? "AliExpress API" : "sandbox feed"}
         </Badge>
         <Badge tone={aiLive ? "profit" : "line"}>Copy {aiLive ? "AI Gateway" : "local cleaner"}</Badge>
-        <Badge tone={serpLive ? "profit" : "line"}>Lens {serpLive ? "live" : "sample matches"}</Badge>
+        <Badge tone={serpLive ? "profit" : "line"}>Lens {serpLive ? "live" : "needs SerpApi"}</Badge>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5">
-          <Field label="Supplier URL" hint="Matches the demo feed, AliExpress API, or Playwright if enabled.">
+          <Field
+            label="Supplier URL"
+            hint="Paste an AliExpress item URL. We fetch the listing, then save a catalog draft."
+          >
             <input
               className={inputClass}
               placeholder="https://www.aliexpress.com/item/..."
@@ -74,20 +168,10 @@ export function DiscoverDesk({
           <Button
             className="mt-3 w-full"
             tone="accent"
-            disabled={pending || !url}
-            onClick={() =>
-              start(async () => {
-                setError("");
-                try {
-                  const res = await importFromSupplierUrl(url);
-                  router.push(`/catalog/${res.id}`);
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Import failed");
-                }
-              })
-            }
+            disabled={pending || scraping || !url}
+            onClick={() => void runImportUrl(url)}
           >
-            Import URL
+            {scraping ? "Scraping product data..." : "Import URL"}
           </Button>
         </Card>
         <Card className="p-5">
@@ -99,6 +183,19 @@ export function DiscoverDesk({
               onChange={(e) => setCsv(e.target.value)}
             />
           </Field>
+          <label className="mt-2 block cursor-pointer text-xs text-accent hover:text-accent-2">
+            Or choose a .csv file
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                file.text().then(setCsv);
+              }}
+            />
+          </label>
           <Button
             className="mt-3 w-full"
             tone="line"
@@ -108,6 +205,11 @@ export function DiscoverDesk({
                 setError("");
                 try {
                   const res = await importProductsCsv(csv);
+                  if (hasPaywall(res)) {
+                    emitPaywall(res.paywall);
+                    if (res.count) router.push("/catalog");
+                    return;
+                  }
                   router.push("/catalog");
                   setCsv("");
                   setError(`Imported ${res.count} drafts.`);
@@ -121,7 +223,10 @@ export function DiscoverDesk({
           </Button>
         </Card>
         <Card className="p-5">
-          <Field label="Visual match (competitor ad)" hint="Google Lens via SerpApi when a key is present.">
+          <Field
+            label="Visual match (competitor ad)"
+            hint={serpLive ? "Google Lens via SerpApi. Factory links ranked by price." : "Needs SERPAPI_KEY."}
+          >
             <input
               className={inputClass}
               placeholder="https://image-url-from-ad.jpg"
@@ -135,31 +240,66 @@ export function DiscoverDesk({
             disabled={pending || !lensUrl}
             onClick={() =>
               start(async () => {
-                const res = await visualSearch(lensUrl);
-                setLens(res.matches);
-                setLensWarning(res.warning ?? "");
+                setError("");
+                try {
+                  const res = await visualSearch(lensUrl);
+                  if (hasPaywall(res)) {
+                    emitPaywall(res.paywall);
+                    return;
+                  }
+                  setLens(res.matches);
+                  setFactoryBest(res.factoryBest);
+                  setLensWarning(res.warning ?? "");
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Lens failed");
+                }
               })
             }
           >
             Reverse search
           </Button>
+          <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
         </Card>
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-loss/30 bg-[rgba(255,107,122,0.08)] px-4 py-3 text-sm text-loss">
+        <p
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            error.startsWith("Imported")
+              ? "border-profit/30 bg-[rgba(61,214,140,0.08)] text-profit"
+              : "border-loss/30 bg-[rgba(255,107,122,0.08)] text-loss"
+          }`}
+        >
           {error}
         </p>
       ) : null}
 
-      {lens.length > 0 ? (
+      {lens.length > 0 || lensWarning ? (
         <Card>
           <CardHeader title="Visual matches" eyebrow="Lens" />
           <div className="space-y-2 px-5 py-4">
             {lensWarning ? <p className="text-xs text-warn">{lensWarning}</p> : null}
+            {factoryBest ? (
+              <div className="rounded-xl border border-line bg-surface-2 px-3 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-faint">Lowest-cost factory hit</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {factoryBest.source}: {factoryBest.title}
+                  {factoryBest.price != null ? ` · ${money(factoryBest.price)}` : ""}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Button className="h-8 px-2 text-xs" onClick={() => runImportUrl(factoryBest.link)}>
+                    Import this URL
+                  </Button>
+                  <a href={factoryBest.link} className="self-center text-xs text-accent" target="_blank">
+                    Open listing
+                  </a>
+                </div>
+              </div>
+            ) : null}
             {lens.map((m) => (
               <a key={m.link} href={m.link} className="block text-sm text-accent hover:underline" target="_blank">
-                {m.source}: {m.title}
+                {m.factory ? "Factory" : m.source}: {m.title}
+                {m.price != null ? ` · ${money(m.price)}` : ""}
               </a>
             ))}
           </div>
@@ -169,7 +309,7 @@ export function DiscoverDesk({
       <div className="flex flex-wrap items-center gap-2">
         <input
           className={`${inputClass} max-w-xs`}
-          placeholder="Search the feed"
+          placeholder={aliLive ? "Search AliExpress" : "Search the feed"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -178,13 +318,19 @@ export function DiscoverDesk({
             key={n}
             onClick={() => setNiche(n)}
             className={`rounded-full border px-3 py-1 text-xs capitalize ${
-              niche === n ? "border-accent bg-[rgba(74,163,255,0.12)] text-ink" : "border-line text-muted"
+              niche === n ? "border-accent bg-accent/10 text-ink" : "border-line text-muted"
             }`}
           >
             {n}
           </button>
         ))}
       </div>
+
+      {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
+
+      {aliLive && query.trim().length < 2 ? (
+        <p className="text-sm text-muted">Type at least 2 characters to pull live AliExpress results.</p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((p) => {
@@ -213,15 +359,28 @@ export function DiscoverDesk({
                   <span className="text-muted">Landed {money(p.cost + p.shipping)}</span>
                   <span className="text-right text-ink">{money(retail)}</span>
                   <span className="text-profit">{pct(econ.margin)} after fees</span>
-                  <span className="text-right text-muted">{p.shippingDays}d · {p.stock} pcs</span>
+                  <span className="text-right text-muted">
+                    {p.orders30d
+                      ? `${p.orders30d.toLocaleString()} / 30d`
+                      : `${p.shippingDays}d · ${p.stock} pcs`}
+                  </span>
                 </div>
                 <Button
                   className="w-full"
                   disabled={pending}
                   onClick={() =>
                     start(async () => {
-                      const res = await importFromFeed(p.id);
-                      router.push(`/catalog/${res.id}`);
+                      setError("");
+                      try {
+                        const res = p.live ? await importFromSupplierUrl(p.url) : await importFromFeed(p.id);
+                        if (hasPaywall(res)) {
+                          emitPaywall(res.paywall);
+                          return;
+                        }
+                        router.push(`/catalog/${res.id}`);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Import failed");
+                      }
                     })
                   }
                 >

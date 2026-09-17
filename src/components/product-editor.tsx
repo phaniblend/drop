@@ -13,6 +13,7 @@ import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
 import { Thumb } from "./thumb";
 import type { CampaignTracker, Product, ProductVariant } from "@/lib/db/schema";
+import { AdHooksPanel } from "./ad-hooks-panel";
 
 type Economics = { cogs: number; fee: number; profit: number; margin: number };
 
@@ -60,6 +61,12 @@ export function ProductEditor({
       </div>
 
       {publishMsg ? <p className="text-sm text-warn">{publishMsg}</p> : null}
+
+      <AdHooksPanel
+        title={product.cleanTitle ?? product.rawTitle}
+        description={product.descriptionHtml ?? ""}
+        price={product.retailPrice}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <Card className="overflow-hidden">

@@ -2,14 +2,26 @@ import { integrationStatus } from "@/lib/env";
 import { SUPPLIER_FEED } from "@/lib/supplier-feed";
 import { DiscoverDesk } from "@/components/discover-desk";
 
-export default function DiscoverPage() {
+export default async function DiscoverPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ canceled?: string }>;
+}) {
   const status = integrationStatus();
+  const { canceled } = await searchParams;
   return (
-    <DiscoverDesk
-      feed={SUPPLIER_FEED}
-      aiLive={status.ai}
-      serpLive={status.serp}
-      aliLive={status.aliexpress}
-    />
+    <div className="space-y-4">
+      {canceled ? (
+        <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
+          Checkout was canceled. You can keep using the 5-product trial.
+        </p>
+      ) : null}
+      <DiscoverDesk
+        feed={SUPPLIER_FEED}
+        aiLive={status.ai}
+        serpLive={status.serp}
+        aliLive={status.aliexpress}
+      />
+    </div>
   );
 }

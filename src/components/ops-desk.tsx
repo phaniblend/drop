@@ -5,8 +5,9 @@ import { resolveRefund } from "@/app/actions/ops";
 import { Badge, Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
 import { TaskToggle } from "./task-toggle";
+import { OrganicLaunchCard } from "./organic-launch-card";
 import { money } from "@/lib/utils";
-import type { CsMacro, DailyTask, Order, Refund } from "@/lib/db/schema";
+import type { CsMacro, DailyTask, Order, Product, Refund } from "@/lib/db/schema";
 
 function fillMacro(body: string, order?: Order) {
   return body
@@ -21,11 +22,13 @@ export function OpsDesk({
   macros,
   refunds,
   stale,
+  products,
 }: {
   tasks: DailyTask[];
   macros: CsMacro[];
   refunds: Array<Refund & { order?: Order }>;
   stale: Order[];
+  products: Product[];
 }) {
   const [orderPick, setOrderPick] = useState(stale[0]?.id ?? "");
   const selected = stale.find((o) => o.id === orderPick) ?? stale[0];
@@ -61,7 +64,7 @@ export function OpsDesk({
                   key={o.id}
                   onClick={() => setOrderPick(o.id)}
                   className={`block w-full rounded-xl border px-3 py-3 text-left ${
-                    selected?.id === o.id ? "border-accent bg-[rgba(74,163,255,0.08)]" : "border-line"
+                    selected?.id === o.id ? "border-accent bg-accent/10" : "border-line"
                   }`}
                 >
                   <p className="text-sm font-medium">
@@ -76,6 +79,8 @@ export function OpsDesk({
           </div>
         </Card>
       </div>
+
+      <OrganicLaunchCard products={products} />
 
       <Card>
         <CardHeader title="Reply macros" eyebrow="Customer service" />

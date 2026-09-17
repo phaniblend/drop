@@ -2,6 +2,7 @@ import "server-only";
 
 import { GraphQLClient, gql } from "graphql-request";
 import { env, integrationStatus } from "./env";
+import { getShopifyAdminToken, shopifyCredentialsReady } from "./shopify-token";
 
 export type TransformedProductInput = {
   title: string;
@@ -18,13 +19,15 @@ export type PublishResult = {
   warning?: string;
 };
 
-function client() {
-  if (!env.shopifyDomain || !env.shopifyToken) return null;
+async function client() {
+  if (!shopifyCredentialsReady()) return null;
+  const token = await getShopifyAdminToken();
+  if (!token) return null;
   return new GraphQLClient(
     `https://${env.shopifyDomain}.myshopify.com/admin/api/2026-07/graphql.json`,
     {
       headers: {
-        "X-Shopify-Access-Token": env.shopifyToken,
+        "X-Shopify-Access-Token": token,
         "Content-Type": "application/json",
       },
     },
@@ -34,7 +37,7 @@ function client() {
 export async function publishProductToShopify(
   data: TransformedProductInput,
 ): Promise<PublishResult> {
-  const gqlClient = client();
+  const gqlClient = await client();
   if (!gqlClient) {
     return {
       mode: "demo",
@@ -42,7 +45,7 @@ export async function publishProductToShopify(
       handle: data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       title: data.title,
       warning:
-        "Shopify is not connected. Product was marked published locally. Add SHOPIFY_STORE_DOMAIN + SHOPIFY_ADMIN_TOKEN to push for real.",
+        "Shopify is not connected. Product was marked published locally. Add SHOPIFY_STORE_DOMAIN + SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET to push for real.",
     };
   }
 
@@ -66,7 +69,7 @@ export async function publishProductToShopify(
     input: {
       title: data.title,
       descriptionHtml: data.descriptionHtml,
-      vendor: "DropshipOS",
+      vendor: "SetoStore",
       status: "DRAFT",
       tags: data.tags,
     },

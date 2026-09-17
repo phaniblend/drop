@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { resetDemoData, saveOperatorSettings } from "@/app/actions/settings";
+import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
+import { PwaInstallButton } from "./pwa-install-button";
+import { emitPaywall } from "@/lib/paywall";
+import type { BillingSummary } from "@/lib/paywall";
 
 type Status = {
   shopify: boolean;
@@ -19,8 +23,10 @@ type Status = {
 export function SettingsDesk({
   status,
   user,
+  billing,
 }: {
   status: Status;
+  billing: BillingSummary;
   user: {
     displayName: string;
     storeName: string;
@@ -28,6 +34,8 @@ export function SettingsDesk({
     markupMultiplier: number;
     spendLimitThreshold: number;
     minRoasThreshold: number;
+    timezone: string;
+    daypartingEnabled: boolean;
   };
 }) {
   const [pending, start] = useTransition();
@@ -38,7 +46,7 @@ export function SettingsDesk({
     {
       name: "Shopify Admin API",
       ok: status.shopify,
-      need: "SHOPIFY_STORE_DOMAIN + SHOPIFY_ADMIN_TOKEN",
+      need: "SHOPIFY_STORE_DOMAIN + SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET",
       why: "Publish products and capture orders/create webhooks.",
     },
     {
@@ -74,8 +82,14 @@ export function SettingsDesk({
     {
       name: "Headless scrape",
       ok: status.scrape,
-      need: "ENABLE_HEADLESS_SCRAPE=true + Playwright + proxies",
-      why: "Optional. Official API is preferred. You must supply proxies.",
+      need: "Playwright Chromium (no API key)",
+      why: "Import URL fetches AliExpress HTML, then falls back to headless Chromium if blocked.",
+    },
+    {
+      name: "Stripe Billing",
+      ok: billing.stripeReady,
+      need: "STRIPE_SECRET_KEY + STRIPE_PRICE_STARTER (+ STRIPE_PRICE_SCALER)",
+      why: "Checkout for Starter $19 / Scaler $39 after the 5-product trial.",
     },
   ];
 
@@ -83,12 +97,49 @@ export function SettingsDesk({
     <div className="space-y-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Settings</p>
-        <h1 className="mt-1 text-2xl font-semibold">Store + integrations</h1>
+        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Store + integrations</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          The desk is fully usable in demo mode. Paste keys into <code className="font-mono">.env.local</code>{" "}
-          (see <code className="font-mono">env.example</code>) — that is the only part I cannot do for you.
+          Connected APIs replace sandbox data. Paste keys into <code className="font-mono">.env.local</code>{" "}
+          (see <code className="font-mono">env.example</code>).
         </p>
+        <PwaInstallButton />
       </div>
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">Plan</p>
+            <h2 className="mt-1 text-sm font-semibold">{billing.label}</h2>
+            <p className="mt-2 text-sm text-muted">
+              {billing.productsUsed} / {billing.productsLimit} product imports
+              {billing.period === "month" ? " this month" : " on this trial"}. Lens {billing.lensUsed} /{" "}
+              {billing.lensLimit}. Margin Guard {billing.campaignsUsed} /{" "}
+              {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-faint">
+              {billing.stripeReady
+                ? "Stripe checkout is connected."
+                : "STRIPE_SECRET_KEY + STRIPE_PRICE_STARTER to take payments."}
+            </p>
+          </div>
+          {billing.tier === "trial_5" ? (
+            <Button
+              tone="accent"
+              onClick={() =>
+                emitPaywall({
+                  code: "TRIAL_LIMIT_REACHED",
+                  message: "Continue testing winning products without interruption.",
+                  used: billing.productsUsed,
+                  limit: billing.productsLimit,
+                  resource: "products",
+                })
+              }
+            >
+              Upgrade
+            </Button>
+          ) : null}
+        </div>
+      </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
         {connections.map((c) => (
@@ -129,12 +180,8 @@ export function SettingsDesk({
               onChange={(e) => setForm({ ...form, storeName: e.target.value })}
             />
           </Field>
-          <Field label="Email">
-            <input
-              className={inputClass}
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
+          <Field label="Email (Google)">
+            <input className={inputClass} value={form.email} readOnly />
           </Field>
           <Field label="Default markup">
             <input
@@ -162,6 +209,22 @@ export function SettingsDesk({
               onChange={(e) => setForm({ ...form, minRoasThreshold: Number(e.target.value) })}
             />
           </Field>
+          <Field label="Store timezone">
+            <input
+              className={inputClass}
+              value={form.timezone}
+              onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[#5B5FFF]"
+              checked={form.daypartingEnabled}
+              onChange={(e) => setForm({ ...form, daypartingEnabled: e.target.checked })}
+            />
+            Dayparting engine — pause ad sets 1:00–6:00 AM store time, resume at 6:00 AM (never wakes killed or manually paused ads)
+          </label>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={pending}>
               Save defaults
@@ -172,18 +235,20 @@ export function SettingsDesk({
       </Card>
 
       <Card className="p-5">
-        <h2 className="text-sm font-semibold">Reset demo data</h2>
+        <h2 className="text-sm font-semibold">Clear workspace</h2>
         <p className="mt-1 text-sm text-muted">
-          Wipes the local SQLite file back to the seeded store. Does not touch Shopify or ads.
+          Removes catalog, orders, campaigns, and suppliers. Keeps your Google account and store settings.
         </p>
-        <Button
-          className="mt-4"
-          tone="loss"
-          disabled={pending}
-          onClick={() => start(() => resetDemoData())}
-        >
-          Reset seeded catalog
-        </Button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            tone="loss"
+            disabled={pending}
+            onClick={() => start(() => resetDemoData())}
+          >
+            Clear catalog &amp; orders
+          </Button>
+          <SignOutButton />
+        </div>
       </Card>
     </div>
   );

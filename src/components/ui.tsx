@@ -11,7 +11,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-line bg-surface/90 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]",
+        "rounded-2xl border border-line bg-surface shadow-[0_10px_30px_rgba(15,18,34,0.06)]",
         className,
       )}
     >
@@ -47,13 +47,13 @@ export function CardHeader({
 type Tone = "default" | "accent" | "profit" | "loss" | "warn" | "ghost" | "line";
 
 const btnTone: Record<Tone, string> = {
-  default: "bg-ink text-bg hover:bg-white",
-  accent: "bg-accent text-[#041018] hover:bg-accent-2 font-semibold",
-  profit: "bg-profit text-[#062016] hover:brightness-110",
-  loss: "bg-loss text-[#2a0408] hover:brightness-110",
-  warn: "bg-warn text-[#2a1c02] hover:brightness-110",
-  ghost: "bg-transparent text-ink hover:bg-white/5",
-  line: "border border-line bg-surface-2 text-ink hover:border-line-strong",
+  default: "bg-ink text-white hover:opacity-90",
+  accent: "bg-accent text-white hover:bg-accent-2 font-semibold",
+  profit: "bg-profit text-white hover:brightness-110",
+  loss: "bg-loss text-white hover:brightness-110",
+  warn: "bg-warn text-white hover:brightness-110",
+  ghost: "bg-transparent text-ink hover:bg-black/[0.04]",
+  line: "border border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-2",
 };
 
 export function Button({
@@ -68,7 +68,7 @@ export function Button({
       type={type}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-0",
         btnTone[tone],
         className,
       )}
@@ -88,10 +88,10 @@ export function Badge({
 }) {
   const tones = {
     line: "border-line bg-surface-2 text-muted",
-    accent: "border-accent/30 bg-[rgba(74,163,255,0.12)] text-accent-2",
-    profit: "border-profit/25 bg-[rgba(62,224,160,0.12)] text-profit",
-    loss: "border-loss/25 bg-[rgba(255,107,122,0.12)] text-loss",
-    warn: "border-warn/25 bg-[rgba(240,180,41,0.12)] text-warn",
+    accent: "border-accent/20 bg-accent/10 text-accent",
+    profit: "border-profit/20 bg-profit/10 text-profit",
+    loss: "border-loss/20 bg-loss/10 text-loss",
+    warn: "border-warn/20 bg-warn/10 text-warn",
   };
   return (
     <span
@@ -125,7 +125,7 @@ export function Field({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none ring-accent/40 placeholder:text-faint focus:border-accent focus:ring-2";
+  "w-full min-h-11 rounded-xl border border-line bg-white px-3 py-2 text-base text-ink outline-none ring-accent/30 placeholder:text-faint focus:border-accent focus:ring-2 md:min-h-0 md:text-sm";
 
 export function Kpi({
   label,

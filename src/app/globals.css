@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #07090d;
-  --bg-elev: #0d1218;
-  --surface: #121923;
-  --surface-2: #18212c;
-  --line: #263140;
-  --line-strong: #334155;
-  --ink: #e8eef6;
-  --muted: #8b9bb0;
-  --faint: #5d6d82;
-  --accent: #4aa3ff;
-  --accent-2: #7cc0ff;
-  --accent-dim: rgba(74, 163, 255, 0.14);
-  --profit: #3ee0a0;
-  --profit-dim: rgba(62, 224, 160, 0.12);
-  --loss: #ff6b7a;
-  --loss-dim: rgba(255, 107, 122, 0.12);
-  --warn: #f0b429;
-  --warn-dim: rgba(240, 180, 41, 0.12);
+  --bg: #f5f6fb;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef0f8;
+  --line: #e6e8f2;
+  --line-strong: #d0d4e4;
+  --ink: #0f1222;
+  --muted: #667085;
+  --faint: #98a2b3;
+  --accent: #5b5fff;
+  --accent-2: #4a4ee8;
+  --accent-dim: rgba(91, 95, 255, 0.12);
+  --profit: #12b76a;
+  --profit-dim: rgba(18, 183, 106, 0.12);
+  --loss: #f04438;
+  --loss-dim: rgba(240, 68, 56, 0.12);
+  --warn: #f79009;
+  --warn-dim: rgba(247, 144, 9, 0.12);
 }
 
 @theme inline {
@@ -46,13 +46,25 @@ body {
   color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100%;
+  min-height: 100dvh;
 }
 
 body {
+  background-color: var(--bg);
   background-image:
-    radial-gradient(1200px 500px at 80% -10%, rgba(74, 163, 255, 0.08), transparent 55%),
-    radial-gradient(900px 400px at -10% 110%, rgba(62, 224, 160, 0.05), transparent 50%),
-    linear-gradient(var(--bg), var(--bg));
+    linear-gradient(rgba(15, 18, 34, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 18, 34, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
 }
 
 * {

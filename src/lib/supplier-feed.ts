@@ -11,6 +11,8 @@ export type FeedProduct = {
   shippingDays: number;
   stock: number;
   demand: number;
+  orders30d?: number;
+  live?: boolean;
   image: string;
   tags: string[];
   variants: Array<{ skuId: string; attributes: string; cost: number; stock: number }>;
@@ -183,13 +185,9 @@ export function searchFeed(query: string, niche?: string) {
 }
 
 export function lookupFeedByUrl(url: string) {
-  const hit = SUPPLIER_FEED.find((p) => url.includes(p.id.replace("feed_", "")) || p.url === url || url.includes(p.url.split("/").pop() ?? "___"));
-  if (!hit) {
-    const byItem = SUPPLIER_FEED.find((p) => url.includes(p.url.split("item/")[1] ?? "___"));
-    if (!byItem) return null;
-    return toPayload(byItem);
-  }
-  return toPayload(hit);
+  const normalized = url.trim().split("?")[0].replace(/\/$/, "");
+  const hit = SUPPLIER_FEED.find((p) => p.url.replace(/\/$/, "") === normalized);
+  return hit ? toPayload(hit) : null;
 }
 
 export function lookupFeedById(id: string) {

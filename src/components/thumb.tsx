@@ -13,7 +13,14 @@ export function Thumb({
   return (
     <div className={cn("relative overflow-hidden bg-surface-2", className)}>
       {src ? (
-        <Image src={src} alt={alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 280px" />
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          unoptimized={!src.includes("images.unsplash.com")}
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 280px"
+        />
       ) : null}
     </div>
   );

@@ -8,12 +8,25 @@ import { products, productVariants } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
 import { publishProductToShopify } from "@/lib/publisher";
-import { scrapeSupplierUrl } from "@/lib/scraper";
-import { getFeedProduct } from "@/lib/supplier-feed";
+import { listingToParsed, scrapeSupplierUrl } from "@/lib/scraper";
+import { getFeedProduct, searchFeed, type FeedProduct } from "@/lib/supplier-feed";
 import { eq } from "drizzle-orm";
 import { num, parseCsv } from "@/lib/csv";
+import { assertProductQuota, isBillingError } from "@/lib/billing";
+import type { PaywallPayload } from "@/lib/paywall";
+import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
+
+function paywallResult(error: unknown): { paywall: PaywallPayload } {
+  if (isBillingError(error)) return { paywall: error.paywall };
+  throw error;
+}
 
 export async function importFromFeed(feedId: string) {
+  try {
+    await assertProductQuota();
+  } catch (error) {
+    return paywallResult(error);
+  }
   const feed = getFeedProduct(feedId);
   if (!feed) throw new Error("That supplier listing is no longer in the feed.");
   const copy = await enrichCopy({
@@ -56,10 +69,16 @@ export async function importFromFeed(feedId: string) {
   revalidatePath("/catalog");
   revalidatePath("/discover");
   revalidatePath("/");
+  revalidatePath("/", "layout");
   return { id };
 }
 
 export async function importFromSupplierUrl(url: string) {
+  try {
+    await assertProductQuota();
+  } catch (error) {
+    return paywallResult(error);
+  }
   const parsed = await scrapeSupplierUrl(url);
   const copy = await enrichCopy({
     rawTitle: parsed.title,
@@ -107,7 +126,86 @@ export async function importFromSupplierUrl(url: string) {
   });
   revalidatePath("/catalog");
   revalidatePath("/");
+  revalidatePath("/", "layout");
   return { id };
+}
+
+export async function importScrapedListing(listing: ScrapedListing) {
+  try {
+    await assertProductQuota();
+  } catch (error) {
+    return paywallResult(error);
+  }
+  const parsed = listingToParsed(listing);
+  const copy = await enrichCopy({
+    rawTitle: parsed.title,
+    cost: parsed.baseCost,
+    shipping: parsed.shippingCost,
+  });
+  const retail = suggestedRetail(parsed.baseCost, parsed.shippingCost, 3);
+  const id = await insertImportedProduct({
+    rawTitle: parsed.title,
+    cleanTitle: copy.title,
+    descriptionHtml: copy.descriptionHtml,
+    supplierUrl: listing.supplierUrl,
+    supplierSource: parsed.source,
+    imageUrl: parsed.galleryImages[0],
+    gallery: parsed.galleryImages,
+    baseCost: parsed.baseCost,
+    shippingCost: parsed.shippingCost,
+    retailPrice: retail,
+    shippingDays: parsed.shippingDays,
+    variants:
+      parsed.variants.length > 0
+        ? parsed.variants.map((v) => ({
+            skuId: v.skuId,
+            name: v.attributes,
+            cost: v.cost,
+            price: suggestedRetail(v.cost, parsed.shippingCost, 3),
+            stock: v.stock,
+            imageUrl: v.imageUrl,
+          }))
+        : [
+            {
+              skuId: "DEFAULT",
+              name: "Default",
+              cost: parsed.baseCost,
+              price: retail,
+              stock: 0,
+            },
+          ],
+  });
+  const db = await ensureDb();
+  await logActivity(db, {
+    kind: "import",
+    message: `Imported ${copy.title} from supplier URL.`,
+    href: `/catalog/${id}`,
+  });
+  revalidatePath("/catalog");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
+  return { id };
+}
+
+export async function searchDiscover(
+  query: string,
+  niche = "all",
+): Promise<{ mode: "live" | "demo"; items: FeedProduct[]; error?: string }> {
+  const { integrationStatus } = await import("@/lib/env");
+  if (integrationStatus().aliexpress && query.trim().length >= 2) {
+    try {
+      const { searchAliExpress } = await import("@/lib/integrations/aliexpress");
+      const items = await searchAliExpress(query.trim());
+      return { mode: "live", items };
+    } catch (error) {
+      return {
+        mode: "live",
+        items: [],
+        error: error instanceof Error ? error.message : "AliExpress search failed.",
+      };
+    }
+  }
+  return { mode: "demo", items: searchFeed(query, niche) };
 }
 
 export async function importProductsCsv(text: string) {
@@ -117,10 +215,17 @@ export async function importProductsCsv(text: string) {
   for (const row of rows) {
     const rawTitle = row.title || row.raw_title || row.name;
     if (!rawTitle) continue;
+    try {
+      await assertProductQuota();
+    } catch (error) {
+      const paywall = paywallResult(error);
+      return { ...paywall, count: ids.length };
+    }
     const cost = num(row.base_cost || row.cost);
     const shipping = num(row.shipping_cost || row.shipping);
     const copy = await enrichCopy({ rawTitle, cost, shipping });
     const retail = num(row.retail_price || row.price, suggestedRetail(cost, shipping, 3));
+    const imageUrl = row.image_url || row.image || row.thumbnail || "";
     const id = await insertImportedProduct({
       rawTitle,
       cleanTitle: copy.title,
@@ -128,6 +233,8 @@ export async function importProductsCsv(text: string) {
       supplierUrl: row.supplier_url || row.url || "https://www.aliexpress.com",
       supplierName: row.supplier || "CSV import",
       supplierSource: (row.source as "aliexpress" | "cj") || "manual",
+      imageUrl: imageUrl || undefined,
+      gallery: imageUrl ? [imageUrl] : [],
       baseCost: cost,
       shippingCost: shipping,
       retailPrice: retail,
@@ -141,10 +248,14 @@ export async function importProductsCsv(text: string) {
           cost,
           price: retail,
           stock: Math.round(num(row.inventory || row.stock, 0)),
+          imageUrl: imageUrl || undefined,
         },
       ],
     });
     ids.push(id);
+  }
+  if (!ids.length) {
+    throw new Error("No rows had a title. Need columns like title, cost, shipping, sku, stock.");
   }
   const db = await ensureDb();
   await logActivity(db, {
@@ -154,6 +265,7 @@ export async function importProductsCsv(text: string) {
   });
   revalidatePath("/catalog");
   revalidatePath("/");
+  revalidatePath("/", "layout");
   return { count: ids.length };
 }
 

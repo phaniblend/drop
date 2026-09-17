@@ -1,3 +1,6 @@
+import { extractAliExpressListing } from "./aliexpress-scrape/extract";
+import type { ScrapedListing } from "./aliexpress-scrape/types";
+
 export type SupplierVariant = {
   skuId: string;
   attributes: string;
@@ -16,78 +19,75 @@ export type ParsedSupplierPayload = {
   variants: SupplierVariant[];
 };
 
-export function parseHydrationData(scriptContent: string): ParsedSupplierPayload {
-  const matched = scriptContent.match(/data:\s*(\{[\s\S]*?\})\s*,\s*csrfToken/);
-  if (!matched?.[1]) {
-    throw new Error("Could not isolate the supplier JSON payload from the page script.");
-  }
-
-  const payload = JSON.parse(matched[1]) as {
-    productInfoComponent?: { subject?: string };
-    priceComponent?: { origPrice?: { minAmount?: { value?: string } } };
-    skuComponent?: {
-      skuPriceList?: Array<{
-        skuId?: string | number;
-        skuAttr?: string;
-        skuVal?: {
-          actSkuCalPrice?: string;
-          skuCalPrice?: string;
-          availQuantity?: number;
-        };
-        skuPropertyImagePath?: string;
-      }>;
-    };
-    imageComponent?: { imagePathList?: string[] };
-  };
-
-  const productInfo = payload.productInfoComponent ?? {};
-  const priceInfo = payload.priceComponent ?? {};
-  const skuInfo = payload.skuComponent ?? {};
-  const imageInfo = payload.imageComponent ?? {};
-
-  const variants: SupplierVariant[] = (skuInfo.skuPriceList ?? []).map((sku) => ({
-    skuId: String(sku.skuId ?? "default"),
-    attributes: sku.skuAttr || "Default",
-    cost: parseFloat(sku.skuVal?.actSkuCalPrice || sku.skuVal?.skuCalPrice || "0.00"),
-    stock: sku.skuVal?.availQuantity || 0,
-    imageUrl: sku.skuPropertyImagePath,
-  }));
+export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload {
+  const sale = listing.price.sale || listing.price.base;
+  const variants: SupplierVariant[] =
+    listing.variants.length > 0
+      ? listing.variants.map((v) => ({
+          skuId: v.skuId,
+          attributes: v.name,
+          cost: v.price ?? sale,
+          stock: v.inventory,
+          imageUrl: v.image,
+        }))
+      : [
+          {
+            skuId: "DEFAULT",
+            attributes: "Default",
+            cost: sale,
+            stock: 0,
+            imageUrl: listing.images[0],
+          },
+        ];
 
   return {
-    title: productInfo.subject || "Imported Wholesale Product",
-    baseCost: parseFloat(priceInfo.origPrice?.minAmount?.value || String(variants[0]?.cost || 0)),
-    shippingCost: 1.99,
+    title: listing.title,
+    baseCost: variants[0]?.cost ?? sale,
+    shippingCost: 0,
     shippingDays: 14,
     source: "aliexpress",
-    galleryImages: (imageInfo.imagePathList || []).map((img) => img.replace(/_\d+x\d+\.jpg$/, "")),
+    galleryImages: listing.images,
     variants,
   };
 }
 
+export function parseHydrationData(scriptContent: string): ParsedSupplierPayload {
+  return listingToParsed(
+    extractAliExpressListing(scriptContent, "https://www.aliexpress.com/item/0.html"),
+  );
+}
+
+function assertHttpUrl(targetUrl: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    throw new Error("Paste a full http(s) supplier URL.");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Supplier URL must start with http or https.");
+  }
+  return parsed.toString();
+}
+
 export async function scrapeSupplierUrl(targetUrl: string): Promise<ParsedSupplierPayload> {
+  const url = assertHttpUrl(targetUrl);
   const { env } = await import("./env");
   const { lookupFeedByUrl } = await import("./supplier-feed");
+  const { isAliExpressItemUrl } = await import("./aliexpress-url");
 
-  const fromFeed = lookupFeedByUrl(targetUrl);
+  const fromFeed = lookupFeedByUrl(url);
   if (fromFeed) return fromFeed;
 
-  if (env.aliexpressAppKey && env.aliexpressAppSecret) {
+  if (env.aliexpressAppKey && env.aliexpressAppSecret && /aliexpress\.com/i.test(url)) {
     const { fetchAliExpressProduct } = await import("./integrations/aliexpress");
-    return fetchAliExpressProduct(targetUrl);
+    return fetchAliExpressProduct(url);
   }
 
-  if (env.enableHeadlessScrape) {
-    try {
-      const { scrapeWithPlaywright } = await import("./integrations/playwright-scrape");
-      return scrapeWithPlaywright(targetUrl);
-    } catch (error) {
-      throw new Error(
-        `Headless scrape failed (${error instanceof Error ? error.message : "unknown"}). Install Playwright browsers or paste a product URL from Discover.`,
-      );
-    }
+  if (isAliExpressItemUrl(url)) {
+    const { scrapeAliExpressListing } = await import("./aliexpress-scrape");
+    return listingToParsed(await scrapeAliExpressListing(url));
   }
 
-  throw new Error(
-    "No live supplier credentials yet. Use Discover (demo catalog), CSV import, or add an AliExpress app key. Headless scrape stays off until you set ENABLE_HEADLESS_SCRAPE=true.",
-  );
+  throw new Error("Paste a full AliExpress item URL (aliexpress.com/item/...).");
 }

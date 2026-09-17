@@ -1,15 +1,21 @@
 import { integrationStatus } from "@/lib/env";
 import { getOperator } from "@/lib/db/queries";
+import { getBillingSummary } from "@/lib/billing";
 import { SettingsDesk } from "@/components/settings-desk";
 
 export default async function SettingsPage() {
-  const [user, status] = await Promise.all([getOperator(), Promise.resolve(integrationStatus())]);
+  const [user, status, billing] = await Promise.all([
+    getOperator(),
+    Promise.resolve(integrationStatus()),
+    getBillingSummary(),
+  ]);
   if (!user) {
-    return <p className="text-sm text-muted">No operator profile. Restart the app to seed.</p>;
+    return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
   }
   return (
     <SettingsDesk
       status={status}
+      billing={billing}
       user={{
         displayName: user.displayName,
         storeName: user.storeName,
@@ -17,6 +23,8 @@ export default async function SettingsPage() {
         markupMultiplier: user.markupMultiplier,
         spendLimitThreshold: user.spendLimitThreshold,
         minRoasThreshold: user.minRoasThreshold,
+        timezone: user.timezone,
+        daypartingEnabled: Boolean(user.daypartingEnabled),
       }}
     />
   );

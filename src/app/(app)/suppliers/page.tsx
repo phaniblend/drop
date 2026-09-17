@@ -54,7 +54,7 @@ export default async function SuppliersPage() {
               <Link
                 key={p.id}
                 href={`/catalog/${p.id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02]"
+                className="flex items-center gap-3 px-5 py-3 hover:bg-black/[0.02]"
               >
                 <Thumb src={p.imageUrl} alt="" className="h-10 w-10" />
                 <div className="min-w-0 flex-1">

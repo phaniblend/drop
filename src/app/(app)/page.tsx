@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardHeader, Kpi } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
+import { OrganicLaunchCard } from "@/components/organic-launch-card";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -17,12 +18,12 @@ export default async function CommandPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Command</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
             {data.user?.displayName ?? "Operator"}, here is today
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Net profit uses the spec formula: revenue − COGS − ad spend − (revenue × 2.9% + $0.30).
-            Demo numbers run locally until you connect Shopify, Meta, and TikTok.
+            Connect Shopify, Meta, and TikTok when you are ready — the desk stays empty until live orders land.
           </p>
         </div>
         <div className="flex gap-2">
@@ -54,12 +55,12 @@ export default async function CommandPage() {
           <CardHeader eyebrow="Triage" title="What will lose money if you ignore it" />
           <ul className="divide-y divide-line">
             {data.alerts.map((alert) => (
-              <li key={alert.title + alert.detail} className="flex items-center justify-between gap-4 px-5 py-3">
-                <div>
+              <li key={alert.title + alert.detail} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-ink">{alert.title}</p>
                   <p className="text-xs text-muted">{alert.detail}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Badge tone={alert.tone === "loss" ? "loss" : "warn"}>{alert.tone}</Badge>
                   <Link href={alert.href} className="text-xs text-accent">
                     Open
@@ -110,6 +111,8 @@ export default async function CommandPage() {
         </Card>
       </div>
 
+      <OrganicLaunchCard products={data.organicQueue} catalogCount={data.catalog.length} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader
@@ -122,9 +125,12 @@ export default async function CommandPage() {
             }
           />
           <div className="divide-y divide-line">
-            {data.recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div>
+            {data.recentOrders.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted">No checkouts yet.</p>
+            ) : (
+              data.recentOrders.map((order) => (
+              <div key={order.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
+                <div className="min-w-0">
                   <p className="text-sm font-medium">
                     {order.orderNumber} · {order.customerName}
                   </p>
@@ -134,17 +140,21 @@ export default async function CommandPage() {
                 </div>
                 <StatusPill value={order.fulfillmentStatus} />
               </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
         <Card>
           <CardHeader eyebrow="Catalog" title="Profit by SKU (unit × sold)" />
           <div className="divide-y divide-line">
-            {data.topProducts.map((p) => (
+            {data.topProducts.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted">Catalog is empty. Import a test SKU from Discover.</p>
+            ) : (
+              data.topProducts.map((p) => (
               <Link
                 key={p.id}
                 href={`/catalog/${p.id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02]"
+                className="flex items-center gap-3 px-5 py-3 hover:bg-black/[0.02]"
               >
                 <Thumb src={p.imageUrl} alt="" className="h-10 w-10" />
                 <div className="min-w-0 flex-1">
@@ -155,7 +165,8 @@ export default async function CommandPage() {
                 </div>
                 <p className="font-mono text-sm text-profit">{money(p.profit)}</p>
               </Link>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>
@@ -163,16 +174,20 @@ export default async function CommandPage() {
       <Card>
         <CardHeader eyebrow="Feed" title="Activity" />
         <ul className="divide-y divide-line">
-          {data.activity.map((item) => (
-            <li key={item.id} className="flex items-center justify-between px-5 py-3 text-sm">
+          {data.activity.length === 0 ? (
+            <li className="px-5 py-6 text-sm text-muted">No activity yet.</li>
+          ) : (
+            data.activity.map((item) => (
+            <li key={item.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <span className="text-ink">{item.message}</span>
               {item.href ? (
-                <Link href={item.href} className="text-xs text-accent">
+                <Link href={item.href} className="shrink-0 text-xs text-accent">
                   View
                 </Link>
               ) : null}
             </li>
-          ))}
+            ))
+          )}
         </ul>
       </Card>
     </div>

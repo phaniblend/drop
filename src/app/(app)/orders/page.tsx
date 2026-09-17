@@ -43,7 +43,7 @@ export default async function OrdersPage({
             href={f.id === "all" ? "/orders" : `/orders?status=${f.id}`}
             className={`rounded-full border px-3 py-1 text-xs ${
               (status ?? "all") === f.id
-                ? "border-accent bg-[rgba(74,163,255,0.12)]"
+                ? "border-accent bg-accent/10"
                 : "border-line text-muted"
             }`}
           >
@@ -66,7 +66,7 @@ export default async function OrdersPage({
           </thead>
           <tbody className="divide-y divide-line">
             {rows.map((o) => (
-              <tr key={o.id} className="hover:bg-white/[0.02]">
+              <tr key={o.id} className="hover:bg-black/[0.02]">
                 <td className="px-4 py-3">
                   <p className="font-medium">{o.orderNumber}</p>
                   <p className="text-[11px] text-faint">{shortDate(o.createdAt)}</p>

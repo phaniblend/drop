@@ -19,11 +19,17 @@ import {
   type Order,
   type Product,
 } from "./schema";
-import { DEMO_USER_ID } from "./seed";
+import { assertProductQuota, incrementProductsImported } from "../billing";
 
 export async function getOperator() {
   const db = await ensureDb();
-  const [user] = await db.select().from(users).where(eq(users.id, DEMO_USER_ID)).limit(1);
+  const [user] = await db.select().from(users).limit(1);
+  return user ?? null;
+}
+
+export async function requireOperator() {
+  const user = await getOperator();
+  if (!user) throw new Error("Sign in with Google first.");
   return user;
 }
 
@@ -101,11 +107,12 @@ export async function listCampaigns() {
     });
     const roas = c.spendToday > 0 ? c.revenueToday / c.spendToday : 0;
     const paused = Boolean(c.isPaused);
+    const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
+    const cpc = c.clicks > 0 ? c.spendToday / c.clicks : 0;
     const atRisk =
       !paused &&
-      c.spendToday >= c.spendLimitThreshold &&
-      (profit < 0 || roas < c.minRoasThreshold);
-    return { ...c, isPaused: paused, product, cogsToday, profit, roas, atRisk };
+      (c.spendToday >= c.spendLimitThreshold && (profit < 0 || roas < c.minRoasThreshold));
+    return { ...c, isPaused: paused, product, cogsToday, profit, roas, ctr, cpc, atRisk };
   });
 }
 
@@ -258,6 +265,15 @@ export async function getDashboard() {
           detail: r.reason,
           href: "/ops",
         })),
+      ...catalog
+        .filter((p) => p.organicStatus === "pending")
+        .slice(0, 4)
+        .map((p) => ({
+          tone: "warn" as const,
+          title: `Organic test still open: ${p.cleanTitle ?? p.rawTitle}`,
+          detail: "3 hook videos need 1,000+ views each before paid launch.",
+          href: "/ops",
+        })),
     ],
     pendingCount: pending.length,
     needTrackingCount: needTracking.length,
@@ -268,6 +284,7 @@ export async function getDashboard() {
     activity,
     campaignRows,
     catalog,
+    organicQueue: catalog.filter((p) => p.organicStatus === "pending"),
   };
 }
 
@@ -306,11 +323,13 @@ export async function insertImportedProduct(input: {
     imageUrl?: string;
   }>;
 }) {
+  await assertProductQuota();
+  const operator = await requireOperator();
   const db = await ensureDb();
   const id = `prod_${crypto.randomUUID().slice(0, 10)}`;
   await db.insert(products).values({
     id,
-    userId: DEMO_USER_ID,
+    userId: operator.id,
     supplierSource: input.supplierSource ?? "aliexpress",
     supplierUrl: input.supplierUrl,
     supplierName: input.supplierName ?? "AliExpress",
@@ -326,6 +345,8 @@ export async function insertImportedProduct(input: {
     shippingDays: input.shippingDays ?? 14,
     status: "draft",
     niche: input.niche ?? "general",
+    organicStatus: "pending",
+    organicViewsJson: "[0,0,0]",
     createdAt: new Date().toISOString(),
   });
   if (input.variants.length) {
@@ -343,6 +364,7 @@ export async function insertImportedProduct(input: {
       })),
     );
   }
+  await incrementProductsImported();
   return id;
 }
 

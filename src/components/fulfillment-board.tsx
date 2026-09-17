@@ -57,7 +57,7 @@ export function FulfillmentBoard({
             <div key={order.id} className="grid gap-4 px-5 py-4 lg:grid-cols-[auto_1fr_auto]">
               <input
                 type="checkbox"
-                className="mt-1 accent-[#4aa3ff]"
+                className="mt-1 accent-[#5B5FFF]"
                 checked={selected.includes(order.id)}
                 onChange={() => toggle(order.id)}
               />

@@ -8,9 +8,9 @@ import { Thumb } from "@/components/thumb";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; upgraded?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, upgraded } = await searchParams;
   const all = await listProducts();
   const rows = status ? all.filter((p) => p.status === status) : all;
   const filters = ["all", "draft", "ready", "published"];
@@ -25,20 +25,23 @@ export default async function CatalogPage({
             Drafts stay local. Publish pushes to Shopify when a token is present, otherwise it is marked
             published in the desk.
           </p>
+          {upgraded ? (
+            <p className="mt-2 text-sm text-profit">Starter is on. Monthly import quota has reset.</p>
+          ) : null}
         </div>
         <Link href="/discover">
           <Button tone="accent">Import product</Button>
         </Link>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {filters.map((f) => (
           <Link
             key={f}
             href={f === "all" ? "/catalog" : `/catalog?status=${f}`}
             className={`rounded-full border px-3 py-1 text-xs capitalize ${
               (status ?? "all") === f
-                ? "border-accent bg-[rgba(74,163,255,0.12)]"
+                ? "border-accent bg-accent/10"
                 : "border-line text-muted"
             }`}
           >
@@ -47,7 +50,7 @@ export default async function CatalogPage({
         ))}
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
@@ -61,7 +64,7 @@ export default async function CatalogPage({
           </thead>
           <tbody className="divide-y divide-line">
             {rows.map((p) => (
-              <tr key={p.id} className="hover:bg-white/[0.02]">
+              <tr key={p.id} className="hover:bg-black/[0.02]">
                 <td className="px-4 py-3">
                   <Link href={`/catalog/${p.id}`} className="flex items-center gap-3">
                     <Thumb src={p.imageUrl} alt="" className="h-11 w-11" />
