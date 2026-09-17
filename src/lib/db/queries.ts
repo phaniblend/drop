@@ -233,7 +233,7 @@ export async function getDashboard() {
       ...atRiskAds.map((c) => ({
         tone: "loss" as const,
         title: `${c.adSetName} is burning margin`,
-        detail: `Spend ${c.spendToday.toFixed(2)} / revenue ${c.revenueToday.toFixed(2)} · ROAS ${c.roas.toFixed(2)}`,
+        detail: `Spend ${c.spendToday.toFixed(2)} / sales ${c.revenueToday.toFixed(2)} · ${c.roas.toFixed(2)}x back from ads`,
         href: "/ads",
       })),
       ...pending
@@ -241,7 +241,7 @@ export async function getDashboard() {
         .slice(0, 3)
         .map((o) => ({
           tone: "warn" as const,
-          title: `${o.orderNumber} still unfulfilled`,
+          title: `${o.orderNumber} still waiting to ship`,
           detail: `${o.customerName} · ${Math.round(agingHours(o))}h waiting`,
           href: "/fulfillment",
         })),

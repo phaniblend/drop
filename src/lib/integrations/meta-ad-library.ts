@@ -25,7 +25,7 @@ function daysBetween(start: string | null, stop: string | null) {
 }
 
 function demoAds(query: string): CompetitorAd[] {
-  const q = query.trim() || "this SKU";
+  const q = query.trim() || "this product";
   return [
     {
       id: "demo_win",

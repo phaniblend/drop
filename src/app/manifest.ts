@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       { name: "Command", url: "/", short_name: "Today" },
-      { name: "Discover", url: "/discover", short_name: "Find SKUs" },
+      { name: "Discover", url: "/discover", short_name: "Find products" },
       { name: "Fulfill", url: "/fulfillment", short_name: "Batch" },
     ],
   };

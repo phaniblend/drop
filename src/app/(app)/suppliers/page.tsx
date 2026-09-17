@@ -12,8 +12,8 @@ export default async function SuppliersPage() {
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Suppliers</p>
         <h1 className="mt-1 text-2xl font-semibold">Who you actually buy from</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Watch stock on winners. If a hero SKU dies at the factory while ads keep spending, Margin
-          Guard cannot save you.
+          Watch stock on winners. If a bestseller runs out at the factory while ads keep spending,
+          pausing ads later will not save you.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
@@ -44,7 +44,7 @@ export default async function SuppliersPage() {
         <Card key={`${s.id}-skus`}>
           <CardHeader
             title={s.name}
-            eyebrow="Mapped SKUs"
+            eyebrow="Products you sell"
             action={
               s.lowStock.length ? <Badge tone="loss">{s.lowStock.length} low stock</Badge> : <Badge tone="profit">Healthy</Badge>
             }
@@ -60,7 +60,7 @@ export default async function SuppliersPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
                   <p className="text-xs text-muted">
-                    Landed {money(p.baseCost + p.shippingCost)} · {p.shippingDays}d
+                    Your cost {money(p.baseCost + p.shippingCost)} · {p.shippingDays}d
                   </p>
                 </div>
                 <span className={`font-mono text-sm ${p.stock < 30 ? "text-loss" : "text-muted"}`}>
@@ -69,7 +69,7 @@ export default async function SuppliersPage() {
               </Link>
             ))}
             {s.skus.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted">No catalog SKUs mapped to this supplier yet.</p>
+              <p className="px-5 py-6 text-sm text-muted">No products linked to this supplier yet.</p>
             ) : null}
           </div>
         </Card>

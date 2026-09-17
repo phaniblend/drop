@@ -22,23 +22,23 @@ export default async function CommandPage() {
             {data.user?.displayName ?? "Operator"}, here is today
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Net profit uses the spec formula: revenue − COGS − ad spend − (revenue × 2.9% + $0.30).
+            Net profit is sales minus what you paid for the products, ad spend, and card fees (2.9% + $0.30).
             Connect Shopify, Meta, and TikTok when you are ready — the desk stays empty until live orders land.
           </p>
         </div>
         <div className="flex gap-2">
           <Link href="/fulfillment">
-            <Button tone="accent">Clear {data.pendingCount} unfulfilled</Button>
+            <Button tone="accent">Ship {data.pendingCount} waiting orders</Button>
           </Link>
           <Link href="/discover">
-            <Button tone="line">Find a test SKU</Button>
+            <Button tone="line">Find a test product</Button>
           </Link>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Revenue (24h)" value={money(kpis.revenue)} hint={`${kpis.orders} orders`} />
-        <Kpi label="COGS" value={money(kpis.cogs)} />
+        <Kpi label="Your cost" value={money(kpis.cogs)} />
         <Kpi label="Ad spend" value={money(kpis.adSpend)} />
         <Kpi label="Processor fees" value={money(kpis.fees)} />
         <Kpi label="Net profit" value={money(kpis.profit)} tone={profitTone} hint={pct(kpis.avgMargin)} />
@@ -145,10 +145,10 @@ export default async function CommandPage() {
           </div>
         </Card>
         <Card>
-          <CardHeader eyebrow="Catalog" title="Profit by SKU (unit × sold)" />
+          <CardHeader eyebrow="Catalog" title="Profit by product (each × sold)" />
           <div className="divide-y divide-line">
             {data.topProducts.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted">Catalog is empty. Import a test SKU from Discover.</p>
+              <p className="px-5 py-6 text-sm text-muted">Catalog is empty. Import a test product from Discover.</p>
             ) : (
               data.topProducts.map((p) => (
               <Link

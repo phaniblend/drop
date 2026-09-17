@@ -18,7 +18,7 @@ function localHooks(input: { title: string; description: string; benefits: strin
       id: "pain",
       label: "Pain-Agitate-Solve",
       hook: `Stop wasting money on ${name.toLowerCase()} that looks good in the ad and dies in a week.`,
-      script: `Hook: You know that moment when ${benefit.toLowerCase()}... and then it doesn't.\nAgitate: Cheap versions fail in 10 days and you are back in the same loop.\nSolve: ${name} is the one we kept after killing three losers. ${price}, shipped. Comment "link" if you want the exact SKU.`,
+      script: `Hook: You know that moment when ${benefit.toLowerCase()}... and then it doesn't.\nAgitate: Cheap versions fail in 10 days and you are back in the same loop.\nSolve: ${name} is the one we kept after killing three losers. ${price}, shipped. Comment "link" if you want the exact product.`,
     },
     {
       id: "curiosity",
@@ -30,7 +30,7 @@ function localHooks(input: { title: string; description: string; benefits: strin
       id: "price",
       label: "Price-Anchor / Comparison",
       hook: `Same job as the $40 version. This one is ${price}. I'll show the side-by-side.`,
-      script: `Hook: Retailers want ${price.replace("$", "$")}×3 for ${name}.\nCompare: Same core function, cleaner listing, landed cost that still leaves room for ads.\nCTA: I listed it at ${price}. Steal the angle, don't steal the supplier markup.`,
+      script: `Hook: Retailers want ${price.replace("$", "$")}×3 for ${name}.\nCompare: Same core function, cleaner listing, a supplier price that still leaves room for ads.\nCTA: I listed it at ${price}. Steal the angle, don't steal the supplier markup.`,
     },
   ];
 }

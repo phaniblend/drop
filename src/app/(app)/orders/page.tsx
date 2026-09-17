@@ -6,7 +6,7 @@ import { StatusPill } from "@/components/status-pill";
 
 const FILTERS = [
   { id: "all", label: "All" },
-  { id: "pending_batch", label: "Unfulfilled" },
+  { id: "pending_batch", label: "Waiting to ship" },
   { id: "ordered_supplier", label: "At supplier" },
   { id: "shipped", label: "Shipped" },
   { id: "delivered", label: "Delivered" },
@@ -28,7 +28,7 @@ export default async function OrdersPage({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Orders</p>
           <h1 className="mt-1 text-2xl font-semibold">Every checkout, with true net</h1>
           <p className="mt-1 text-sm text-muted">
-            Net already subtracts COGS and card fees. Ad spend is attributed on the Ads desk, not
+            Net already subtracts what you paid for the products and card fees. Ad spend is attributed on the Ads desk, not
             double-counted here.
           </p>
         </div>

@@ -25,7 +25,7 @@ export function OrganicLaunchCard({
     return (
       <Card className="p-5">
         <p className="text-xs uppercase tracking-wider text-faint">3-video organic test</p>
-        <p className="mt-1 text-sm font-semibold">No SKUs yet</p>
+        <p className="mt-1 text-sm font-semibold">No products yet</p>
         <p className="mt-1 text-xs text-muted">
           Import a product from Discover, then run three hook videos to 1,000+ views before paid ads.
         </p>
@@ -37,7 +37,7 @@ export function OrganicLaunchCard({
       <Card className="p-5">
         <p className="text-xs uppercase tracking-wider text-faint">3-video organic test</p>
         <p className="mt-1 text-sm font-semibold">Paid launch unlocked</p>
-        <p className="mt-1 text-xs text-muted">Every imported SKU either passed 1,000+ views on three hooks or was overridden.</p>
+        <p className="mt-1 text-xs text-muted">Every imported product either passed 1,000+ views on three hooks or was overridden.</p>
       </Card>
     );
   }

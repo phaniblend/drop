@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       id: nid("itm"),
       orderId: id,
       title: item.title || "Item",
-      sku: item.sku || "SKU",
+      sku: item.sku || "item",
       quantity: item.quantity || 1,
       unitPrice: parseFloat(item.price || "0"),
       unitCost: cogsGuess,

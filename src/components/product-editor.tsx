@@ -38,7 +38,7 @@ export function ProductEditor({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">SKU</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Product</p>
           <h1 className="mt-1 text-2xl font-semibold">{product.cleanTitle ?? product.rawTitle}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">{product.rawTitle}</p>
         </div>
@@ -100,14 +100,14 @@ export function ProductEditor({
 
         <div className="space-y-4">
           <Card className="p-5">
-            <p className="text-xs uppercase tracking-wider text-faint">Unit economics</p>
+            <p className="text-xs uppercase tracking-wider text-faint">Cost vs profit</p>
             <dl className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm">
               <div>
-                <dt className="text-faint">Landed</dt>
+                <dt className="text-faint">Your cost</dt>
                 <dd>{money(product.economics.cogs)}</dd>
               </div>
               <div>
-                <dt className="text-faint">Fee</dt>
+                <dt className="text-faint">Card fee</dt>
                 <dd>{money(product.economics.fee)}</dd>
               </div>
               <div>
@@ -120,7 +120,7 @@ export function ProductEditor({
               </div>
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-2">
-              <Field label="Retail">
+              <Field label="Selling price">
                 <input className={inputClass} value={retail} onChange={(e) => setRetail(e.target.value)} />
               </Field>
               <Field label="Markup">
@@ -167,12 +167,12 @@ export function ProductEditor({
       </div>
 
       <Card>
-        <CardHeader title="Variants" eyebrow="SKU map" />
+        <CardHeader title="Sizes & colors" eyebrow="Options" />
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
               <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Supplier SKU</th>
+              <th className="px-4 py-3">Supplier code</th>
               <th className="px-4 py-3">Cost</th>
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Stock</th>

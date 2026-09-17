@@ -36,7 +36,7 @@ export async function enrichCopy(input: {
 }) {
   const fallbackTitle = localCleanTitle(input.rawTitle);
   const fallbackHtml = localDescription(fallbackTitle, [
-    `Landed cost about $${(input.cost + input.shipping).toFixed(2)}`,
+    `You pay about $${(input.cost + input.shipping).toFixed(2)}`,
     input.niche ? `Positioned for ${input.niche} shoppers` : "Impulse-friendly creative angle",
   ]);
 

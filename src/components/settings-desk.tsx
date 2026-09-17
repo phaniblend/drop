@@ -192,7 +192,7 @@ export function SettingsDesk({
               onChange={(e) => setForm({ ...form, markupMultiplier: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Ad spend kill cap ($)">
+          <Field label="Pause ads after ($)">
             <input
               className={inputClass}
               type="number"
@@ -200,7 +200,7 @@ export function SettingsDesk({
               onChange={(e) => setForm({ ...form, spendLimitThreshold: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Min ROAS">
+          <Field label="Min sales per ad $">
             <input
               className={inputClass}
               type="number"

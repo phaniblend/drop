@@ -66,7 +66,7 @@ export async function runCampaignGuard(campaignId: string) {
     kind: killed ? "alert" : "ads",
     message: killed
       ? `Guard paused ${campaign.adSetName} (${result.actionTaken}, net ${result.netProfit.toFixed(2)}).`
-      : `${campaign.adSetName} passed circuit check (net ${result.netProfit.toFixed(2)}).`,
+      : `${campaign.adSetName} passed the profit check (net ${result.netProfit.toFixed(2)}).`,
     href: "/ads",
   });
 

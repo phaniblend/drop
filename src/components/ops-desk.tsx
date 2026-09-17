@@ -39,8 +39,8 @@ export function OpsDesk({
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Daily ops</p>
         <h1 className="mt-1 text-2xl font-semibold">The boring work that keeps refunds down</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Existing dropshippers live in this screen: WISMO replies, stale tracking, and refund
-          triage. Macros fill from the selected aging order.
+          Existing dropshippers live in this screen: “where’s my order?” replies, stale tracking, and refund
+          triage. Saved replies fill from the selected aging order.
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export function OpsDesk({
           </div>
         </Card>
         <Card>
-          <CardHeader title="Aging shipments" eyebrow="WISMO" />
+          <CardHeader title="Aging shipments" eyebrow="Where is it?" />
           <div className="space-y-2 px-4 py-4">
             {stale.length === 0 ? (
               <p className="text-sm text-muted">Nothing stale. Check back tomorrow.</p>
@@ -83,7 +83,7 @@ export function OpsDesk({
       <OrganicLaunchCard products={products} />
 
       <Card>
-        <CardHeader title="Reply macros" eyebrow="Customer service" />
+        <CardHeader title="Saved replies" eyebrow="Customer messages" />
         <div className="grid gap-3 p-4 md:grid-cols-2">
           {macros.map((m) => {
             const body = fillMacro(m.body, selected);

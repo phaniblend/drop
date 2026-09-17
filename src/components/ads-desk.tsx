@@ -57,7 +57,7 @@ export function AdsDesk({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Ads & Guard</p>
           <h1 className="mt-1 text-2xl font-semibold">Kill losers before they eat the store</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Circuit breaker plus early-hook sentinel. Live Meta/TikTok tokens pause the real ad set; demo pauses
+            Pauses ads that are losing money, and watches the first clicks before anyone buys. Live Meta/TikTok tokens pause the real ad set; demo pauses
             only in this desk. Dayparting {daypartingEnabled ? "is on" : "is off"} in Settings.
           </p>
         </div>
@@ -70,12 +70,12 @@ export function AdsDesk({
             })
           }
         >
-          Run all circuit checks
+          Check all ads now
         </Button>
       </div>
 
       <Card>
-        <CardHeader eyebrow="Early warning sentinel" title="Pre-purchase micro-funnel" />
+        <CardHeader eyebrow="Early warning" title="First clicks before anyone buys" />
         <form
           className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5"
           onSubmit={(e) => {
@@ -105,7 +105,7 @@ export function AdsDesk({
               onChange={(e) => setSentinel({ ...sentinel, hookSpend: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Min CTR %">
+          <Field label="Min click rate %">
             <input
               className={inputClass}
               type="number"
@@ -114,7 +114,7 @@ export function AdsDesk({
               onChange={(e) => setSentinel({ ...sentinel, minCtr: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Max CPC ($)">
+          <Field label="Max cost per click ($)">
             <input
               className={inputClass}
               type="number"
@@ -134,12 +134,12 @@ export function AdsDesk({
           </Field>
           <div className="flex items-end">
             <Button type="submit" tone="line" disabled={pending}>
-              Save sentinel
+              Save early warning
             </Button>
           </div>
           <p className="text-xs text-muted sm:col-span-2 lg:col-span-5">
-            Hook drop: spend ≥ floor and (CTR &lt; min or CPC &gt; max) → PAUSED / POOR_HOOK_CTR. Intent stall: spend ≥
-            floor and zero add-to-cart → ZERO_CART_INTENT.
+            Weak hook: spend hits the floor and (click rate is below min or cost per click is above max) → pause. No carts:
+            spend hits the floor and nobody adds to cart → pause.
           </p>
           {saved ? <p className="text-xs text-profit sm:col-span-2 lg:col-span-5">{saved}</p> : null}
         </form>
@@ -153,7 +153,7 @@ export function AdsDesk({
 
       <Card className="p-5">
         <p className="font-mono text-sm text-profit">
-          Net profit = attributed revenue − COGS − ad spend − (revenue × 0.029 + $0.30)
+          Net profit = sales from the ad − what you paid for the products − ad spend − card fees (2.9% + $0.30)
         </p>
         <p className="mt-2 text-xs text-muted">
           Cron GET /api/cron/margin-guard?secret=CRON_SECRET every 15 minutes, and /api/cron/hourly at the top of
@@ -170,7 +170,7 @@ export function AdsDesk({
                 <div>
                   <p className="text-xs uppercase tracking-wider text-faint">{c.platform}</p>
                   <h2 className="mt-1 text-base font-semibold">{c.adSetName}</h2>
-                  <p className="text-xs text-muted">{c.product?.cleanTitle ?? c.product?.rawTitle ?? "Unmapped SKU"}</p>
+                  <p className="text-xs text-muted">{c.product?.cleanTitle ?? c.product?.rawTitle ?? "No product linked"}</p>
                 </div>
                 {c.isPaused ? (
                   <Badge tone="line">{c.pauseReason ?? "Paused"}</Badge>
@@ -197,7 +197,7 @@ export function AdsDesk({
                   <dd>{money(c.revenueToday)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-faint">CTR / CPC</dt>
+                  <dt className="text-[11px] text-faint">Click rate / cost per click</dt>
                   <dd>
                     {c.ctr.toFixed(2)}% · {money(c.cpc)}
                   </dd>
@@ -207,7 +207,7 @@ export function AdsDesk({
                   <dd>{c.addToCartCount}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-faint">ROAS</dt>
+                  <dt className="text-[11px] text-faint">Sales per ad $</dt>
                   <dd>
                     {c.roas.toFixed(2)}x <span className="text-faint">(min {c.minRoasThreshold.toFixed(2)})</span>
                   </dd>
@@ -227,7 +227,7 @@ export function AdsDesk({
                     })
                   }
                 >
-                  Circuit check
+                  Check ads
                 </Button>
                 <Button
                   tone={c.isPaused ? "profit" : "loss"}

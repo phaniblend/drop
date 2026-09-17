@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui";
 
 const ORDER: Record<string, { label: string; tone: "line" | "accent" | "profit" | "loss" | "warn" }> = {
-  pending_batch: { label: "Unfulfilled", tone: "warn" },
+  pending_batch: { label: "Waiting to ship", tone: "warn" },
   ordered_supplier: { label: "At supplier", tone: "accent" },
   shipped: { label: "Shipped", tone: "accent" },
   delivered: { label: "Delivered", tone: "profit" },

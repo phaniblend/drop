@@ -144,18 +144,27 @@ async function seedOperatorWorkspace(db: DB) {
 
 async function rotateDailyTasks(db: DB) {
   const today = todayKey();
-  const rows = await db.select().from(schema.dailyTasks).limit(1);
-  if (rows[0] && rows[0].forDate === today) return;
+  const rows = await db.select().from(schema.dailyTasks);
+  const next = taskRows(today);
+  if (rows[0]?.forDate === today) {
+    for (const task of next) {
+      await db
+        .update(schema.dailyTasks)
+        .set({ title: task.title, detail: task.detail })
+        .where(eq(schema.dailyTasks.id, task.id));
+    }
+    return;
+  }
   await db.delete(schema.dailyTasks);
-  await db.insert(schema.dailyTasks).values(taskRows(today));
+  await db.insert(schema.dailyTasks).values(next);
 }
 
 function taskRows(forDate: string) {
   return [
     {
       id: "task_orders",
-      title: "Clear the unfulfilled queue",
-      detail: "Place supplier orders for everything older than 4 hours.",
+      title: "Ship today's waiting orders",
+      detail: "Buy from the supplier for anything waiting more than 4 hours.",
       done: false,
       sortOrder: 1,
       forDate,
@@ -163,15 +172,15 @@ function taskRows(forDate: string) {
     {
       id: "task_tracking",
       title: "Push tracking numbers",
-      detail: "Paste tracking for anything marked ordered_supplier.",
+      detail: "Paste tracking for orders you already paid the supplier for.",
       done: false,
       sortOrder: 2,
       forDate,
     },
     {
       id: "task_cs",
-      title: "Answer WISMO tickets",
-      detail: "Use macros. Prioritize orders shipped > 12 days ago.",
+      title: "Answer “where’s my order?” messages",
+      detail: "Use saved replies. Start with orders shipped more than 12 days ago.",
       done: false,
       sortOrder: 3,
       forDate,
@@ -187,7 +196,7 @@ function taskRows(forDate: string) {
     {
       id: "task_stock",
       title: "Check supplier stock on winners",
-      detail: "Pause ads if a hero SKU drops under 30 units.",
+      detail: "Pause ads if a bestseller has fewer than 30 left.",
       done: false,
       sortOrder: 5,
       forDate,

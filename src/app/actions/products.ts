@@ -243,7 +243,7 @@ export async function importProductsCsv(text: string) {
       tags: row.tags || "imported",
       variants: [
         {
-          skuId: row.sku || `SKU-${ids.length + 1}`,
+          skuId: row.product_code || row.sku || `P-${ids.length + 1}`,
           name: row.variant || "Default",
           cost,
           price: retail,
@@ -255,7 +255,7 @@ export async function importProductsCsv(text: string) {
     ids.push(id);
   }
   if (!ids.length) {
-    throw new Error("No rows had a title. Need columns like title, cost, shipping, sku, stock.");
+    throw new Error("No rows had a title. Need columns like title, cost, shipping, product_code, stock.");
   }
   const db = await ensureDb();
   await logActivity(db, {

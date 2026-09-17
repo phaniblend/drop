@@ -20,7 +20,7 @@ export default async function CatalogPage({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Catalog</p>
-          <h1 className="mt-1 text-2xl font-semibold">SKUs you can actually sell</h1>
+          <h1 className="mt-1 text-2xl font-semibold">Products you can actually sell</h1>
           <p className="mt-1 text-sm text-muted">
             Drafts stay local. Publish pushes to Shopify when a token is present, otherwise it is marked
             published in the desk.
@@ -55,8 +55,8 @@ export default async function CatalogPage({
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
               <th className="px-4 py-3 font-medium">Product</th>
-              <th className="px-4 py-3 font-medium">Landed</th>
-              <th className="px-4 py-3 font-medium">Retail</th>
+              <th className="px-4 py-3 font-medium">Your cost</th>
+              <th className="px-4 py-3 font-medium">Selling price</th>
               <th className="px-4 py-3 font-medium">Margin</th>
               <th className="px-4 py-3 font-medium">Stock</th>
               <th className="px-4 py-3 font-medium">Status</th>

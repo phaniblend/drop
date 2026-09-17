@@ -175,10 +175,10 @@ export function DiscoverDesk({
           </Button>
         </Card>
         <Card className="p-5">
-          <Field label="CSV from your current stack" hint="title, supplier_url, cost, shipping, sku, stock">
+          <Field label="CSV from your current stack" hint="title, supplier_url, cost, shipping, product_code, stock">
             <textarea
               className={`${inputClass} min-h-[84px] font-mono text-xs`}
-              placeholder={"title,cost,shipping,sku,stock\nNeck fan,6.40,2.10,FAN-1,180"}
+              placeholder={"title,cost,shipping,product_code,stock\nNeck fan,6.40,2.10,FAN-1,180"}
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
             />
@@ -356,7 +356,7 @@ export function DiscoverDesk({
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                  <span className="text-muted">Landed {money(p.cost + p.shipping)}</span>
+                  <span className="text-muted">Your cost {money(p.cost + p.shipping)}</span>
                   <span className="text-right text-ink">{money(retail)}</span>
                   <span className="text-profit">{pct(econ.margin)} after fees</span>
                   <span className="text-right text-muted">

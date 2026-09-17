@@ -25,7 +25,7 @@ export function CompetitorAdsPanel({ defaultQuery = "" }: { defaultQuery?: strin
   async function load() {
     const q = query.trim() || defaultQuery.trim();
     if (!q) {
-      setError("Enter a keyword, like the SKU name.");
+      setError("Enter a keyword, like the product name.");
       return;
     }
     setLoading(true);
@@ -57,7 +57,7 @@ export function CompetitorAdsPanel({ defaultQuery = "" }: { defaultQuery?: strin
     <div className="mt-3 space-y-2">
       <input
         className={inputClass}
-        placeholder="Keyword from the ad or SKU"
+        placeholder="Keyword from the ad or product"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
