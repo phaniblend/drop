@@ -25,7 +25,12 @@ function fileUrl() {
 
 function getClient() {
   if (!globalForDb.dropshipClient) {
-    globalForDb.dropshipClient = createClient({ url: fileUrl() });
+    const authToken =
+      process.env.TURSO_AUTH_TOKEN?.trim() || process.env.LIBSQL_AUTH_TOKEN?.trim() || "";
+    globalForDb.dropshipClient = createClient({
+      url: fileUrl(),
+      ...(authToken ? { authToken } : {}),
+    });
   }
   return globalForDb.dropshipClient;
 }
