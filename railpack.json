@@ -4,7 +4,6 @@
   "steps": {
     "install": {
       "variables": {
-        "NODE_ENV": "development",
         "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"
       }
     }
