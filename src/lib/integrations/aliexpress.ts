@@ -127,54 +127,122 @@ type RecommendProduct = {
   evaluate_rate?: string;
 };
 
-export async function searchAliExpress(keyword: string): Promise<FeedProduct[]> {
-  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
+type FeedNamePromo = { promo_name?: string };
 
-  const json = await aliCall("aliexpress.ds.recommend.feed.get", {
-    keywords: keyword.trim() || "home gadgets",
-    page_size: "20",
-    country: "US",
-    target_currency: "USD",
-    target_language: "en",
-    sort: "volume_desc",
-  });
-
+function extractProducts(json: Record<string, unknown>): RecommendProduct[] {
   const envelope = json.aliexpress_ds_recommend_feed_get_response as
     | {
         result?: {
-          products?: { traffic_product_d_t_o?: RecommendProduct[] };
+          products?: { traffic_product_d_t_o?: RecommendProduct[] } | RecommendProduct[];
         };
       }
     | undefined;
+  const products = envelope?.result?.products;
+  if (Array.isArray(products)) return products;
+  return asList(products?.traffic_product_d_t_o);
+}
 
-  const raw = asList(envelope?.result?.products?.traffic_product_d_t_o);
-  return raw
-    .map((item) => {
-      const id = String(item.product_id ?? "");
-      if (!id) return null;
-      const cost = num(item.target_sale_price);
-      const orders = num(item.lastest_volume);
-      const title = item.product_title || "AliExpress listing";
-      const product: FeedProduct = {
-        id: `ali_${id}`,
-        title,
-        cleanTitle: title.split(" ").slice(0, 8).join(" "),
-        url: `https://www.aliexpress.com/item/${id}.html`,
-        source: "aliexpress",
-        supplierName: "AliExpress",
-        niche: "general",
-        cost,
-        shipping: 0,
-        shippingDays: 14,
-        stock: orders > 0 ? Math.max(50, Math.round(orders)) : 100,
-        demand: Math.min(1, orders / 5000),
-        orders30d: orders,
-        image: item.product_main_image_url || "",
-        tags: ["aliexpress", "live"],
-        live: true,
-        variants: [{ skuId: id, attributes: "Default", cost, stock: Math.round(orders) || 0 }],
-      };
-      return product;
-    })
-    .filter((p): p is FeedProduct => Boolean(p));
+function scoreFeed(name: string, query: string) {
+  const hay = name.toLowerCase().replace(/[_&]+/g, " ");
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  let score = 0;
+  for (const word of words) {
+    if (hay.includes(word)) score += 4;
+  }
+  if (/phone|stand|holder|case|charger|cable/.test(query) && /phone|electronic|consumer/.test(hay)) score += 3;
+  if (/home|kitchen|gadget/.test(query) && /home|kitchen/.test(hay)) score += 3;
+  if (/beauty|skin|health/.test(query) && /beauty|health/.test(hay)) score += 3;
+  if (/car|auto/.test(query) && /auto|car/.test(hay)) score += 3;
+  if (/pet/.test(query) && /pet/.test(hay)) score += 3;
+  if (/^ds[_\s]/.test(hay) && /bestseller|topseller/.test(hay)) score += 2;
+  if (/us |ship.?to.?us|_us_/.test(hay)) score += 1;
+  return score;
+}
+
+async function listFeedNames() {
+  const json = await aliCall("aliexpress.ds.feedname.get", { app_signature: "setostore" });
+  const envelope = json.aliexpress_ds_feedname_get_response as
+    | {
+        resp_result?: { result?: { promos?: { promo?: FeedNamePromo | FeedNamePromo[] } } };
+      }
+    | undefined;
+  return asList(envelope?.resp_result?.result?.promos?.promo)
+    .map((promo) => promo.promo_name?.trim() ?? "")
+    .filter(Boolean);
+}
+
+function pickFeeds(names: string[], query: string) {
+  const ranked = names
+    .map((name) => ({ name, score: scoreFeed(name, query) }))
+    .sort((a, b) => b.score - a.score);
+  const matched = ranked.filter((item) => item.score > 0).slice(0, 3).map((item) => item.name);
+  if (matched.length) return matched;
+  const bestsellers = names.filter((name) => /^DS_/i.test(name) && /bestseller/i.test(name)).slice(0, 3);
+  return bestsellers.length ? bestsellers : names.slice(0, 1);
+}
+
+function toFeedProduct(item: RecommendProduct): FeedProduct | null {
+  const id = String(item.product_id ?? "");
+  if (!id) return null;
+  const cost = num(item.target_sale_price);
+  const orders = num(item.lastest_volume);
+  const title = item.product_title || "AliExpress listing";
+  return {
+    id: `ali_${id}`,
+    title,
+    cleanTitle: title.split(" ").slice(0, 8).join(" "),
+    url: `https://www.aliexpress.com/item/${id}.html`,
+    source: "aliexpress",
+    supplierName: "AliExpress",
+    niche: "general",
+    cost,
+    shipping: 0,
+    shippingDays: 14,
+    stock: orders > 0 ? Math.max(50, Math.round(orders)) : 100,
+    demand: Math.min(1, orders / 5000),
+    orders30d: orders,
+    image: item.product_main_image_url || "",
+    tags: ["aliexpress", "live"],
+    live: true,
+    variants: [{ skuId: id, attributes: "Default", cost, stock: Math.round(orders) || 0 }],
+  };
+}
+
+export async function searchAliExpress(keyword: string): Promise<FeedProduct[]> {
+  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
+
+  const query = keyword.trim() || "home gadgets";
+  const names = await listFeedNames();
+  const feeds = pickFeeds(names, query);
+  const pages = await Promise.all(
+    feeds.map((feed_name) =>
+      aliCall("aliexpress.ds.recommend.feed.get", {
+        feed_name,
+        page_size: "20",
+        country: "US",
+        target_currency: "USD",
+        target_language: "EN",
+        sort: "last_volume_desc",
+      }).catch(() => null),
+    ),
+  );
+
+  const seen = new Set<string>();
+  const mapped: FeedProduct[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    for (const item of extractProducts(page)) {
+      const product = toFeedProduct(item);
+      if (!product || seen.has(product.id)) continue;
+      seen.add(product.id);
+      mapped.push(product);
+    }
+  }
+
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  const filtered = mapped.filter((product) => {
+    const title = product.title.toLowerCase();
+    return words.every((word) => title.includes(word)) || words.some((word) => title.includes(word));
+  });
+  return (filtered.length ? filtered : mapped).slice(0, 24);
 }
