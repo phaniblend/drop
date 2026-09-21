@@ -256,14 +256,14 @@ function isProductTitle(title: string) {
 function collectHtmlListings(html: string) {
   const found = new Map<string, RecommendProduct>();
   const patterns = [
-    /"productId"\s*:\s*"?(?<id>\d{10,})"?[\s\S]{0,1400}?"(?:displayTitle|productTitle)"\s*:\s*"(?<title>(?:\\.|[^"\\])+)"/gi,
-    /"productId"\s*:\s*"?(?<id>\d{10,})"?[\s\S]{0,800}?"title"\s*:\s*"(?<title>(?:\\.|[^"\\])+)"/gi,
-    /\/item\/(?<id>\d{10,})\.html[\s\S]{0,1800}?alt="(?<title>[^"]{8,200})"/gi,
+    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,1400}?"(?:displayTitle|productTitle)"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
+    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,800}?"title"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
+    /\/item\/(\d{10,})\.html[\s\S]{0,1800}?alt="([^"]{8,200})"/gi,
   ];
   for (const pattern of patterns) {
     for (const match of html.matchAll(pattern)) {
-      const id = match.groups?.id;
-      const title = decodeAliTitle(match.groups?.title ?? "");
+      const id = match[1];
+      const title = decodeAliTitle(match[2] ?? "");
       if (!id || found.has(id) || !isProductTitle(title)) continue;
       found.set(id, { product_id: id, product_title: title });
     }
