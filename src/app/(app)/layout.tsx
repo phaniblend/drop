@@ -1,10 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { integrationStatus, env } from "@/lib/env";
-import { ensureDb } from "@/lib/db";
-import { getOperator } from "@/lib/db/queries";
-import { provisionOperator } from "@/lib/db/seed";
-import { getBillingSummary } from "@/lib/billing";
+import { env } from "@/lib/env";
+import { loadDeskShell } from "@/lib/desk-shell";
 import { Shell } from "@/components/shell";
 
 export const dynamic = "force-dynamic";
@@ -14,26 +11,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const googleOn = Boolean(env.googleId.length > 12 && env.googleSecret.length > 12);
   if (googleOn && !session?.user?.email) redirect("/login");
 
-  const db = await ensureDb();
-  const claimed = await provisionOperator(db, {
+  const desk = await loadDeskShell({
     email: session?.user?.email || "pending@setostore.local",
     displayName: session?.user?.name || "Operator",
   });
-  if (!claimed.ok) redirect("/login?error=AccessDenied");
-
-  const [user, integrations, billing] = await Promise.all([
-    getOperator(),
-    Promise.resolve(integrationStatus()),
-    getBillingSummary(),
-  ]);
-  if (!user) redirect("/login");
+  if ("denied" in desk) redirect("/login?error=AccessDenied");
 
   return (
     <Shell
-      storeName={user.storeName}
-      liveCount={integrations.liveCount}
-      billing={billing}
-      operatorName={user.displayName}
+      storeName={desk.storeName}
+      liveCount={desk.liveCount}
+      billing={desk.billing}
+      operatorName={desk.displayName}
       operatorImage={session?.user?.image}
     >
       {children}

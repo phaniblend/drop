@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { ScrapedListing, ScrapedVariant } from "./types";
-import { humanizeVariantLabel } from "../variant-label";
+import { collectVariantLookup, labeledVariantName } from "../variant-label";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -138,17 +138,21 @@ function skuList(root: Record<string, unknown>): ScrapedVariant[] {
     asRecord(root.skuComponent) ??
     asRecord(root.skuModule) ??
     asRecord(asRecord(root.data)?.skuComponent);
+  const lookup = collectVariantLookup(sku ?? root);
   const list = (sku?.skuPriceList ?? sku?.skuPriceListMap ?? []) as unknown;
   const rows = Array.isArray(list) ? list : [];
   return rows
-    .map((row) => {
+    .map((row, index) => {
       const rec = asRecord(row);
       if (!rec) return null;
       const val = asRecord(rec.skuVal) ?? rec;
       const price = num(val.actSkuCalPrice ?? val.skuCalPrice ?? rec.skuAmount ?? rec.price);
+      const rawName = String(
+        rec.skuAttrStr ?? rec.skuAttr ?? rec.skuAttrName ?? rec.name ?? "Default",
+      );
       const variant: ScrapedVariant = {
         skuId: String(rec.skuId ?? rec.sku_id ?? "default"),
-        name: humanizeVariantLabel(String(rec.skuAttr ?? rec.skuAttrStr ?? rec.name ?? "Default")),
+        name: labeledVariantName(rawName, index, lookup),
         inventory: Math.round(num(val.availQuantity ?? rec.skuAvailQuantity ?? rec.inventory, 0)),
         price,
         image: absUrl(String(rec.skuPropertyImagePath ?? rec.skuImg ?? "")) || undefined,

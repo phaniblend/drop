@@ -20,6 +20,10 @@ export async function scrapeAliExpressListing(rawUrl: string): Promise<ScrapedLi
     /* fall through to Playwright */
   }
 
-  const { scrapeAliExpressWithPlaywright } = await import("../integrations/playwright-scrape");
-  return scrapeAliExpressWithPlaywright(supplierUrl);
+  if (process.env.PLAYWRIGHT_ENABLED === "1") {
+    const { scrapeAliExpressWithPlaywright } = await import("../integrations/playwright-scrape");
+    return scrapeAliExpressWithPlaywright(supplierUrl);
+  }
+
+  throw new Error("Could not read that AliExpress listing. Try again in a moment.");
 }

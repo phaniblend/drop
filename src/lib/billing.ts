@@ -169,12 +169,18 @@ export async function assertCampaignUnpause() {
   }
 }
 
+async function refreshDeskShell() {
+  const { invalidateDeskShell } = await import("./desk-shell");
+  invalidateDeskShell();
+}
+
 export async function incrementProductsImported() {
   const { db, user } = await loadUser();
   await db
     .update(users)
     .set({ productsImportedCount: sql`${users.productsImportedCount} + 1` })
     .where(eq(users.id, user.id));
+  await refreshDeskShell();
 }
 
 export async function incrementLensSearches() {
@@ -183,6 +189,7 @@ export async function incrementLensSearches() {
     .update(users)
     .set({ lensSearchesCount: sql`${users.lensSearchesCount} + 1` })
     .where(eq(users.id, user.id));
+  await refreshDeskShell();
 }
 
 export async function applyStripeSubscription(input: {
@@ -204,6 +211,8 @@ export async function applyStripeSubscription(input: {
       billingCycleEnd: cycleEnd(),
     })
     .where(eq(users.id, input.userId));
+  const { invalidateDeskShell } = await import("./desk-shell");
+  invalidateDeskShell();
 }
 
 export async function cancelStripeSubscription(subscriptionId: string) {
@@ -215,4 +224,6 @@ export async function cancelStripeSubscription(subscriptionId: string) {
       subscriptionStatus: "canceled",
     })
     .where(eq(users.stripeSubscriptionId, subscriptionId));
+  const { invalidateDeskShell } = await import("./desk-shell");
+  invalidateDeskShell();
 }

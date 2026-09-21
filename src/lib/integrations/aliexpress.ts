@@ -5,7 +5,7 @@ import { env } from "../env";
 import type { FeedProduct } from "../supplier-feed";
 import type { ParsedSupplierPayload } from "../scraper";
 import { extractAliExpressProductId } from "../aliexpress-url";
-import { humanizeVariantLabel } from "../variant-label";
+import { collectVariantLookup, labeledVariantName } from "../variant-label";
 import { fetchAliExpressHtml } from "../aliexpress-scrape/http";
 import {
   collectHtmlListings,
@@ -88,11 +88,13 @@ export async function fetchAliExpressProduct(url: string): Promise<ParsedSupplie
             ae_item_sku_info_d_t_o?: Array<{
               sku_id?: string;
               sku_attr?: string;
+              sku_attr_name?: string;
               offer_sale_price?: string;
               sku_available_stock?: number;
               sku_image?: string;
             }>;
           };
+          ae_item_sku_property_dtos?: unknown;
           ae_multimedia_info_dto?: { image_urls?: string };
           logistics_info_dto?: { delivery_time?: string };
         };
@@ -101,14 +103,15 @@ export async function fetchAliExpressProduct(url: string): Promise<ParsedSupplie
 
   const result = envelope?.result;
   const skus = asList(result?.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o);
+  const lookup = collectVariantLookup(result);
   const images = (result?.ae_multimedia_info_dto?.image_urls ?? "")
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const variants = skus.map((sku) => ({
+  const variants = skus.map((sku, index) => ({
     skuId: String(sku.sku_id ?? "default"),
-    attributes: humanizeVariantLabel(sku.sku_attr || "Default"),
+    attributes: labeledVariantName(sku.sku_attr_name || sku.sku_attr || "Default", index, lookup),
     cost: num(sku.offer_sale_price),
     stock: sku.sku_available_stock || 0,
     imageUrl: sku.sku_image || images[0],
@@ -257,9 +260,7 @@ async function searchAliExpressHtml(query: string): Promise<HtmlListing[]> {
   return [];
 }
 
-export async function searchAliExpress(keyword: string, niche = "all"): Promise<FeedProduct[]> {
-  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
-
+async function searchAliExpressInner(keyword: string, niche: string): Promise<FeedProduct[]> {
   const searchText = keyword.trim() || (niche !== "all" ? niche : "");
   const words = queryWords(searchText);
   const feedQuery = [searchText, niche !== "all" && keyword.trim() ? niche : ""].filter(Boolean).join(" ");
@@ -281,6 +282,16 @@ export async function searchAliExpress(keyword: string, niche = "all"): Promise<
   }
 
   return applyNiche(await searchFromFeeds(feedQuery, words, seen), niche);
+}
+
+export async function searchAliExpress(keyword: string, niche = "all"): Promise<FeedProduct[]> {
+  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
+  return Promise.race([
+    searchAliExpressInner(keyword, niche),
+    new Promise<FeedProduct[]>((_, reject) => {
+      setTimeout(() => reject(new Error("Search took too long. Try again.")), 14_000);
+    }),
+  ]);
 }
 
 async function searchFromFeeds(query: string, words: string[], seen: Set<string>) {

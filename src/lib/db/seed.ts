@@ -123,13 +123,11 @@ export async function provisionOperator(
       .update(schema.users)
       .set({ email, displayName })
       .where(eq(schema.users.id, op.id));
-    await rotateDailyTasks(db);
     return { ok: true, id: op.id };
   }
   if (displayName && displayName !== op.displayName) {
     await db.update(schema.users).set({ displayName }).where(eq(schema.users.id, op.id));
   }
-  await rotateDailyTasks(db);
   return { ok: true, id: op.id };
 }
 
@@ -178,21 +176,22 @@ async function seedOperatorWorkspace(db: DB) {
   await rotateDailyTasks(db);
 }
 
+const globalForTasks = globalThis as unknown as { setoTasksDate?: string };
+
 async function rotateDailyTasks(db: DB) {
   const today = todayKey();
-  const rows = await db.select().from(schema.dailyTasks);
-  const next = taskRows(today);
-  if (rows[0]?.forDate === today) {
-    for (const task of next) {
-      await db
-        .update(schema.dailyTasks)
-        .set({ title: task.title, detail: task.detail })
-        .where(eq(schema.dailyTasks.id, task.id));
-    }
+  if (globalForTasks.setoTasksDate === today) return;
+  const [row] = await db
+    .select({ forDate: schema.dailyTasks.forDate })
+    .from(schema.dailyTasks)
+    .limit(1);
+  if (row?.forDate === today) {
+    globalForTasks.setoTasksDate = today;
     return;
   }
   await db.delete(schema.dailyTasks);
-  await db.insert(schema.dailyTasks).values(next);
+  await db.insert(schema.dailyTasks).values(taskRows(today));
+  globalForTasks.setoTasksDate = today;
 }
 
 function taskRows(forDate: string) {

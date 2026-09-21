@@ -28,7 +28,10 @@ export function ProductEditor({
   };
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [savingPrice, startPrice] = useTransition();
+  const [rewriting, startRewrite] = useTransition();
+  const [publishing, startPublish] = useTransition();
+  const [statusPending, startStatus] = useTransition();
   const [retail, setRetail] = useState(String(product.retailPrice));
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
@@ -50,9 +53,9 @@ export function ProductEditor({
           <StatusPill value={product.status} />
           <Button
             tone="accent"
-            disabled={pending}
+            disabled={publishing}
             onClick={() =>
-              start(async () => {
+              startPublish(async () => {
                 const res = await publishProduct(product.id);
                 setPublishMsg(res.warning ?? `Shopify id ${res.productId}`);
                 router.refresh();
@@ -83,9 +86,9 @@ export function ProductEditor({
             />
             <Button
               tone="line"
-              disabled={pending}
+              disabled={rewriting}
               onClick={() =>
-                start(async () => {
+                startRewrite(async () => {
                   setCopyMsg("");
                   try {
                     const copy = await rewriteProductCopy(product.id);
@@ -98,7 +101,7 @@ export function ProductEditor({
                 })
               }
             >
-              {pending ? "Rewriting…" : "Rewrite title & bullets"}
+              {rewriting ? "Rewriting…" : "Rewrite title & bullets"}
             </Button>
             {copyMode ? (
               <Badge tone={copyMode === "ai" ? "profit" : "line"}>
@@ -144,9 +147,9 @@ export function ProductEditor({
             <Button
               className="mt-3"
               tone="line"
-              disabled={pending}
+              disabled={savingPrice}
               onClick={() =>
-                start(async () => {
+                startPrice(async () => {
                   setPriceMsg("");
                   try {
                     await updateProductPricing(product.id, {
@@ -162,7 +165,7 @@ export function ProductEditor({
                 })
               }
             >
-              {pending ? "Saving…" : "Save pricing"}
+              {savingPrice ? "Saving…" : "Save pricing"}
             </Button>
             {priceMsg ? <p className="mt-2 text-xs text-profit">{priceMsg}</p> : null}
           </Card>
@@ -174,10 +177,18 @@ export function ProductEditor({
             </a>
             <p className="mt-2 text-xs text-muted">{product.shippingDays} day typical transit</p>
             <div className="mt-4 flex gap-2">
-              <Button tone="line" onClick={() => start(() => setProductStatus(product.id, "ready"))}>
+              <Button
+                tone="line"
+                disabled={statusPending}
+                onClick={() => startStatus(() => setProductStatus(product.id, "ready"))}
+              >
                 Mark ready
               </Button>
-              <Button tone="ghost" onClick={() => start(() => setProductStatus(product.id, "archived"))}>
+              <Button
+                tone="ghost"
+                disabled={statusPending}
+                onClick={() => startStatus(() => setProductStatus(product.id, "archived"))}
+              >
                 Archive
               </Button>
             </div>

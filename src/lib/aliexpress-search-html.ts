@@ -78,25 +78,58 @@ export function extractImageFromChunk(chunk: string) {
   return match?.[1]?.replace(/\\u002F/gi, "/");
 }
 
-export function collectHtmlListings(html: string): HtmlListing[] {
-  const found = new Map<string, HtmlListing>();
+function searchSlice(html: string) {
+  const markers = ['"itemList"', '"products"', '"productId"'];
+  for (const marker of markers) {
+    const idx = html.indexOf(marker);
+    if (idx >= 0) return html.slice(Math.max(0, idx - 200), idx + 250_000);
+  }
+  return html.length > 180_000 ? html.slice(0, 180_000) : html;
+}
+
+function titleFromWindow(window: string) {
   const patterns = [
-    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,1400}?"(?:displayTitle|productTitle)"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
-    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,800}?"title"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
-    /\/item\/(\d{10,})\.html[\s\S]{0,1800}?alt="([^"]{8,200})"/gi,
+    /"(?:displayTitle|productTitle)"\s*:\s*"((?:\\.|[^"\\])+)"/i,
+    /"title"\s*:\s*"((?:\\.|[^"\\])+)"/,
+    /alt="([^"]{8,200})"/i,
   ];
   for (const pattern of patterns) {
-    for (const match of html.matchAll(pattern)) {
+    const match = window.match(pattern);
+    const title = decodeAliTitle(match?.[1] ?? "");
+    if (isProductTitle(title)) return title;
+  }
+  return "";
+}
+
+export function collectHtmlListings(html: string): HtmlListing[] {
+  const source = searchSlice(html);
+  const found = new Map<string, HtmlListing>();
+  for (const match of source.matchAll(/"productId"\s*:\s*"?(\d{10,})"?/g)) {
+    const id = match[1];
+    if (!id || found.has(id)) continue;
+    const idx = match.index ?? source.indexOf(id);
+    const window = source.slice(Math.max(0, idx - 80), idx + 2200);
+    const title = titleFromWindow(window);
+    if (!title) continue;
+    found.set(id, { product_id: id, product_title: title });
+    if (found.size >= 40) break;
+  }
+
+  if (found.size < 6) {
+    for (const match of source.matchAll(/\/item\/(\d{10,})\.html/g)) {
       const id = match[1];
-      const title = decodeAliTitle(match[2] ?? "");
-      if (!id || found.has(id) || !isProductTitle(title)) continue;
+      if (!id || found.has(id)) continue;
+      const idx = match.index ?? 0;
+      const title = titleFromWindow(source.slice(idx, idx + 1800));
+      if (!title) continue;
       found.set(id, { product_id: id, product_title: title });
+      if (found.size >= 40) break;
     }
   }
 
   for (const [id, item] of found) {
-    const idx = html.indexOf(id);
-    const window = idx >= 0 ? html.slice(Math.max(0, idx - 120), idx + 2400) : "";
+    const idx = source.indexOf(id);
+    const window = idx >= 0 ? source.slice(Math.max(0, idx - 120), idx + 2400) : "";
     const price = extractPriceFromChunk(window);
     const image = extractImageFromChunk(window);
     if (price) item.target_sale_price = price;
