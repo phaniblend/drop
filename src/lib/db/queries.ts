@@ -125,10 +125,68 @@ export async function listSuppliers() {
   const db = await ensureDb();
   const vendorRows = await db.select().from(suppliers);
   const catalog = await listProducts();
-  return vendorRows.map((s) => {
-    const skus = catalog.filter((p) => p.supplierName === s.name);
-    const lowStock = skus.filter((p) => p.stock < 30);
-    return { ...s, skus, lowStock };
+  const vendorByName = new Map(vendorRows.map((s) => [s.name.trim().toLowerCase(), s]));
+
+  // Always derive from catalog so the page never looks empty when products exist.
+  const byName = new Map<string, typeof catalog>();
+  for (const p of catalog) {
+    const name = p.supplierName?.trim() || "AliExpress";
+    const list = byName.get(name) ?? [];
+    list.push(p);
+    byName.set(name, list);
+  }
+
+  if (byName.size === 0) return [];
+
+  return [...byName.entries()].map(([name, skus], index) => {
+    const meta = vendorByName.get(name.toLowerCase());
+    const lowStock = skus.filter((p) => p.stock > 0 && p.stock < 30);
+    const avgShip =
+      skus.length > 0
+        ? Math.round(skus.reduce((s, p) => s + p.shippingDays, 0) / skus.length)
+        : 14;
+    return {
+      id: meta?.id ?? `derived_${index}_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+      name,
+      platform: meta?.platform || skus[0]?.supplierSource || "aliexpress",
+      storeUrl: meta?.storeUrl ?? skus[0]?.supplierUrl ?? null,
+      avgShippingDays: meta?.avgShippingDays ?? avgShip,
+      reliability: meta?.reliability ?? 0.9,
+      notes: meta?.notes || `${skus.length} product${skus.length === 1 ? "" : "s"} in your catalog`,
+      skus,
+      lowStock,
+    };
+  });
+}
+
+async function upsertSupplierFromProduct(input: {
+  name: string;
+  platform?: string;
+  storeUrl?: string;
+  shippingDays?: number;
+}) {
+  const db = await ensureDb();
+  const name = input.name.trim() || "AliExpress";
+  const [existing] = await db.select().from(suppliers).where(eq(suppliers.name, name)).limit(1);
+  if (existing) {
+    await db
+      .update(suppliers)
+      .set({
+        storeUrl: input.storeUrl ?? existing.storeUrl,
+        avgShippingDays: input.shippingDays ?? existing.avgShippingDays,
+        platform: input.platform ?? existing.platform,
+      })
+      .where(eq(suppliers.id, existing.id));
+    return;
+  }
+  await db.insert(suppliers).values({
+    id: `sup_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`,
+    name,
+    platform: input.platform ?? "aliexpress",
+    storeUrl: input.storeUrl ?? null,
+    avgShippingDays: input.shippingDays ?? 14,
+    reliability: 0.9,
+    notes: "Auto-linked from catalog imports",
   });
 }
 
@@ -332,6 +390,7 @@ export async function refreshImportedProduct(
     baseCost: number;
     shippingCost: number;
     shippingDays?: number;
+    retailPrice?: number;
     supplierUrl: string;
     supplierName?: string;
     variants: Array<{
@@ -347,6 +406,10 @@ export async function refreshImportedProduct(
   const db = await ensureDb();
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!existing) return id;
+  const nextRetail =
+    input.retailPrice ??
+    input.variants[0]?.price ??
+    (input.baseCost > 0 ? existing.retailPrice : existing.retailPrice);
   await db
     .update(products)
     .set({
@@ -358,9 +421,10 @@ export async function refreshImportedProduct(
       baseCost: input.baseCost > 0 ? input.baseCost : existing.baseCost,
       shippingCost: input.shippingCost,
       shippingDays: input.shippingDays ?? existing.shippingDays,
+      retailPrice: nextRetail,
     })
     .where(eq(products.id, id));
-  if (existing.status === "draft" && input.variants.length) {
+  if (input.variants.length) {
     await db.delete(productVariants).where(eq(productVariants.productId, id));
     await db.insert(productVariants).values(
       input.variants.map((v, i) => ({
@@ -409,6 +473,12 @@ export async function insertImportedProduct(input: {
   const existing = await findProductBySupplierUrl(supplierUrl);
   if (existing) {
     await refreshImportedProduct(existing.id, { ...input, supplierUrl });
+    await upsertSupplierFromProduct({
+      name: input.supplierName ?? existing.supplierName,
+      platform: input.supplierSource ?? existing.supplierSource,
+      storeUrl: supplierUrl,
+      shippingDays: input.shippingDays,
+    });
     return existing.id;
   }
   await assertProductQuota();
@@ -450,6 +520,12 @@ export async function insertImportedProduct(input: {
       })),
     );
   }
+  await upsertSupplierFromProduct({
+    name: input.supplierName ?? "AliExpress",
+    platform: input.supplierSource ?? "aliexpress",
+    storeUrl: supplierUrl,
+    shippingDays: input.shippingDays,
+  });
   await incrementProductsImported();
   return id;
 }
@@ -459,23 +535,27 @@ export async function writeProductPricing(
   input: { retailPrice: number; markupMultiplier: number; shippingCost: number },
 ) {
   const db = await ensureDb();
+  const vars = await db.select().from(productVariants).where(eq(productVariants.productId, productId));
+  const priced = vars.map((v) => ({
+    id: v.id,
+    price: Number((v.variantCost * input.markupMultiplier).toFixed(2)),
+  }));
+  // Keep the top selling price aligned with variant rows (first option wins).
+  const retailPrice = priced[0]?.price ?? input.retailPrice;
   await db
     .update(products)
     .set({
-      retailPrice: input.retailPrice,
+      retailPrice,
       markupMultiplier: input.markupMultiplier,
       shippingCost: input.shippingCost,
     })
     .where(eq(products.id, productId));
-  const vars = await db.select().from(productVariants).where(eq(productVariants.productId, productId));
   await Promise.all(
-    vars.map((v) =>
-      db
-        .update(productVariants)
-        .set({ variantPrice: Number((v.variantCost * input.markupMultiplier).toFixed(2)) })
-        .where(eq(productVariants.id, v.id)),
+    priced.map((v) =>
+      db.update(productVariants).set({ variantPrice: v.price }).where(eq(productVariants.id, v.id)),
     ),
   );
+  return { retailPrice };
 }
 
 export { desc, eq };

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getProduct } from "@/lib/db/queries";
 import { ProductEditor } from "@/components/product-editor";
+import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 
 export default async function ProductPage({
   params,
@@ -10,5 +11,5 @@ export default async function ProductPage({
   const { id } = await params;
   const product = await getProduct(id);
   if (!product) notFound();
-  return <ProductEditor product={product} />;
+  return <ProductEditor product={product} storefrontHomeUrl={shopifyStorefrontHomeUrl()} />;
 }

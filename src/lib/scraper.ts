@@ -1,6 +1,6 @@
 import { extractAliExpressListing } from "./aliexpress-scrape/extract";
 import type { ScrapedListing } from "./aliexpress-scrape/types";
-import { humanizeVariantLabel } from "./variant-label";
+import { normalizeVariantStocks } from "./supplier-stock";
 
 export type SupplierVariant = {
   skuId: string;
@@ -23,11 +23,12 @@ export type ParsedSupplierPayload = {
 
 export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload {
   const sale = listing.price.sale || listing.price.base;
-  const variants: SupplierVariant[] =
+  // extract.ts already humanizes names with the property lookup — keep them as-is.
+  const variants: SupplierVariant[] = normalizeVariantStocks(
     listing.variants.length > 0
       ? listing.variants.map((v) => ({
           skuId: v.skuId,
-          attributes: humanizeVariantLabel(v.name),
+          attributes: v.name || "Default",
           cost: v.price ?? sale,
           stock: v.inventory,
           imageUrl: v.image,
@@ -40,7 +41,8 @@ export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload 
             stock: 0,
             imageUrl: listing.images[0],
           },
-        ];
+        ],
+  );
 
   return {
     title: listing.title,

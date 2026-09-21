@@ -2,6 +2,7 @@ import { integrationStatus } from "@/lib/env";
 import { getOperator } from "@/lib/db/queries";
 import { getBillingSummary } from "@/lib/billing";
 import { SettingsDesk } from "@/components/settings-desk";
+import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 
 export default async function SettingsPage() {
   const [user, status, billing] = await Promise.all([
@@ -16,6 +17,7 @@ export default async function SettingsPage() {
     <SettingsDesk
       status={status}
       billing={billing}
+      storefrontUrl={shopifyStorefrontHomeUrl()}
       user={{
         displayName: user.displayName,
         storeName: user.storeName,

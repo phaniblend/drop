@@ -42,3 +42,12 @@ export async function resetDemoData() {
   resetReadyCache();
   revalidatePath("/", "layout");
 }
+
+export async function repairCatalog() {
+  const db = await ensureDb();
+  const { repairCatalogData } = await import("@/lib/db/repair-catalog");
+  const result = await repairCatalogData(db);
+  resetReadyCache();
+  revalidatePath("/", "layout");
+  return result;
+}

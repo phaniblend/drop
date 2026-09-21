@@ -17,6 +17,18 @@ export async function seedIfEmpty(db: DB) {
   if (existing.length === 0) return;
   await rotateDailyTasks(db);
   await archiveDuplicateDrafts(db);
+  await maybeRepairCatalog(db);
+}
+
+async function maybeRepairCatalog(db: DB) {
+  const [flag] = await db
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, "catalog_repair_v2"))
+    .limit(1);
+  if (flag) return;
+  const { repairCatalogData } = await import("./repair-catalog");
+  await repairCatalogData(db);
 }
 
 export async function archiveDuplicateDrafts(db: DB) {

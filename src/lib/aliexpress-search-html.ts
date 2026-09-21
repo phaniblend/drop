@@ -72,10 +72,23 @@ export function extractPriceFromChunk(chunk: string) {
 }
 
 export function extractImageFromChunk(chunk: string) {
-  const match = chunk.match(
-    /"(?:imageUrl|imgUrl|productMainImageUrl|image)"\s*:\s*"(https?:[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i,
-  );
-  return match?.[1]?.replace(/\\u002F/gi, "/");
+  const patterns = [
+    /"(?:imageUrl|imgUrl|productMainImageUrl|productImage|image)"\s*:\s*"((?:https?:)?\\?\/\\?\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i,
+    /"(?:https?:)?\\?\/\\?\/ae[^"]+\.(?:jpg|jpeg|png|webp)[^"]*"/i,
+  ];
+  for (const pattern of patterns) {
+    const match = chunk.match(pattern);
+    const raw = (match?.[1] ?? match?.[0] ?? "").replace(/^"|"$/g, "");
+    if (!raw) continue;
+    const url = raw
+      .replace(/\\u002F/gi, "/")
+      .replace(/\\\//g, "/")
+      .replace(/^\/\//, "https://");
+    if (/^https?:\/\//i.test(url) && /\.(jpg|jpeg|png|webp)/i.test(url)) {
+      return url.replace(/_\d+x\d+\.(jpg|jpeg|png|webp)/i, ".$1");
+    }
+  }
+  return undefined;
 }
 
 function searchSlice(html: string) {

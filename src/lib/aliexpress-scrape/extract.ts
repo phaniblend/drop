@@ -153,7 +153,22 @@ function skuList(root: Record<string, unknown>): ScrapedVariant[] {
       const variant: ScrapedVariant = {
         skuId: String(rec.skuId ?? rec.sku_id ?? "default"),
         name: labeledVariantName(rawName, index, lookup),
-        inventory: Math.round(num(val.availQuantity ?? rec.skuAvailQuantity ?? rec.inventory, 0)),
+        // Prefer SKU-specific stock. Skip trade/order volume fields that look like ~99k pools.
+        inventory: Math.round(
+          (() => {
+            const candidates = [
+              val.availQuantity,
+              rec.skuAvailQuantity,
+              val.skuStock,
+              val.sku_available_stock,
+            ];
+            for (const c of candidates) {
+              const n = num(c, -1);
+              if (n >= 0) return n;
+            }
+            return 0;
+          })(),
+        ),
         price,
         image: absUrl(String(rec.skuPropertyImagePath ?? rec.skuImg ?? "")) || undefined,
       };

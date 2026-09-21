@@ -6,12 +6,16 @@ import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
+import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
+import { integrationStatus } from "@/lib/env";
 
 export default async function CommandPage() {
   const data = await getDashboard();
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
+  const storefrontUrl = shopifyStorefrontHomeUrl();
+  const shopifyLive = integrationStatus().shopify;
 
   return (
     <div className="space-y-6">
@@ -25,6 +29,20 @@ export default async function CommandPage() {
             Net profit is sales minus what you paid for the products, ad spend, and card fees (2.9% + $0.30).
             Connect Shopify, Meta, and TikTok when you are ready — the desk stays empty until live orders land.
           </p>
+          {storefrontUrl ? (
+            <a
+              href={storefrontUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-sm text-accent"
+            >
+              Open your Shopify storefront →
+            </a>
+          ) : shopifyLive ? null : (
+            <p className="mt-2 text-xs text-muted">
+              No storefront linked yet — connect Shopify in Settings to publish and receive orders.
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <DeskLink href="/fulfillment">

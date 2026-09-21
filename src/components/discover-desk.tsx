@@ -387,15 +387,23 @@ export function DiscoverDesk({
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                  <span className="text-muted">
-                    {p.cost > 0 ? `Your cost ${money(p.cost + p.shipping)}` : "Cost on import"}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Your cost</p>
+                    <p className="mt-0.5 text-muted">
+                      {p.cost > 0 ? money(p.cost + p.shipping) : "On import"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (3×)</p>
+                    <p className="mt-0.5 font-semibold text-ink">{p.cost > 0 ? money(retail) : "—"}</p>
+                  </div>
+                  <span className="text-profit">
+                    {p.cost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}
                   </span>
-                  <span className="text-right text-ink">{p.cost > 0 ? money(retail) : "—"}</span>
-                  <span className="text-profit">{p.cost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}</span>
                   <span className="text-right text-muted">
                     {p.orders30d
-                      ? `${p.orders30d.toLocaleString()} / 30d`
-                      : `${p.shippingDays}d · ${p.stock} pcs`}
+                      ? `${p.orders30d.toLocaleString()} sold / 30d`
+                      : `${p.shippingDays}d ship · ${p.stock} pcs`}
                   </span>
                 </div>
                 <Button

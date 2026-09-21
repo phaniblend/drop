@@ -349,7 +349,11 @@ export async function publishProduct(productId: string) {
   revalidatePath(`/catalog/${productId}`);
   revalidatePath("/catalog");
   revalidatePath("/");
-  return result;
+  const { shopifyProductUrl, shopifyStorefrontHomeUrl } = await import("@/lib/shopify-storefront");
+  return {
+    ...result,
+    storefrontUrl: shopifyProductUrl(result.handle) || shopifyStorefrontHomeUrl(),
+  };
 }
 
 export async function setProductStatus(productId: string, status: string) {

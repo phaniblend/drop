@@ -1,7 +1,7 @@
 import { DeskLink } from "@/components/desk-link";
 import { listSuppliers } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
-import { Badge, Card, CardHeader } from "@/components/ui";
+import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
 
 export default async function SuppliersPage() {
@@ -16,6 +16,20 @@ export default async function SuppliersPage() {
           pausing ads later will not save you.
         </p>
       </div>
+
+      {vendors.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-sm font-medium text-ink">No suppliers yet</p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+            Import a product from Discover and it will show up here with cost, transit time, and stock
+            from your catalog.
+          </p>
+          <DeskLink href="/discover" className="mt-5 inline-block">
+            <Button tone="accent">Find a product</Button>
+          </DeskLink>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
         {vendors.map((s) => (
           <Card key={s.id} className="p-5">
@@ -46,7 +60,11 @@ export default async function SuppliersPage() {
             title={s.name}
             eyebrow="Products you sell"
             action={
-              s.lowStock.length ? <Badge tone="loss">{s.lowStock.length} low stock</Badge> : <Badge tone="profit">Healthy</Badge>
+              s.lowStock.length ? (
+                <Badge tone="loss">{s.lowStock.length} low stock</Badge>
+              ) : (
+                <Badge tone="profit">Healthy</Badge>
+              )
             }
           />
           <div className="divide-y divide-line">

@@ -20,12 +20,14 @@ type Economics = { cogs: number; fee: number; profit: number; margin: number };
 
 export function ProductEditor({
   product,
+  storefrontHomeUrl = "",
 }: {
   product: Product & {
     variants: ProductVariant[];
     campaigns: CampaignTracker[];
     economics: Economics;
   };
+  storefrontHomeUrl?: string;
 }) {
   const router = useRouter();
   const [savingPrice, startPrice] = useTransition();
@@ -36,7 +38,9 @@ export function ProductEditor({
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
   const [copyMode, setCopyMode] = useState("");
-  const [publishMsg, setPublishMsg] = useState("");
+  const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
+    null,
+  );
   const [priceMsg, setPriceMsg] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
   const [showSupplier, setShowSupplier] = useState(false);
@@ -48,6 +52,16 @@ export function ProductEditor({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Product</p>
           <h1 className="mt-1 text-2xl font-semibold">{product.cleanTitle ?? product.rawTitle}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">{product.rawTitle}</p>
+          {storefrontHomeUrl ? (
+            <a
+              href={storefrontHomeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs text-accent"
+            >
+              Open your Shopify storefront →
+            </a>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <StatusPill value={product.status} />
@@ -56,18 +70,54 @@ export function ProductEditor({
             disabled={publishing}
             onClick={() =>
               startPublish(async () => {
-                const res = await publishProduct(product.id);
-                setPublishMsg(res.warning ?? `Shopify id ${res.productId}`);
-                router.refresh();
+                setPublishMsg({ tone: "warn", text: "Publishing to Shopify…" });
+                try {
+                  const res = await publishProduct(product.id);
+                  if (res.warning) {
+                    setPublishMsg({ tone: "warn", text: res.warning });
+                  } else {
+                    setPublishMsg({
+                      tone: "profit",
+                      text: `Published as draft “${res.handle}”. Open it on your storefront to preview.`,
+                      href: res.storefrontUrl || undefined,
+                    });
+                  }
+                  router.refresh();
+                } catch (e) {
+                  setPublishMsg({
+                    tone: "loss",
+                    text: e instanceof Error ? e.message : "Publish failed. Try again.",
+                  });
+                }
               })
             }
           >
-            Publish to Shopify
+            {publishing ? "Publishing…" : "Publish to Shopify"}
           </Button>
         </div>
       </div>
 
-      {publishMsg ? <p className="text-sm text-warn">{publishMsg}</p> : null}
+      {publishMsg ? (
+        <p
+          className={`rounded-xl border px-3 py-2 text-sm ${
+            publishMsg.tone === "profit"
+              ? "border-profit/30 bg-profit/5 text-profit"
+              : publishMsg.tone === "loss"
+                ? "border-loss/30 bg-loss/5 text-loss"
+                : "border-warn/30 bg-warn/5 text-warn"
+          }`}
+        >
+          {publishMsg.text}
+          {publishMsg.href ? (
+            <>
+              {" "}
+              <a href={publishMsg.href} target="_blank" rel="noreferrer" className="underline">
+                View listing
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <AdHooksPanel
         title={product.cleanTitle ?? product.rawTitle}
@@ -229,7 +279,12 @@ export function ProductEditor({
           <tbody className="divide-y divide-line">
             {product.variants.map((v) => (
               <tr key={v.id}>
-                <td className="px-4 py-3">{humanizeVariantLabel(v.variantName)}</td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const label = humanizeVariantLabel(v.variantName);
+                    return label === "Option" ? `Variant ${product.variants.indexOf(v) + 1}` : label;
+                  })()}
+                </td>
                 {showSupplier ? <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td> : null}
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantCost)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantPrice)}</td>

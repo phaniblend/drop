@@ -6,6 +6,7 @@ import type { FeedProduct } from "../supplier-feed";
 import type { ParsedSupplierPayload } from "../scraper";
 import { extractAliExpressProductId } from "../aliexpress-url";
 import { collectVariantLookup, labeledVariantName } from "../variant-label";
+import { normalizeSupplierStock, normalizeVariantStocks } from "../supplier-stock";
 import { fetchAliExpressHtml } from "../aliexpress-scrape/http";
 import {
   collectHtmlListings,
@@ -109,13 +110,15 @@ export async function fetchAliExpressProduct(url: string): Promise<ParsedSupplie
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const variants = skus.map((sku, index) => ({
-    skuId: String(sku.sku_id ?? "default"),
-    attributes: labeledVariantName(sku.sku_attr_name || sku.sku_attr || "Default", index, lookup),
-    cost: num(sku.offer_sale_price),
-    stock: sku.sku_available_stock || 0,
-    imageUrl: sku.sku_image || images[0],
-  }));
+  const variants = normalizeVariantStocks(
+    skus.map((sku, index) => ({
+      skuId: String(sku.sku_id ?? "default"),
+      attributes: labeledVariantName(sku.sku_attr_name || sku.sku_attr || "Default", index, lookup),
+      cost: num(sku.offer_sale_price),
+      stock: sku.sku_available_stock || 0,
+      imageUrl: sku.sku_image || images[0],
+    })),
+  );
 
   const days = num(result?.logistics_info_dto?.delivery_time || result?.ae_item_base_info_dto?.delivery_time, 14);
 
@@ -211,13 +214,19 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     cost,
     shipping: 0,
     shippingDays: 14,
-    stock: orders > 0 ? Math.max(50, Math.round(orders)) : 100,
+    // Feed endpoints expose sales volume, not true inventory — don't treat orders as stock.
+    stock: 100,
     demand: Math.min(1, orders / 5000),
     orders30d: orders,
-    image: item.product_main_image_url || "",
+    image: (() => {
+      const raw = String(item.product_main_image_url || "").trim();
+      if (!raw) return "";
+      if (raw.startsWith("//")) return `https:${raw}`;
+      return raw.replace(/\\u002F/gi, "/").replace(/\\\//g, "/");
+    })(),
     tags: ["aliexpress", "live"],
     live: true,
-    variants: [{ skuId: id, attributes: "Default", cost, stock: Math.round(orders) || 0 }],
+    variants: [{ skuId: id, attributes: "Default", cost, stock: normalizeSupplierStock(0) }],
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { resetDemoData, saveOperatorSettings } from "@/app/actions/settings";
+import { repairCatalog, resetDemoData, saveOperatorSettings } from "@/app/actions/settings";
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
@@ -24,9 +24,11 @@ export function SettingsDesk({
   status,
   user,
   billing,
+  storefrontUrl = "",
 }: {
   status: Status;
   billing: BillingSummary;
+  storefrontUrl?: string;
   user: {
     displayName: string;
     storeName: string;
@@ -47,6 +49,8 @@ export function SettingsDesk({
       name: "Shopify",
       ok: status.shopify,
       why: "Publishes products to your store and brings new checkouts into Orders.",
+      href: storefrontUrl || undefined,
+      hrefLabel: storefrontUrl ? "Open storefront" : undefined,
     },
     {
       name: "Meta ads",
@@ -144,6 +148,11 @@ export function SettingsDesk({
               <Badge tone={c.ok ? "profit" : "line"}>{c.ok ? "Connected" : "Needs you"}</Badge>
             </div>
             <p className="mt-2 text-sm text-muted">{c.why}</p>
+            {"href" in c && c.href ? (
+              <a href={c.href} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-accent">
+                {c.hrefLabel ?? "Open"} →
+              </a>
+            ) : null}
           </Card>
         ))}
       </div>
@@ -226,6 +235,29 @@ export function SettingsDesk({
             {msg ? <span className="ml-3 text-sm text-profit">{msg}</span> : null}
           </div>
         </form>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold">Repair catalog data</h2>
+        <p className="mt-1 text-sm text-muted">
+          Caps fake ~99k stock figures, fixes unlabeled “Option” variants, and aligns sell prices to your
+          markup. Safe to run anytime.
+        </p>
+        <Button
+          className="mt-4"
+          tone="line"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const result = await repairCatalog();
+              setMsg(
+                `Repaired ${result.variantsFixed} variants, ${result.productsPriced} prices, linked ${result.suppliersLinked} suppliers.`,
+              );
+            })
+          }
+        >
+          Repair catalog
+        </Button>
       </Card>
 
       <Card className="p-5">
