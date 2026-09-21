@@ -5,6 +5,7 @@ import { env } from "./env";
 import { ensureDb } from "./db";
 import { campaignTrackers, users } from "./db/schema";
 import type { BillingSummary, PaywallPayload } from "./paywall";
+import { isSuperuser } from "./superuser";
 
 export type { BillingSummary };
 
@@ -71,12 +72,30 @@ async function maybeResetCycle() {
 export async function getBillingSummary(): Promise<BillingSummary> {
   const user = await maybeResetCycle();
   const db = await ensureDb();
-  const tier = asTier(user.subscriptionTier);
-  const plan = PLAN_LIMITS[tier];
   const active = await db
     .select({ n: sql<number>`count(*)` })
     .from(campaignTrackers)
     .where(eq(campaignTrackers.isPaused, false));
+  const campaignsUsed = Number(active[0]?.n ?? 0);
+
+  if (isSuperuser(user.email)) {
+    return {
+      tier: "scaler",
+      status: "active",
+      productsUsed: user.productsImportedCount,
+      productsLimit: Number.POSITIVE_INFINITY,
+      lensUsed: user.lensSearchesCount,
+      lensLimit: Number.POSITIVE_INFINITY,
+      campaignsUsed,
+      campaignsLimit: Number.POSITIVE_INFINITY,
+      period: "month",
+      label: "Superuser",
+      stripeReady: Boolean(env.stripeSecretKey && env.stripePriceStarter),
+    };
+  }
+
+  const tier = asTier(user.subscriptionTier);
+  const plan = PLAN_LIMITS[tier];
   return {
     tier,
     status: user.subscriptionStatus,
@@ -84,7 +103,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     productsLimit: plan.products,
     lensUsed: user.lensSearchesCount,
     lensLimit: plan.lens,
-    campaignsUsed: Number(active[0]?.n ?? 0),
+    campaignsUsed,
     campaignsLimit: plan.campaigns,
     period: plan.period,
     label: plan.label,
@@ -104,6 +123,7 @@ function paidPastDue(tier: SubscriptionTier, status: string): PaywallPayload | n
 
 export async function assertProductQuota() {
   const user = await maybeResetCycle();
+  if (isSuperuser(user.email)) return;
   const tier = asTier(user.subscriptionTier);
   const due = paidPastDue(tier, user.subscriptionStatus);
   if (due) throw new BillingError(due);
@@ -124,6 +144,7 @@ export async function assertProductQuota() {
 
 export async function assertLensQuota() {
   const user = await maybeResetCycle();
+  if (isSuperuser(user.email)) return;
   const tier = asTier(user.subscriptionTier);
   const due = paidPastDue(tier, user.subscriptionStatus);
   if (due) throw new BillingError(due);
@@ -144,6 +165,7 @@ export async function assertLensQuota() {
 
 export async function assertCampaignUnpause() {
   const user = await maybeResetCycle();
+  if (isSuperuser(user.email)) return;
   const tier = asTier(user.subscriptionTier);
   const due = paidPastDue(tier, user.subscriptionStatus);
   if (due) throw new BillingError(due);

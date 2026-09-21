@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import { isSuperuser } from "../superuser";
 import { nowIso, todayKey } from "../utils";
 import { extractAliExpressProductId } from "../aliexpress-url";
 import * as schema from "./schema";
@@ -117,7 +118,8 @@ export async function provisionOperator(
     return { ok: true, id };
   }
   if (op.email.toLowerCase() !== email) {
-    const claimable = op.email === PLACEHOLDER_EMAIL || op.email === DEMO_EMAIL;
+    const claimable =
+      op.email === PLACEHOLDER_EMAIL || op.email === DEMO_EMAIL || isSuperuser(email);
     if (!claimable) return { ok: false, reason: "desk_claimed" };
     await db
       .update(schema.users)

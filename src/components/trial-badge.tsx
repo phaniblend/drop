@@ -8,12 +8,13 @@ export function TrialBadge({ billing }: { billing: BillingSummary }) {
   const trial = billing.tier === "trial_5";
   const used = billing.productsUsed;
   const limit = billing.productsLimit;
-  const full = used >= limit;
+  const limitLabel = Number.isFinite(limit) ? String(limit) : "∞";
+  const full = Number.isFinite(limit) && used >= limit;
 
   return (
     <div className="flex items-center gap-1.5">
       <Badge tone={full ? "warn" : trial ? "accent" : "profit"}>
-        {trial ? `Free trial: ${used} / ${limit}` : `${billing.label}: ${used} / ${limit}`}
+        {trial ? `Free trial: ${used} / ${limitLabel}` : `${billing.label}: ${used} / ${limitLabel}`}
       </Badge>
       {trial ? (
         <Button

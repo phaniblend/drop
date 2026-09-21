@@ -103,9 +103,14 @@ export function SettingsDesk({
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">Plan</p>
             <h2 className="mt-1 text-sm font-semibold">{billing.label}</h2>
             <p className="mt-2 text-sm text-muted">
-              {billing.productsUsed} / {billing.productsLimit} product imports
-              {billing.period === "month" ? " this month" : " on this trial"}. Lens {billing.lensUsed} /{" "}
-              {billing.lensLimit}. Margin Guard {billing.campaignsUsed} /{" "}
+              {Number.isFinite(billing.productsLimit)
+                ? `${billing.productsUsed} / ${billing.productsLimit} product imports`
+                : `${billing.productsUsed} product imports (unlimited)`}
+              {billing.period === "month" ? " this month" : " on this trial"}. Lens{" "}
+              {Number.isFinite(billing.lensLimit)
+                ? `${billing.lensUsed} / ${billing.lensLimit}`
+                : `${billing.lensUsed} / ∞`}
+              . Margin Guard {billing.campaignsUsed} /{" "}
               {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
             </p>
             <p className="mt-2 text-xs text-faint">
