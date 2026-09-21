@@ -13,8 +13,20 @@ export function isAliExpressItemUrl(raw: string): boolean {
 }
 
 export function extractAliExpressProductId(raw: string) {
-  const match = raw.match(/(?:item|i)\/(\d{10,})/i) || raw.match(/(\d{10,})/);
-  return match?.[1] ?? "";
+  const fromPath = raw.match(/\/(?:item|i)\/(\d{10,})/i);
+  if (fromPath?.[1]) return fromPath[1];
+  const fromQuery = raw.match(/[?&](?:productIds?|product_id)=(\d{10,})/i);
+  return fromQuery?.[1] ?? "";
+}
+
+export function canonicalListingUrl(raw: string) {
+  const id = extractAliExpressProductId(raw);
+  if (id) return `https://www.aliexpress.com/item/${id}.html`;
+  try {
+    return canonicalAliExpressUrl(raw);
+  } catch {
+    return raw.trim();
+  }
 }
 
 export function canonicalAliExpressUrl(raw: string): string {

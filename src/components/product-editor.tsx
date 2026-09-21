@@ -34,6 +34,7 @@ export function ProductEditor({
   const [shipping, setShipping] = useState(String(product.shippingCost));
   const [copyMode, setCopyMode] = useState("");
   const [publishMsg, setPublishMsg] = useState("");
+  const [showSupplier, setShowSupplier] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -168,12 +169,24 @@ export function ProductEditor({
       </div>
 
       <Card>
-        <CardHeader title="Sizes & colors" eyebrow="Options" />
+        <CardHeader
+          title="Sizes & colors"
+          eyebrow="Options"
+          action={
+            <button
+              type="button"
+              className="text-xs text-accent"
+              onClick={() => setShowSupplier((open) => !open)}
+            >
+              {showSupplier ? "Hide supplier data" : "Show supplier data"}
+            </button>
+          }
+        />
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
               <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Supplier code</th>
+              {showSupplier ? <th className="px-4 py-3">Supplier code</th> : null}
               <th className="px-4 py-3">Cost</th>
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Stock</th>
@@ -183,7 +196,7 @@ export function ProductEditor({
             {product.variants.map((v) => (
               <tr key={v.id}>
                 <td className="px-4 py-3">{humanizeVariantLabel(v.variantName)}</td>
-                <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td>
+                {showSupplier ? <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td> : null}
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantCost)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantPrice)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{v.inventoryCount}</td>

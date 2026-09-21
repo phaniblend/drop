@@ -1,26 +1,15 @@
-import { agingHours, listMacros, listOrders, listProducts, listRefunds, listTasks } from "@/lib/db/queries";
+import { getDashboard, listMacros } from "@/lib/db/queries";
 import { OpsDesk } from "@/components/ops-desk";
 
 export default async function OpsPage() {
-  const [tasks, macros, refunds, orders, catalog] = await Promise.all([
-    listTasks(),
-    listMacros(),
-    listRefunds(),
-    listOrders(),
-    listProducts(),
-  ]);
-  const stale = orders.filter(
-    (o) =>
-      (o.fulfillmentStatus === "shipped" && agingHours(o) > 24 * 10) ||
-      (o.fulfillmentStatus === "ordered_supplier" && agingHours(o) > 48),
-  );
+  const [data, macros] = await Promise.all([getDashboard(), listMacros()]);
   return (
     <OpsDesk
-      tasks={tasks}
+      tasks={data.tasks}
       macros={macros}
-      refunds={refunds}
-      stale={stale}
-      products={catalog}
+      refunds={data.refunds}
+      stale={data.staleOrders}
+      products={data.catalog}
     />
   );
 }

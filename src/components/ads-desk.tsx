@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { runAllGuards, runCampaignGuard, saveSentinelSettings, togglePause } from "@/app/actions/campaigns";
+import {
+  previewCampaignGuard,
+  runAllGuards,
+  runCampaignGuard,
+  saveSentinelSettings,
+  togglePause,
+} from "@/app/actions/campaigns";
 import { money } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { emitPaywall, hasPaywall } from "@/lib/paywall";
@@ -39,16 +45,21 @@ export function AdsDesk({
   campaigns,
   sentinelRaw,
   daypartingEnabled,
+  adsLive = false,
+  guardLog = [],
 }: {
   campaigns: CampaignRow[];
   sentinelRaw: string;
   daypartingEnabled: boolean;
+  adsLive?: boolean;
+  guardLog?: Array<{ id: string; message: string }>;
 }) {
   const [pending, start] = useTransition();
   const initial = parseSentinelSettings(sentinelRaw);
   const [sentinel, setSentinel] = useState<SentinelSettings>(initial);
   const [saved, setSaved] = useState("");
   const [pauseError, setPauseError] = useState("");
+  const [preview, setPreview] = useState<Record<string, string>>({});
 
   return (
     <div className="space-y-6">
@@ -57,9 +68,17 @@ export function AdsDesk({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Ads & Guard</p>
           <h1 className="mt-1 text-2xl font-semibold">Kill losers before they eat the store</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Pauses ads that are losing money, and watches the first clicks before anyone buys. Live Meta/TikTok tokens pause the real ad set; demo pauses
-            only in this desk. Dayparting {daypartingEnabled ? "is on" : "is off"} in Settings.
+            Pauses ads that are losing money, and watches the first clicks before anyone buys. Quiet hours
+            {daypartingEnabled ? " are on" : " are off"} in Settings.
           </p>
+          {adsLive ? (
+            <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>
+          ) : (
+            <p className="mt-2 text-xs text-warn">
+              Meta and TikTok are not connected. Checks stay in this desk. Connect those accounts in Settings before
+              trusting this with real spend.
+            </p>
+          )}
         </div>
         <Button
           tone="accent"
@@ -157,9 +176,22 @@ export function AdsDesk({
         </p>
         <p className="mt-2 text-xs text-muted">
           Ads are checked automatically every 15 minutes. Quiet hours (1:00–6:00 store time) pause spend while
-          shoppers are asleep.
+          shoppers are asleep. Use Preview pause to see why an ad would stop before it actually stops.
         </p>
       </Card>
+
+      {guardLog.length ? (
+        <Card>
+          <CardHeader eyebrow="Why it paused" title="Recent Guard checks" />
+          <ul className="divide-y divide-line">
+            {guardLog.map((item) => (
+              <li key={item.id} className="px-5 py-3 text-sm text-muted">
+                {item.message}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {campaigns.map((c) => {
@@ -217,13 +249,27 @@ export function AdsDesk({
                   <dd className={c.profit >= 0 ? "text-profit" : "text-loss"}>{money(c.profit)}</dd>
                 </div>
               </dl>
-              <div className="mt-4 flex gap-2">
+              {preview[c.id] ? <p className="mt-3 text-xs text-muted">{preview[c.id]}</p> : null}
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   tone="line"
                   disabled={pending}
                   onClick={() =>
-                    start(() => {
-                      void runCampaignGuard(c.id);
+                    start(async () => {
+                      const res = await previewCampaignGuard(c.id);
+                      setPreview((prev) => ({ ...prev, [c.id]: res.explanation }));
+                    })
+                  }
+                >
+                  Preview pause
+                </Button>
+                <Button
+                  tone="line"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      const res = await runCampaignGuard(c.id);
+                      setPreview((prev) => ({ ...prev, [c.id]: res.explanation }));
                     })
                   }
                 >

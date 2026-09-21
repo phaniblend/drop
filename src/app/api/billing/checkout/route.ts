@@ -16,8 +16,7 @@ export async function POST(req: NextRequest) {
   if (!env.stripeSecretKey || !priceId) {
     return NextResponse.json(
       {
-        error:
-          "Stripe is not connected yet. Add STRIPE_SECRET_KEY and STRIPE_PRICE_STARTER (and STRIPE_PRICE_SCALER) to .env.local.",
+        error: "Upgrade checkout is not connected yet. Ask whoever set up the store to connect billing.",
       },
       { status: 503 },
     );
@@ -40,6 +39,8 @@ export async function POST(req: NextRequest) {
       cancel_url: `${origin}/discover?canceled=true`,
       "metadata[userId]": user.id,
       "metadata[plan]": plan,
+      "subscription_data[metadata][userId]": user.id,
+      "subscription_data[metadata][plan]": plan,
     });
     return NextResponse.json({ url: session.url });
   } catch (error) {

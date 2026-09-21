@@ -62,7 +62,7 @@ export async function searchCompetitorAds(query: string) {
     return {
       ok: true as const,
       mode: "demo" as const,
-      warning: "META_ACCESS_TOKEN is empty, so these are sample Ad Library rows. Add a token with ads_archive access for live creatives.",
+      warning: "Meta ads are not connected, so these are sample rows. Connect Meta in Settings for live creatives.",
       ads: demoAds(searchTerms),
     };
   }

@@ -18,6 +18,7 @@ export type ParsedSupplierPayload = {
   galleryImages: string[];
   source: "aliexpress" | "cj" | "manual";
   variants: SupplierVariant[];
+  importPath?: "catalog" | "page";
 };
 
 export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload {
@@ -80,14 +81,18 @@ export async function scrapeSupplierUrl(targetUrl: string): Promise<ParsedSuppli
   const fromFeed = lookupFeedByUrl(url);
   if (fromFeed) return fromFeed;
 
-  if (env.aliexpressAppKey && env.aliexpressAppSecret && /aliexpress\.com/i.test(url)) {
-    const { fetchAliExpressProduct } = await import("./integrations/aliexpress");
-    return fetchAliExpressProduct(url);
+  if (env.aliexpressAppKey && env.aliexpressAppSecret && /aliexpress\./i.test(url)) {
+    try {
+      const { fetchAliExpressProduct } = await import("./integrations/aliexpress");
+      return { ...(await fetchAliExpressProduct(url)), importPath: "catalog" };
+    } catch {
+      // Official catalog failed — read the public listing page instead.
+    }
   }
 
   if (isAliExpressItemUrl(url)) {
     const { scrapeAliExpressListing } = await import("./aliexpress-scrape");
-    return listingToParsed(await scrapeAliExpressListing(url));
+    return { ...listingToParsed(await scrapeAliExpressListing(url)), importPath: "page" };
   }
 
   throw new Error("Paste a full AliExpress item URL (aliexpress.com/item/...).");

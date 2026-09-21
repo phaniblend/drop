@@ -45,7 +45,7 @@ export async function publishProductToShopify(
       handle: data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       title: data.title,
       warning:
-        "Shopify is not connected. Product was marked published locally. Add SHOPIFY_STORE_DOMAIN + SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET to push for real.",
+        "Shopify is not connected. The product is marked published here only.",
     };
   }
 

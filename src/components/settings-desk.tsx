@@ -76,7 +76,7 @@ export function SettingsDesk({
     {
       name: "Listing import",
       ok: status.scrape,
-      why: "Pulls photos and price when you paste a supplier URL.",
+      why: "Pulls photos and price when you paste a supplier URL. If the official catalog is blocked, the desk reads the listing page instead and writes that to Command activity.",
     },
     {
       name: "Billing",

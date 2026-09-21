@@ -8,10 +8,10 @@ function errorCopy(code?: string) {
     return "This desk already belongs to another Google account.";
   }
   if (code === "Configuration") {
-    return "Google Sign-In is not configured yet. Add AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET to .env.local.";
+    return "Google Sign-In is not set up yet. Ask whoever hosts this desk to connect Google.";
   }
   if (code === "OAuthCallback" || code === "OAuthAccountNotLinked") {
-    return "Google rejected the sign-in. Check that the redirect URI is http://localhost:3000/api/auth/callback/google.";
+    return "Google rejected the sign-in. Try again, or ask whoever hosts this desk to check the Google app settings.";
   }
   if (code) return "Could not sign in with Google. Try again.";
   return null;
@@ -52,10 +52,7 @@ export default async function LoginPage({
               Continue with Google
             </Button>
             <p className="text-xs leading-5 text-muted">
-              Add <code className="font-mono text-[11px]">AUTH_GOOGLE_ID</code> and{" "}
-              <code className="font-mono text-[11px]">AUTH_GOOGLE_SECRET</code> from a Google Cloud OAuth web
-              client. Authorized redirect:{" "}
-              <code className="font-mono text-[11px]">http://localhost:3000/api/auth/callback/google</code>
+              Google Sign-In is not connected yet. Ask whoever hosts this desk to finish setup.
             </p>
           </div>
         )}

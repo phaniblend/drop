@@ -20,11 +20,12 @@ export async function POST(req: NextRequest) {
     };
   };
 
-  if (event.type === "checkout.session.completed") {
+  if (event.type === "checkout.session.completed" || event.type === "customer.subscription.updated") {
     const session = event.data?.object;
     const userId = session?.metadata?.userId;
-    const customerId = session?.customer;
-    const subscriptionId = session?.subscription;
+    const customerId = typeof session?.customer === "string" ? session.customer : undefined;
+    const subscriptionId =
+      typeof session?.subscription === "string" ? session.subscription : session?.id;
     if (userId && customerId && subscriptionId) {
       await applyStripeSubscription({
         userId,

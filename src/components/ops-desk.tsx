@@ -107,7 +107,7 @@ export function OpsDesk({
 
       <div id="refunds">
         <Card>
-          <CardHeader title="Refund queue" eyebrow="Keep the review" />
+          <CardHeader title="Refund queue" eyebrow="Open requests" />
           <div className="divide-y divide-line">
             {refunds.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">No open refunds. This stays empty until a customer asks for one.</p>

@@ -25,11 +25,12 @@ export async function importFromFeed(feedId: string) {
   const feed = getFeedProduct(feedId);
   if (!feed) throw new Error("That supplier listing is no longer in the feed.");
   const existing = await findProductBySupplierUrl(feed.url);
-  if (existing) return { id: existing.id };
-  try {
-    await assertProductQuota();
-  } catch (error) {
-    return paywallResult(error);
+  if (!existing) {
+    try {
+      await assertProductQuota();
+    } catch (error) {
+      return paywallResult(error);
+    }
   }
   const copy = await enrichCopy({
     rawTitle: feed.cleanTitle,
@@ -65,7 +66,9 @@ export async function importFromFeed(feedId: string) {
   const db = await ensureDb();
   await logActivity(db, {
     kind: "import",
-    message: `Imported ${copy.title} from ${feed.supplierName}.`,
+    message: existing
+      ? `Updated existing draft for ${copy.title}.`
+      : `Imported ${copy.title} from ${feed.supplierName}.`,
     href: `/catalog/${id}`,
   });
   revalidatePath("/catalog");
@@ -77,11 +80,12 @@ export async function importFromFeed(feedId: string) {
 
 export async function importFromSupplierUrl(url: string) {
   const existing = await findProductBySupplierUrl(url);
-  if (existing) return { id: existing.id };
-  try {
-    await assertProductQuota();
-  } catch (error) {
-    return paywallResult(error);
+  if (!existing) {
+    try {
+      await assertProductQuota();
+    } catch (error) {
+      return paywallResult(error);
+    }
   }
   const parsed = await scrapeSupplierUrl(url);
   const copy = await enrichCopy({
@@ -125,7 +129,9 @@ export async function importFromSupplierUrl(url: string) {
   const db = await ensureDb();
   await logActivity(db, {
     kind: "import",
-    message: `Imported ${copy.title} from supplier URL.`,
+    message: existing
+      ? `Updated existing draft for ${copy.title} (${parsed.importPath === "page" ? "listing page" : "official catalog"}).`
+      : `Imported ${copy.title} (${parsed.importPath === "page" ? "listing page" : "official catalog"}).`,
     href: `/catalog/${id}`,
   });
   revalidatePath("/catalog");
@@ -136,11 +142,12 @@ export async function importFromSupplierUrl(url: string) {
 
 export async function importScrapedListing(listing: ScrapedListing) {
   const existing = await findProductBySupplierUrl(listing.supplierUrl);
-  if (existing) return { id: existing.id };
-  try {
-    await assertProductQuota();
-  } catch (error) {
-    return paywallResult(error);
+  if (!existing) {
+    try {
+      await assertProductQuota();
+    } catch (error) {
+      return paywallResult(error);
+    }
   }
   const parsed = listingToParsed(listing);
   const copy = await enrichCopy({
@@ -184,7 +191,9 @@ export async function importScrapedListing(listing: ScrapedListing) {
   const db = await ensureDb();
   await logActivity(db, {
     kind: "import",
-    message: `Imported ${copy.title} from supplier URL.`,
+    message: existing
+      ? `Updated existing draft for ${copy.title} (listing page).`
+      : `Imported ${copy.title} (listing page).`,
     href: `/catalog/${id}`,
   });
   revalidatePath("/catalog");

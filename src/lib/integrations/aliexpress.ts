@@ -7,6 +7,12 @@ import type { ParsedSupplierPayload } from "../scraper";
 import { extractAliExpressProductId } from "../aliexpress-url";
 import { humanizeVariantLabel } from "../variant-label";
 import { fetchAliExpressHtml } from "../aliexpress-scrape/http";
+import {
+  collectHtmlListings,
+  queryWords,
+  titleMatches,
+  type HtmlListing,
+} from "../aliexpress-search-html";
 
 type AliParams = Record<string, string>;
 
@@ -144,23 +150,6 @@ function extractProducts(json: Record<string, unknown>): RecommendProduct[] {
   return asList(products?.traffic_product_d_t_o);
 }
 
-const STOP = new Set(["the", "and", "for", "with", "from", "that", "this"]);
-
-function queryWords(query: string) {
-  return query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((word) => word.length > 2 && !STOP.has(word));
-}
-
-function titleMatches(title: string, words: string[]) {
-  const hay = title.toLowerCase();
-  if (!words.length) return false;
-  const hits = words.filter((word) => hay.includes(word)).length;
-  if (words.length === 1) return hits === 1;
-  return hits >= Math.ceil(words.length * 0.6);
-}
-
 function scoreFeed(name: string, query: string) {
   const hay = name.toLowerCase().replace(/[_&]+/g, " ");
   const words = queryWords(query);
@@ -241,37 +230,26 @@ function collectProducts(pages: Array<Record<string, unknown> | null>, seen: Set
   return mapped;
 }
 
-function decodeAliTitle(raw: string) {
-  return raw
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-    .replace(/\\"/g, '"')
-    .trim();
+async function enrichMissingPrices(products: FeedProduct[]) {
+  const missing = products.filter((product) => product.cost <= 0).slice(0, 8);
+  await Promise.all(
+    missing.map(async (product) => {
+      try {
+        const detail = await fetchAliExpressProduct(product.url);
+        if (detail.baseCost > 0) product.cost = detail.baseCost;
+        product.shipping = detail.shippingCost;
+        product.shippingDays = detail.shippingDays;
+        if (detail.galleryImages[0]) product.image = detail.galleryImages[0];
+        if (detail.variants.length) product.variants = detail.variants;
+      } catch {
+        // Leave the card without a price rather than inventing one.
+      }
+    }),
+  );
+  return products;
 }
 
-function isProductTitle(title: string) {
-  if (title.length < 8) return false;
-  return !/dollar express|aliexpress|^search$|^log in$|^sign in$/i.test(title);
-}
-
-function collectHtmlListings(html: string) {
-  const found = new Map<string, RecommendProduct>();
-  const patterns = [
-    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,1400}?"(?:displayTitle|productTitle)"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
-    /"productId"\s*:\s*"?(\d{10,})"?[\s\S]{0,800}?"title"\s*:\s*"((?:\\.|[^"\\])+)"/gi,
-    /\/item\/(\d{10,})\.html[\s\S]{0,1800}?alt="([^"]{8,200})"/gi,
-  ];
-  for (const pattern of patterns) {
-    for (const match of html.matchAll(pattern)) {
-      const id = match[1];
-      const title = decodeAliTitle(match[2] ?? "");
-      if (!id || found.has(id) || !isProductTitle(title)) continue;
-      found.set(id, { product_id: id, product_title: title });
-    }
-  }
-  return [...found.values()];
-}
-
-async function searchAliExpressHtml(query: string): Promise<RecommendProduct[]> {
+async function searchAliExpressHtml(query: string): Promise<HtmlListing[]> {
   const slug = query.trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/gi, "");
   if (slug.length < 2) return [];
   const urls = [
@@ -304,16 +282,16 @@ export async function searchAliExpress(keyword: string, niche = "all"): Promise<
       .map(toFeedProduct)
       .filter((p): p is FeedProduct => Boolean(p && titleMatches(p.title, words) && !seen.has(p.id)));
     for (const product of fromHtml) seen.add(product.id);
-    if (fromHtml.length >= 8) return fromHtml.slice(0, 24);
+    if (fromHtml.length >= 8) return enrichMissingPrices(fromHtml.slice(0, 24));
     if (fromHtml.length) {
       const extra = await searchFromFeeds(feedQuery, words, seen);
-      return [...fromHtml, ...extra].slice(0, 24);
+      return enrichMissingPrices([...fromHtml, ...extra].slice(0, 24));
     }
   } catch {
     // Feed search still runs if the public listing page is blocked.
   }
 
-  return searchFromFeeds(feedQuery, words, seen);
+  return enrichMissingPrices(await searchFromFeeds(feedQuery, words, seen));
 }
 
 async function searchFromFeeds(query: string, words: string[], seen: Set<string>) {

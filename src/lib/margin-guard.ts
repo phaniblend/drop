@@ -150,6 +150,7 @@ export async function runSafetyCircuitCheck(input: {
   clicks?: number;
   addToCartCount?: number;
   sentinel?: SentinelSettings | string | null;
+  dryRun?: boolean;
 }) {
   const spendThreshold = input.spendThreshold ?? 50;
   const live = integrationStatus();
@@ -196,7 +197,7 @@ export async function runSafetyCircuitCheck(input: {
     pauseSource = "margin_guard";
   }
 
-  const shouldKill = actionTaken !== "MAINTAINED";
+  const shouldKill = actionTaken !== "MAINTAINED" && !input.dryRun;
   let pausedLive = false;
   if (shouldKill && liveCall) {
     if (input.platform === "meta" && env.metaToken) {

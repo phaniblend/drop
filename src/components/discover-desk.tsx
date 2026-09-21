@@ -360,9 +360,11 @@ export function DiscoverDesk({
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                  <span className="text-muted">Your cost {money(p.cost + p.shipping)}</span>
-                  <span className="text-right text-ink">{money(retail)}</span>
-                  <span className="text-profit">{pct(econ.margin)} after fees</span>
+                  <span className="text-muted">
+                    {p.cost > 0 ? `Your cost ${money(p.cost + p.shipping)}` : "Cost on import"}
+                  </span>
+                  <span className="text-right text-ink">{p.cost > 0 ? money(retail) : "—"}</span>
+                  <span className="text-profit">{p.cost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}</span>
                   <span className="text-right text-muted">
                     {p.orders30d
                       ? `${p.orders30d.toLocaleString()} / 30d`

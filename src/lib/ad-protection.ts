@@ -74,6 +74,40 @@ export function isPaidLaunchUnlocked(input: {
   return parseOrganicViews(input.organicViewsJson).every((n) => n >= ORGANIC_VIEW_FLOOR);
 }
 
+export function explainGuardDecision(input: {
+  actionTaken: string;
+  pauseReason?: string | null;
+  liveCall?: boolean;
+  pausedLive?: boolean;
+  dryRun?: boolean;
+  currentSpend: number;
+  spendThreshold: number;
+  netProfit: number;
+  roas: number;
+}) {
+  const spend = input.currentSpend.toFixed(2);
+  const floor = input.spendThreshold.toFixed(2);
+  const net = input.netProfit.toFixed(2);
+  const where = input.dryRun
+    ? "Preview only — no ad was paused."
+    : input.pausedLive
+      ? "The live ad set was paused."
+      : input.liveCall
+        ? "The live ad stayed on."
+        : "Ads are not connected, so this stayed in the desk only.";
+  const lead = input.dryRun ? "Would pause" : "Paused";
+  if (input.actionTaken === "POOR_HOOK_CTR") {
+    return `${lead}: spend reached $${spend} and the first clicks look too expensive or too few. ${where}`;
+  }
+  if (input.actionTaken === "ZERO_CART_INTENT") {
+    return `${lead}: spend reached $${spend} and nobody added to cart. ${where}`;
+  }
+  if (input.actionTaken === "KILLED_CAMPAIGN") {
+    return `${lead}: spend reached the $${floor} pause-after amount and the ad is not paying back (net $${net}, ${input.roas.toFixed(2)}x). ${where}`;
+  }
+  return `Keep running. Spend $${spend} of $${floor} pause-after. Net $${net}. ${where}`;
+}
+
 export function organicUnlockState(input: {
   organicStatus?: string | null;
   organicViewsJson?: string | null;

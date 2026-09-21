@@ -190,6 +190,9 @@ export function Shell({
                 className="hidden h-8 w-8 rounded-full border border-line object-cover sm:block"
               />
             ) : null}
+            {operatorName ? (
+              <span className="hidden max-w-[10rem] truncate text-xs text-muted sm:inline">{operatorName}</span>
+            ) : null}
             <TrialBadge billing={billing} />
             <Badge tone={liveCount ? "profit" : "accent"}>{liveCount ? "Live mix" : "Local"}</Badge>
             <SignOutButton className="hidden h-8 px-2.5 text-xs md:inline-flex" />

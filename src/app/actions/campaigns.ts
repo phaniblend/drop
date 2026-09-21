@@ -10,6 +10,7 @@ import { runSafetyCircuitCheck } from "@/lib/margin-guard";
 import { assertCampaignUnpause, isBillingError } from "@/lib/billing";
 import {
   DEFAULT_SENTINEL,
+  explainGuardDecision,
   isPaidLaunchUnlocked,
   parseSentinelSettings,
   type SentinelSettings,
@@ -62,17 +63,48 @@ export async function runCampaignGuard(campaignId: string) {
     })
     .where(eq(campaignTrackers.id, campaignId));
 
+  const explanation = explainGuardDecision({
+    ...result,
+    spendThreshold: campaign.spendLimitThreshold,
+    dryRun: false,
+  });
   await logActivity(db, {
     kind: killed ? "alert" : "ads",
-    message: killed
-      ? `Guard paused ${campaign.adSetName} (${result.actionTaken}, net ${result.netProfit.toFixed(2)}).`
-      : `${campaign.adSetName} passed the profit check (net ${result.netProfit.toFixed(2)}).`,
+    message: `${explanation} (${campaign.adSetName})`,
     href: "/ads",
   });
 
   revalidatePath("/ads");
   revalidatePath("/");
-  return result;
+  return { ...result, explanation };
+}
+
+export async function previewCampaignGuard(campaignId: string) {
+  const [campaigns, operator] = await Promise.all([listCampaigns(), getOperator()]);
+  const campaign = campaigns.find((c) => c.id === campaignId);
+  if (!campaign) throw new Error("Campaign not found.");
+  const result = await runSafetyCircuitCheck({
+    adSetId: campaign.adSetId,
+    platform: campaign.platform === "tiktok" ? "tiktok" : "meta",
+    attributedRevenue: campaign.revenueToday,
+    totalCogs: campaign.cogsToday,
+    spendThreshold: campaign.spendLimitThreshold,
+    minRoas: campaign.minRoasThreshold,
+    currentSpend: campaign.spendToday,
+    impressions: campaign.impressions ?? 0,
+    clicks: campaign.clicks ?? 0,
+    addToCartCount: campaign.addToCartCount ?? 0,
+    sentinel: operator?.sentinelSettings,
+    dryRun: true,
+  });
+  return {
+    ...result,
+    explanation: explainGuardDecision({
+      ...result,
+      spendThreshold: campaign.spendLimitThreshold,
+      dryRun: true,
+    }),
+  };
 }
 
 export async function runAllGuards() {

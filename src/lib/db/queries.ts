@@ -20,7 +20,7 @@ import {
   type Product,
 } from "./schema";
 import { assertProductQuota, incrementProductsImported } from "../billing";
-import { extractAliExpressProductId } from "../aliexpress-url";
+import { canonicalListingUrl, extractAliExpressProductId } from "../aliexpress-url";
 
 export async function getOperator() {
   const db = await ensureDb();
@@ -155,6 +155,13 @@ export function agingHours(order: Pick<Order, "createdAt">) {
   return (Date.now() - new Date(order.createdAt).getTime()) / 3600_000;
 }
 
+export function isStaleOrder(order: Order) {
+  return (
+    (order.fulfillmentStatus === "shipped" && agingHours(order) > 24 * 10) ||
+    (order.fulfillmentStatus === "ordered_supplier" && agingHours(order) > 48)
+  );
+}
+
 export async function getDashboard() {
   const [user, catalog, orderRows, campaignRows, tasks, activity, refundRows, integrations] =
     await Promise.all([
@@ -182,10 +189,7 @@ export async function getDashboard() {
   const needTracking = orderRows.filter(
     (o) => o.fulfillmentStatus === "ordered_supplier" && !o.trackingNumber,
   );
-  const shippedAging = orderRows.filter((o) => {
-    if (o.fulfillmentStatus !== "shipped") return false;
-    return agingHours(o) > 24 * 12;
-  });
+  const staleOrders = orderRows.filter(isStaleOrder);
   const lowStock = catalog.filter((p) => p.stock < 30 && p.status === "published");
   const atRiskAds = campaignRows.filter((c) => c.atRisk);
 
@@ -252,7 +256,7 @@ export async function getDashboard() {
         detail: `${p.stock} units left — pause ads if it hits 10`,
         href: "/suppliers",
       })),
-      ...shippedAging.map((o) => ({
+      ...staleOrders.map((o) => ({
         tone: "warn" as const,
         title: `${o.orderNumber} tracking is stale`,
         detail: `${o.trackingNumber ?? "No scan"} · ${o.customerName}`,
@@ -273,7 +277,7 @@ export async function getDashboard() {
           tone: "warn" as const,
           title: `Organic test still open: ${p.cleanTitle ?? p.rawTitle}`,
           detail: "3 hook videos need 1,000+ views each before paid launch.",
-          href: "/ops#organic",
+          href: `/catalog/${p.id}`,
         })),
     ],
     pendingCount: pending.length,
@@ -286,6 +290,9 @@ export async function getDashboard() {
     campaignRows,
     catalog,
     organicQueue: catalog.filter((p) => p.organicStatus === "pending"),
+    refunds: refundRows,
+    staleOrders,
+    orders: orderRows,
   };
 }
 
@@ -305,7 +312,67 @@ export async function findProductBySupplierUrl(url: string) {
   if (!listingId) return null;
   const db = await ensureDb();
   const rows = await db.select().from(products);
-  return rows.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId) ?? null;
+  return (
+    rows.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId) ??
+    rows.find((row) => row.supplierUrl.includes(listingId)) ??
+    null
+  );
+}
+
+export async function refreshImportedProduct(
+  id: string,
+  input: {
+    rawTitle: string;
+    imageUrl?: string;
+    gallery?: string[];
+    baseCost: number;
+    shippingCost: number;
+    shippingDays?: number;
+    supplierUrl: string;
+    supplierName?: string;
+    variants: Array<{
+      skuId: string;
+      name: string;
+      cost: number;
+      price: number;
+      stock: number;
+      imageUrl?: string;
+    }>;
+  },
+) {
+  const db = await ensureDb();
+  const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+  if (!existing) return id;
+  await db
+    .update(products)
+    .set({
+      rawTitle: input.rawTitle,
+      supplierUrl: canonicalListingUrl(input.supplierUrl),
+      supplierName: input.supplierName ?? existing.supplierName,
+      imageUrl: input.imageUrl ?? existing.imageUrl,
+      galleryJson: JSON.stringify(input.gallery ?? []),
+      baseCost: input.baseCost > 0 ? input.baseCost : existing.baseCost,
+      shippingCost: input.shippingCost,
+      shippingDays: input.shippingDays ?? existing.shippingDays,
+    })
+    .where(eq(products.id, id));
+  if (existing.status === "draft" && input.variants.length) {
+    await db.delete(productVariants).where(eq(productVariants.productId, id));
+    await db.insert(productVariants).values(
+      input.variants.map((v, i) => ({
+        id: `${id}_var_${i + 1}`,
+        productId: id,
+        supplierSkuId: v.skuId,
+        variantName: v.name,
+        variantCost: v.cost,
+        variantPrice: v.price,
+        inventoryCount: v.stock,
+        supplierImageUrl: v.imageUrl ?? input.imageUrl ?? null,
+        cleanImageUrl: v.imageUrl ?? input.imageUrl ?? null,
+      })),
+    );
+  }
+  return id;
 }
 
 export async function insertImportedProduct(input: {
@@ -334,11 +401,11 @@ export async function insertImportedProduct(input: {
 }) {
   const operator = await requireOperator();
   const db = await ensureDb();
-  const listingId = extractAliExpressProductId(input.supplierUrl);
-  if (listingId) {
-    const existing = await db.select().from(products);
-    const match = existing.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId);
-    if (match) return match.id;
+  const supplierUrl = canonicalListingUrl(input.supplierUrl);
+  const existing = await findProductBySupplierUrl(supplierUrl);
+  if (existing) {
+    await refreshImportedProduct(existing.id, { ...input, supplierUrl });
+    return existing.id;
   }
   await assertProductQuota();
   const id = `prod_${crypto.randomUUID().slice(0, 10)}`;
@@ -346,7 +413,7 @@ export async function insertImportedProduct(input: {
     id,
     userId: operator.id,
     supplierSource: input.supplierSource ?? "aliexpress",
-    supplierUrl: input.supplierUrl,
+    supplierUrl,
     supplierName: input.supplierName ?? "AliExpress",
     rawTitle: input.rawTitle,
     cleanTitle: input.cleanTitle,
