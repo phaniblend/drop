@@ -44,52 +44,44 @@ export function SettingsDesk({
 
   const connections = [
     {
-      name: "Shopify Admin API",
+      name: "Shopify",
       ok: status.shopify,
-      need: "SHOPIFY_STORE_DOMAIN + SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET",
-      why: "Publish products and capture orders/create webhooks.",
+      why: "Publishes products to your store and brings new checkouts into Orders.",
     },
     {
-      name: "Meta Marketing API",
+      name: "Meta ads",
       ok: status.meta,
-      need: "META_ACCESS_TOKEN (+ META_AD_ACCOUNT_ID)",
-      why: "Hourly spend polling and auto-pause.",
+      why: "Reads spend and can pause Facebook and Instagram ads that are losing money.",
     },
     {
-      name: "TikTok Marketing API",
+      name: "TikTok ads",
       ok: status.tiktok,
-      need: "TIKTOK_ACCESS_TOKEN + TIKTOK_ADVERTISER_ID",
-      why: "Ad group analytics and disable.",
+      why: "Reads spend and can pause TikTok ads that are losing money.",
     },
     {
-      name: "AliExpress Open API",
+      name: "AliExpress",
       ok: status.aliexpress,
-      need: "ALIEXPRESS_APP_KEY + SECRET (+ ACCESS_TOKEN)",
-      why: "Official catalog instead of the demo feed / scrape.",
+      why: "Finds live supplier listings when you search on Discover.",
     },
     {
-      name: "SerpApi Google Lens",
+      name: "Visual match",
       ok: status.serp,
-      need: "SERPAPI_KEY",
-      why: "Reverse-search competitor ads to supplier URLs.",
+      why: "Finds a supplier listing from a competitor ad photo.",
     },
     {
-      name: "AI copy (Vercel AI Gateway)",
+      name: "AI copy",
       ok: status.ai,
-      need: "AI_GATEWAY_API_KEY",
-      why: "Rewrite wholesale titles into storefront copy.",
+      why: "Rewrites wholesale titles into storefront copy.",
     },
     {
-      name: "Headless scrape",
+      name: "Listing import",
       ok: status.scrape,
-      need: "Playwright Chromium (no API key)",
-      why: "Import URL fetches AliExpress HTML, then falls back to headless Chromium if blocked.",
+      why: "Pulls photos and price when you paste a supplier URL.",
     },
     {
-      name: "Stripe Billing",
+      name: "Billing",
       ok: billing.stripeReady,
-      need: "STRIPE_SECRET_KEY + STRIPE_PRICE_STARTER (+ STRIPE_PRICE_SCALER)",
-      why: "Checkout for Starter $19 / Scaler $39 after the 5-product trial.",
+      why: "Takes the Starter or Scaler upgrade after the free trial.",
     },
   ];
 
@@ -99,8 +91,8 @@ export function SettingsDesk({
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Settings</p>
         <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Store + integrations</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Connected APIs replace sandbox data. Paste keys into <code className="font-mono">.env.local</code>{" "}
-          (see <code className="font-mono">env.example</code>).
+          Connected means that account is live. Needs you means it still has to be linked by whoever set up the
+          store — you do not paste keys on this page.
         </p>
         <PwaInstallButton />
       </div>
@@ -116,10 +108,8 @@ export function SettingsDesk({
               {billing.lensLimit}. Margin Guard {billing.campaignsUsed} /{" "}
               {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
             </p>
-            <p className="mt-2 font-mono text-[11px] text-faint">
-              {billing.stripeReady
-                ? "Stripe checkout is connected."
-                : "STRIPE_SECRET_KEY + STRIPE_PRICE_STARTER to take payments."}
+            <p className="mt-2 text-xs text-faint">
+              {billing.stripeReady ? "Upgrade checkout is ready." : "Upgrade checkout is not connected yet."}
             </p>
           </div>
           {billing.tier === "trial_5" ? (
@@ -149,7 +139,6 @@ export function SettingsDesk({
               <Badge tone={c.ok ? "profit" : "line"}>{c.ok ? "Connected" : "Needs you"}</Badge>
             </div>
             <p className="mt-2 text-sm text-muted">{c.why}</p>
-            <p className="mt-3 font-mono text-[11px] text-faint">{c.need}</p>
           </Card>
         ))}
       </div>

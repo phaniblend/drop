@@ -156,8 +156,8 @@ export function AdsDesk({
           Net profit = sales from the ad − what you paid for the products − ad spend − card fees (2.9% + $0.30)
         </p>
         <p className="mt-2 text-xs text-muted">
-          Cron GET /api/cron/margin-guard?secret=CRON_SECRET every 15 minutes, and /api/cron/hourly at the top of
-          each hour for dayparting (1:00–6:00 store time).
+          Ads are checked automatically every 15 minutes. Quiet hours (1:00–6:00 store time) pause spend while
+          shoppers are asleep.
         </p>
       </Card>
 

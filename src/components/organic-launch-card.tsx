@@ -21,7 +21,7 @@ export function OrganicLaunchCard({
   catalogCount?: number;
 }) {
   const pending = products.filter((p) => p.organicStatus === "pending");
-  if (catalogCount === 0) {
+  if (pending.length === 0 && catalogCount === 0) {
     return (
       <Card className="p-5">
         <p className="text-xs uppercase tracking-wider text-faint">3-video organic test</p>

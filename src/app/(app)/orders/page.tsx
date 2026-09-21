@@ -65,6 +65,13 @@ export default async function OrdersPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted">
+                  No orders yet. When Shopify checkouts land, they show up here.
+                </td>
+              </tr>
+            ) : null}
             {rows.map((o) => (
               <tr key={o.id} className="hover:bg-black/[0.02]">
                 <td className="px-4 py-3">

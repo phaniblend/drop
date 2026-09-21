@@ -80,7 +80,9 @@ export function OpsDesk({
         </Card>
       </div>
 
-      <OrganicLaunchCard products={products} />
+      <div id="organic">
+        <OrganicLaunchCard products={products} catalogCount={products.length} />
+      </div>
 
       <Card>
         <CardHeader title="Saved replies" eyebrow="Customer messages" />
@@ -103,29 +105,34 @@ export function OpsDesk({
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Refund queue" eyebrow="Save the review" />
-        <div className="divide-y divide-line">
-          {refunds.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-              <div>
-                <p className="text-sm font-medium">
-                  {r.order?.orderNumber ?? "Order"} · {money(r.amount)}
-                </p>
-                <p className="text-xs text-muted">{r.reason}</p>
+      <div id="refunds">
+        <Card>
+          <CardHeader title="Refund queue" eyebrow="Keep the review" />
+          <div className="divide-y divide-line">
+            {refunds.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted">No open refunds. This stays empty until a customer asks for one.</p>
+            ) : null}
+            {refunds.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                <div>
+                  <p className="text-sm font-medium">
+                    {r.order?.orderNumber ?? "Order"} · {money(r.amount)}
+                  </p>
+                  <p className="text-xs text-muted">{r.reason}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={r.status === "open" ? "loss" : "profit"}>{r.status}</Badge>
+                  {r.status === "open" ? (
+                    <Button tone="line" onClick={() => resolveRefund(r.id, "resolved")}>
+                      Mark resolved
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge tone={r.status === "open" ? "loss" : "profit"}>{r.status}</Badge>
-                {r.status === "open" ? (
-                  <Button tone="line" onClick={() => resolveRefund(r.id, "resolved")}>
-                    Mark resolved
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -309,7 +309,7 @@ export function DiscoverDesk({
       <div className="flex flex-wrap items-center gap-2">
         <input
           className={`${inputClass} max-w-xs`}
-          placeholder={aliLive ? "Search AliExpress" : "Search the feed"}
+          placeholder="Search for products to sell"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -329,7 +329,11 @@ export function DiscoverDesk({
       {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
 
       {aliLive && query.trim().length < 2 ? (
-        <p className="text-sm text-muted">Type at least 2 characters to pull live AliExpress results.</p>
+        <p className="text-sm text-muted">Type a product name to see live listings you can sell.</p>
+      ) : null}
+
+      {aliLive && query.trim().length >= 2 && !pending && rows.length === 0 && !searchError ? (
+        <p className="text-sm text-muted">No listings matched that name. Try two or three simple words.</p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

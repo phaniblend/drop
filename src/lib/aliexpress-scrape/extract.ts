@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { ScrapedListing, ScrapedVariant } from "./types";
+import { humanizeVariantLabel } from "../variant-label";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -147,7 +148,7 @@ function skuList(root: Record<string, unknown>): ScrapedVariant[] {
       const price = num(val.actSkuCalPrice ?? val.skuCalPrice ?? rec.skuAmount ?? rec.price);
       const variant: ScrapedVariant = {
         skuId: String(rec.skuId ?? rec.sku_id ?? "default"),
-        name: String(rec.skuAttr ?? rec.skuAttrStr ?? rec.name ?? "Default"),
+        name: humanizeVariantLabel(String(rec.skuAttr ?? rec.skuAttrStr ?? rec.name ?? "Default")),
         inventory: Math.round(num(val.availQuantity ?? rec.skuAvailQuantity ?? rec.inventory, 0)),
         price,
         image: absUrl(String(rec.skuPropertyImagePath ?? rec.skuImg ?? "")) || undefined,

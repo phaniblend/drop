@@ -1,5 +1,6 @@
 import { extractAliExpressListing } from "./aliexpress-scrape/extract";
 import type { ScrapedListing } from "./aliexpress-scrape/types";
+import { humanizeVariantLabel } from "./variant-label";
 
 export type SupplierVariant = {
   skuId: string;
@@ -25,7 +26,7 @@ export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload 
     listing.variants.length > 0
       ? listing.variants.map((v) => ({
           skuId: v.skuId,
-          attributes: v.name,
+          attributes: humanizeVariantLabel(v.name),
           cost: v.price ?? sale,
           stock: v.inventory,
           imageUrl: v.image,

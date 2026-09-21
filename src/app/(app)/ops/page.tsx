@@ -20,7 +20,7 @@ export default async function OpsPage() {
       macros={macros}
       refunds={refunds}
       stale={stale}
-      products={catalog.filter((p) => p.organicStatus === "pending")}
+      products={catalog}
     />
   );
 }

@@ -9,6 +9,7 @@ import {
   updateProductPricing,
 } from "@/app/actions/products";
 import { money, pct } from "@/lib/utils";
+import { humanizeVariantLabel } from "@/lib/variant-label";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
 import { Thumb } from "./thumb";
@@ -181,7 +182,7 @@ export function ProductEditor({
           <tbody className="divide-y divide-line">
             {product.variants.map((v) => (
               <tr key={v.id}>
-                <td className="px-4 py-3">{v.variantName}</td>
+                <td className="px-4 py-3">{humanizeVariantLabel(v.variantName)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td>
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantCost)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{money(v.variantPrice)}</td>

@@ -12,6 +12,11 @@ export function isAliExpressItemUrl(raw: string): boolean {
   }
 }
 
+export function extractAliExpressProductId(raw: string) {
+  const match = raw.match(/(?:item|i)\/(\d{10,})/i) || raw.match(/(\d{10,})/);
+  return match?.[1] ?? "";
+}
+
 export function canonicalAliExpressUrl(raw: string): string {
   const url = new URL(raw.trim());
   url.hash = "";

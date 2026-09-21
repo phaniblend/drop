@@ -47,7 +47,13 @@ export function UpgradeModal() {
     <div className="fixed inset-0 z-[120] flex items-end justify-center bg-ink/40 p-4 sm:items-center">
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-[0_18px_50px_rgba(15,18,34,0.18)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">SetoStore upgrade</p>
-        <h2 className="mt-2 text-xl font-semibold">You&apos;ve tested your 5 free products</h2>
+        <h2 className="mt-2 text-xl font-semibold">
+          {open.resource === "products" && open.used != null && open.limit != null
+            ? open.used >= open.limit
+              ? `You've used your ${open.limit} free products`
+              : `You've used ${open.used} of ${open.limit} free products`
+            : "Upgrade to keep going"}
+        </h2>
         <p className="mt-2 text-sm text-muted">{open.message}</p>
         <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
           <p className="text-sm font-semibold">Starter plan</p>

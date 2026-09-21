@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { enrichCopy } from "@/lib/ai-copy";
 import { ensureDb } from "@/lib/db";
-import { getProduct, insertImportedProduct } from "@/lib/db/queries";
+import { findProductBySupplierUrl, getProduct, insertImportedProduct } from "@/lib/db/queries";
 import { products, productVariants } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
@@ -22,13 +22,15 @@ function paywallResult(error: unknown): { paywall: PaywallPayload } {
 }
 
 export async function importFromFeed(feedId: string) {
+  const feed = getFeedProduct(feedId);
+  if (!feed) throw new Error("That supplier listing is no longer in the feed.");
+  const existing = await findProductBySupplierUrl(feed.url);
+  if (existing) return { id: existing.id };
   try {
     await assertProductQuota();
   } catch (error) {
     return paywallResult(error);
   }
-  const feed = getFeedProduct(feedId);
-  if (!feed) throw new Error("That supplier listing is no longer in the feed.");
   const copy = await enrichCopy({
     rawTitle: feed.cleanTitle,
     cost: feed.cost,
@@ -74,6 +76,8 @@ export async function importFromFeed(feedId: string) {
 }
 
 export async function importFromSupplierUrl(url: string) {
+  const existing = await findProductBySupplierUrl(url);
+  if (existing) return { id: existing.id };
   try {
     await assertProductQuota();
   } catch (error) {
@@ -131,6 +135,8 @@ export async function importFromSupplierUrl(url: string) {
 }
 
 export async function importScrapedListing(listing: ScrapedListing) {
+  const existing = await findProductBySupplierUrl(listing.supplierUrl);
+  if (existing) return { id: existing.id };
   try {
     await assertProductQuota();
   } catch (error) {
@@ -195,8 +201,15 @@ export async function searchDiscover(
   if (integrationStatus().aliexpress && query.trim().length >= 2) {
     try {
       const { searchAliExpress } = await import("@/lib/integrations/aliexpress");
-      const items = await searchAliExpress(query.trim());
-      return { mode: "live", items };
+      const items = await searchAliExpress(query.trim(), niche);
+      return {
+        mode: "live",
+        items,
+        error:
+          items.length === 0
+            ? "No live listings matched that name. Try two or three simple words."
+            : undefined,
+      };
     } catch (error) {
       return {
         mode: "live",

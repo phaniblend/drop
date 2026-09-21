@@ -20,6 +20,7 @@ import {
   type Product,
 } from "./schema";
 import { assertProductQuota, incrementProductsImported } from "../billing";
+import { extractAliExpressProductId } from "../aliexpress-url";
 
 export async function getOperator() {
   const db = await ensureDb();
@@ -263,7 +264,7 @@ export async function getDashboard() {
           tone: "loss" as const,
           title: `Refund open${r.order ? ` on ${r.order.orderNumber}` : ""}`,
           detail: r.reason,
-          href: "/ops",
+          href: "/ops#refunds",
         })),
       ...catalog
         .filter((p) => p.organicStatus === "pending")
@@ -272,7 +273,7 @@ export async function getDashboard() {
           tone: "warn" as const,
           title: `Organic test still open: ${p.cleanTitle ?? p.rawTitle}`,
           detail: "3 hook videos need 1,000+ views each before paid launch.",
-          href: "/ops",
+          href: "/ops#organic",
         })),
     ],
     pendingCount: pending.length,
@@ -299,6 +300,14 @@ export function productScore(p: Product & { stock?: number }) {
   });
 }
 
+export async function findProductBySupplierUrl(url: string) {
+  const listingId = extractAliExpressProductId(url);
+  if (!listingId) return null;
+  const db = await ensureDb();
+  const rows = await db.select().from(products);
+  return rows.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId) ?? null;
+}
+
 export async function insertImportedProduct(input: {
   rawTitle: string;
   cleanTitle: string;
@@ -323,9 +332,15 @@ export async function insertImportedProduct(input: {
     imageUrl?: string;
   }>;
 }) {
-  await assertProductQuota();
   const operator = await requireOperator();
   const db = await ensureDb();
+  const listingId = extractAliExpressProductId(input.supplierUrl);
+  if (listingId) {
+    const existing = await db.select().from(products);
+    const match = existing.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId);
+    if (match) return match.id;
+  }
+  await assertProductQuota();
   const id = `prod_${crypto.randomUUID().slice(0, 10)}`;
   await db.insert(products).values({
     id,
