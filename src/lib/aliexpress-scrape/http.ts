@@ -23,6 +23,7 @@ export async function fetchAliExpressHtml(url: string): Promise<{ html: string; 
     headers: BROWSER_HEADERS,
     redirect: "follow",
     cache: "no-store",
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) {
     throw new Error(`AliExpress returned HTTP ${res.status}.`);

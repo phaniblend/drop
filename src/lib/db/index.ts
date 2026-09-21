@@ -271,11 +271,7 @@ export async function ensureDb() {
       return db;
     })();
   }
-  const db = await globalForDb.dropshipReady;
-  const client = getClient();
-  await migrateUsersBilling(client);
-  await migrateAdProtection(client);
-  return db;
+  return globalForDb.dropshipReady;
 }
 
 export async function resetReadyCache() {

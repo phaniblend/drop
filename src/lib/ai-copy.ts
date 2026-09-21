@@ -13,15 +13,25 @@ const JUNK = [
   /\bready to ship\b/gi,
 ];
 
-export function localCleanTitle(raw: string) {
+function titleCaseWords(words: string[]) {
+  return words
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function localCleanTitle(raw: string, currentTitle?: string) {
   let next = raw;
   for (const re of JUNK) next = next.replace(re, " ");
   next = next.replace(/[|/]+/g, " ").replace(/\s+/g, " ").trim();
-  return next
-    .split(" ")
-    .slice(0, 7)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
+  const words = next.split(" ").filter((w) => w.length > 1);
+  const candidates = [
+    titleCaseWords(words.slice(0, 6)),
+    titleCaseWords(words.filter((w) => !/^\d+$/.test(w)).slice(0, 6)),
+    titleCaseWords(words.slice(1, 7)),
+    titleCaseWords([...words.slice(0, 3), ...words.slice(-2)].slice(0, 6)),
+  ].filter((title) => title.length > 3);
+  return candidates.find((title) => title !== currentTitle) ?? candidates[0] ?? titleCaseWords(words.slice(0, 6));
 }
 
 export function localDescription(title: string, extras: string[]) {
@@ -33,8 +43,9 @@ export async function enrichCopy(input: {
   cost: number;
   shipping: number;
   niche?: string;
+  currentTitle?: string;
 }) {
-  const fallbackTitle = localCleanTitle(input.rawTitle);
+  const fallbackTitle = localCleanTitle(input.rawTitle, input.currentTitle);
   const fallbackHtml = localDescription(fallbackTitle, [
     `You pay about $${(input.cost + input.shipping).toFixed(2)}`,
     input.niche ? `Positioned for ${input.niche} shoppers` : "Impulse-friendly creative angle",

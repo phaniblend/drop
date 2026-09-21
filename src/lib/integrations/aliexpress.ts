@@ -9,6 +9,7 @@ import { humanizeVariantLabel } from "../variant-label";
 import { fetchAliExpressHtml } from "../aliexpress-scrape/http";
 import {
   collectHtmlListings,
+  matchesNiche,
   queryWords,
   titleMatches,
   type HtmlListing,
@@ -45,6 +46,7 @@ async function aliCall(method: string, extra: AliParams) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params),
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) {
     throw new Error(`AliExpress API ${res.status}: ${await res.text()}`);
@@ -230,23 +232,9 @@ function collectProducts(pages: Array<Record<string, unknown> | null>, seen: Set
   return mapped;
 }
 
-async function enrichMissingPrices(products: FeedProduct[]) {
-  const missing = products.filter((product) => product.cost <= 0).slice(0, 8);
-  await Promise.all(
-    missing.map(async (product) => {
-      try {
-        const detail = await fetchAliExpressProduct(product.url);
-        if (detail.baseCost > 0) product.cost = detail.baseCost;
-        product.shipping = detail.shippingCost;
-        product.shippingDays = detail.shippingDays;
-        if (detail.galleryImages[0]) product.image = detail.galleryImages[0];
-        if (detail.variants.length) product.variants = detail.variants;
-      } catch {
-        // Leave the card without a price rather than inventing one.
-      }
-    }),
-  );
-  return products;
+function applyNiche(products: FeedProduct[], niche: string) {
+  if (niche === "all") return products;
+  return products.filter((product) => matchesNiche(product.title, niche));
 }
 
 async function searchAliExpressHtml(query: string): Promise<HtmlListing[]> {
@@ -272,26 +260,27 @@ async function searchAliExpressHtml(query: string): Promise<HtmlListing[]> {
 export async function searchAliExpress(keyword: string, niche = "all"): Promise<FeedProduct[]> {
   if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
 
-  const words = queryWords(keyword);
-  const feedQuery = [keyword.trim(), niche !== "all" ? niche : ""].filter(Boolean).join(" ");
+  const searchText = keyword.trim() || (niche !== "all" ? niche : "");
+  const words = queryWords(searchText);
+  const feedQuery = [searchText, niche !== "all" && keyword.trim() ? niche : ""].filter(Boolean).join(" ");
   const seen = new Set<string>();
 
   try {
-    const htmlHits = await searchAliExpressHtml(keyword.trim());
+    const htmlHits = await searchAliExpressHtml(searchText);
     const fromHtml = htmlHits
       .map(toFeedProduct)
       .filter((p): p is FeedProduct => Boolean(p && titleMatches(p.title, words) && !seen.has(p.id)));
     for (const product of fromHtml) seen.add(product.id);
-    if (fromHtml.length >= 8) return enrichMissingPrices(fromHtml.slice(0, 24));
+    if (fromHtml.length >= 6) return applyNiche(fromHtml.slice(0, 24), niche);
     if (fromHtml.length) {
       const extra = await searchFromFeeds(feedQuery, words, seen);
-      return enrichMissingPrices([...fromHtml, ...extra].slice(0, 24));
+      return applyNiche([...fromHtml, ...extra].slice(0, 24), niche);
     }
   } catch {
     // Feed search still runs if the public listing page is blocked.
   }
 
-  return enrichMissingPrices(await searchFromFeeds(feedQuery, words, seen));
+  return applyNiche(await searchFromFeeds(feedQuery, words, seen), niche);
 }
 
 async function searchFromFeeds(query: string, words: string[], seen: Set<string>) {

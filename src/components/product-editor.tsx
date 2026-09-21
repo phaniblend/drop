@@ -34,6 +34,8 @@ export function ProductEditor({
   const [shipping, setShipping] = useState(String(product.shippingCost));
   const [copyMode, setCopyMode] = useState("");
   const [publishMsg, setPublishMsg] = useState("");
+  const [priceMsg, setPriceMsg] = useState("");
+  const [copyMsg, setCopyMsg] = useState("");
   const [showSupplier, setShowSupplier] = useState(false);
 
   return (
@@ -84,19 +86,26 @@ export function ProductEditor({
               disabled={pending}
               onClick={() =>
                 start(async () => {
-                  const copy = await rewriteProductCopy(product.id);
-                  setCopyMode(copy.mode);
-                  router.refresh();
+                  setCopyMsg("");
+                  try {
+                    const copy = await rewriteProductCopy(product.id);
+                    setCopyMode(copy.mode);
+                    setCopyMsg("Title and bullets updated.");
+                    router.refresh();
+                  } catch {
+                    setCopyMsg("Could not rewrite. Try again.");
+                  }
                 })
               }
             >
-              Rewrite title & bullets
+              {pending ? "Rewriting…" : "Rewrite title & bullets"}
             </Button>
             {copyMode ? (
               <Badge tone={copyMode === "ai" ? "profit" : "line"}>
-                {copyMode === "ai" ? "AI Gateway" : "Local cleaner"}
+                {copyMode === "ai" ? "AI rewrite" : "Quick clean"}
               </Badge>
             ) : null}
+            {copyMsg ? <p className="text-xs text-muted">{copyMsg}</p> : null}
           </div>
         </Card>
 
@@ -137,17 +146,25 @@ export function ProductEditor({
               tone="line"
               disabled={pending}
               onClick={() =>
-                start(() =>
-                  updateProductPricing(product.id, {
-                    retailPrice: Number(retail),
-                    markupMultiplier: Number(markup),
-                    shippingCost: Number(shipping),
-                  }),
-                )
+                start(async () => {
+                  setPriceMsg("");
+                  try {
+                    await updateProductPricing(product.id, {
+                      retailPrice: Number(retail),
+                      markupMultiplier: Number(markup),
+                      shippingCost: Number(shipping),
+                    });
+                    setPriceMsg("Saved.");
+                    router.refresh();
+                  } catch {
+                    setPriceMsg("Could not save. Try again.");
+                  }
+                })
               }
             >
-              Save pricing
+              {pending ? "Saving…" : "Save pricing"}
             </Button>
+            {priceMsg ? <p className="mt-2 text-xs text-profit">{priceMsg}</p> : null}
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-faint">Supplier</p>

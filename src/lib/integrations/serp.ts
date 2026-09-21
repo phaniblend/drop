@@ -43,7 +43,7 @@ export async function reverseImageSearch(imageUrl: string): Promise<{
       mode: "offline",
       matches: [],
       factoryBest: null,
-      warning: "SerpApi is not connected yet. Reverse search stays off until SERPAPI_KEY is set.",
+      warning: "Visual match is not connected yet. Import by product name or supplier URL instead.",
     };
   }
 

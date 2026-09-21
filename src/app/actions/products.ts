@@ -75,7 +75,7 @@ export async function importFromFeed(feedId: string) {
   revalidatePath("/discover");
   revalidatePath("/");
   revalidatePath("/", "layout");
-  return { id };
+  return { id, reused: Boolean(existing) };
 }
 
 export async function importFromSupplierUrl(url: string) {
@@ -137,7 +137,7 @@ export async function importFromSupplierUrl(url: string) {
   revalidatePath("/catalog");
   revalidatePath("/");
   revalidatePath("/", "layout");
-  return { id };
+  return { id, reused: Boolean(existing) };
 }
 
 export async function importScrapedListing(listing: ScrapedListing) {
@@ -199,7 +199,7 @@ export async function importScrapedListing(listing: ScrapedListing) {
   revalidatePath("/catalog");
   revalidatePath("/");
   revalidatePath("/", "layout");
-  return { id };
+  return { id, reused: Boolean(existing) };
 }
 
 export async function searchDiscover(
@@ -207,7 +207,8 @@ export async function searchDiscover(
   niche = "all",
 ): Promise<{ mode: "live" | "demo"; items: FeedProduct[]; error?: string }> {
   const { integrationStatus } = await import("@/lib/env");
-  if (integrationStatus().aliexpress && query.trim().length >= 2) {
+  const canSearch = query.trim().length >= 2 || niche !== "all";
+  if (integrationStatus().aliexpress && canSearch) {
     try {
       const { searchAliExpress } = await import("@/lib/integrations/aliexpress");
       const items = await searchAliExpress(query.trim(), niche);
@@ -216,7 +217,9 @@ export async function searchDiscover(
         items,
         error:
           items.length === 0
-            ? "No live listings matched that name. Try two or three simple words."
+            ? niche !== "all" && query.trim()
+              ? `No ${niche} listings matched that name. Try All, or a more specific product.`
+              : "No live listings matched that name. Try two or three simple words."
             : undefined,
       };
     } catch (error) {
@@ -299,6 +302,7 @@ export async function rewriteProductCopy(productId: string) {
     cost: product.baseCost,
     shipping: product.shippingCost,
     niche: product.niche,
+    currentTitle: product.cleanTitle ?? undefined,
   });
   const db = await ensureDb();
   await db

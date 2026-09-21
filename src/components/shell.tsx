@@ -133,6 +133,7 @@ export function Shell({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   "flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition",
                   active
@@ -211,6 +212,7 @@ export function Shell({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium",
                 active ? "text-accent" : "text-faint",

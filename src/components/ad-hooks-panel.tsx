@@ -71,7 +71,7 @@ export function AdHooksPanel({
           Meta before you spend.
         </p>
         {mode ? (
-          <Badge tone={mode === "ai" ? "profit" : "line"}>{mode === "ai" ? "AI Gateway" : "Local templates"}</Badge>
+          <Badge tone={mode === "ai" ? "profit" : "line"}>{mode === "ai" ? "AI rewrite" : "Starter templates"}</Badge>
         ) : null}
         {error ? <p className="text-sm text-loss">{error}</p> : null}
         {open && hooks.length > 0

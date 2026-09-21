@@ -60,6 +60,7 @@ export function AdsDesk({
   const [saved, setSaved] = useState("");
   const [pauseError, setPauseError] = useState("");
   const [preview, setPreview] = useState<Record<string, string>>({});
+  const [checkMsg, setCheckMsg] = useState("");
 
   return (
     <div className="space-y-6">
@@ -79,17 +80,24 @@ export function AdsDesk({
               trusting this with real spend.
             </p>
           )}
+          {checkMsg ? <p className="mt-2 text-xs text-muted">{checkMsg}</p> : null}
         </div>
         <Button
           tone="accent"
           disabled={pending}
           onClick={() =>
-            start(() => {
-              void runAllGuards();
+            start(async () => {
+              setCheckMsg("");
+              try {
+                const res = await runAllGuards();
+                setCheckMsg(`Checked ${res.results.length} ads.`);
+              } catch {
+                setCheckMsg("Could not check ads. Try again.");
+              }
             })
           }
         >
-          Check all ads now
+          {pending ? "Checking…" : "Check all ads now"}
         </Button>
       </div>
 

@@ -61,16 +61,21 @@ export function DiscoverDesk({
       setSearchError("");
       return;
     }
-    if (query.trim().length < 2) {
+    if (query.trim().length < 2 && niche === "all") {
       setLiveRows([]);
       setSearchError("");
       return;
     }
     const t = window.setTimeout(() => {
       start(async () => {
-        const res = await searchDiscover(query, niche);
-        setLiveRows(res.items);
-        setSearchError(res.error ?? "");
+        try {
+          const res = await searchDiscover(query, niche);
+          setLiveRows(res.items);
+          setSearchError(res.error ?? "");
+        } catch {
+          setLiveRows([]);
+          setSearchError("Search is busy. Wait a second and try again.");
+        }
       });
     }, 450);
     return () => window.clearTimeout(t);
@@ -123,6 +128,9 @@ export function DiscoverDesk({
         emitPaywall(saved.paywall);
         return;
       }
+      if ("reused" in saved && saved.reused) {
+        setError("Already in your catalog — opening the existing draft.");
+      }
       router.push(`/catalog/${saved.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
@@ -144,12 +152,11 @@ export function DiscoverDesk({
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <Badge tone="accent">URL scrape live</Badge>
         <Badge tone={aliLive ? "profit" : "line"}>
-          Search {aliLive ? "AliExpress API" : "sandbox feed"}
+          {aliLive ? "Live supplier search" : "Sample listings"}
         </Badge>
-        <Badge tone={aiLive ? "profit" : "line"}>Copy {aiLive ? "AI Gateway" : "local cleaner"}</Badge>
-        <Badge tone={serpLive ? "profit" : "line"}>Lens {serpLive ? "live" : "needs SerpApi"}</Badge>
+        <Badge tone={aiLive ? "profit" : "line"}>{aiLive ? "AI rewrite on" : "Quick clean titles"}</Badge>
+        {serpLive ? <Badge tone="profit">Visual match on</Badge> : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -225,7 +232,11 @@ export function DiscoverDesk({
         <Card className="p-5">
           <Field
             label="Visual match (competitor ad)"
-            hint={serpLive ? "Google Lens via SerpApi. Factory links ranked by price." : "Needs SERPAPI_KEY."}
+            hint={
+              serpLive
+                ? "Paste a competitor ad photo to find a matching supplier listing."
+                : "Visual match is not connected yet. You can still import by name or URL."
+            }
           >
             <input
               className={inputClass}
@@ -328,12 +339,14 @@ export function DiscoverDesk({
 
       {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
 
-      {aliLive && query.trim().length < 2 ? (
-        <p className="text-sm text-muted">Type a product name to see live listings you can sell.</p>
+      {aliLive && query.trim().length < 2 && niche === "all" ? (
+        <p className="text-sm text-muted">Type a product name, or pick a niche to browse.</p>
       ) : null}
 
-      {aliLive && query.trim().length >= 2 && !pending && rows.length === 0 && !searchError ? (
-        <p className="text-sm text-muted">No listings matched that name. Try two or three simple words.</p>
+      {pending ? <p className="text-sm text-muted">Searching live listings…</p> : null}
+
+      {aliLive && (query.trim().length >= 2 || niche !== "all") && !pending && rows.length === 0 && !searchError ? (
+        <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -382,6 +395,9 @@ export function DiscoverDesk({
                         if (hasPaywall(res)) {
                           emitPaywall(res.paywall);
                           return;
+                        }
+                        if ("reused" in res && res.reused) {
+                          setError("Already in your catalog — opening the existing draft.");
                         }
                         router.push(`/catalog/${res.id}`);
                       } catch (e) {

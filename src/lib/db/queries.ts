@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ne } from "drizzle-orm";
 import { integrationStatus } from "../env";
 import { netProfit, unitMargin, winningScore } from "../money";
 import { round2, todayKey } from "../utils";
@@ -36,7 +36,11 @@ export async function requireOperator() {
 
 export async function listProducts() {
   const db = await ensureDb();
-  const rows = await db.select().from(products).orderBy(desc(products.createdAt));
+  const rows = await db
+    .select()
+    .from(products)
+    .where(ne(products.status, "archived"))
+    .orderBy(desc(products.createdAt));
   const variants = await db.select().from(productVariants);
   const byProduct = new Map<string, typeof variants>();
   for (const v of variants) {
@@ -312,11 +316,11 @@ export async function findProductBySupplierUrl(url: string) {
   if (!listingId) return null;
   const db = await ensureDb();
   const rows = await db.select().from(products);
-  return (
-    rows.find((row) => extractAliExpressProductId(row.supplierUrl) === listingId) ??
-    rows.find((row) => row.supplierUrl.includes(listingId)) ??
-    null
+  const matches = rows.filter(
+    (row) =>
+      extractAliExpressProductId(row.supplierUrl) === listingId || row.supplierUrl.includes(listingId),
   );
+  return matches.find((row) => row.status !== "archived") ?? matches[0] ?? null;
 }
 
 export async function refreshImportedProduct(

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { nowIso, todayKey } from "../utils";
+import { extractAliExpressProductId } from "../aliexpress-url";
 import * as schema from "./schema";
 
 type DB = LibSQLDatabase<typeof schema>;
@@ -14,6 +15,41 @@ export async function seedIfEmpty(db: DB) {
   const existing = await db.select({ id: schema.users.id }).from(schema.users).limit(1);
   if (existing.length === 0) return;
   await rotateDailyTasks(db);
+  await archiveDuplicateDrafts(db);
+}
+
+export async function archiveDuplicateDrafts(db: DB) {
+  const [flag] = await db
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, "deduped_listings_v1"))
+    .limit(1);
+  if (flag) return;
+  const rows = await db.select().from(schema.products);
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const listingId = extractAliExpressProductId(row.supplierUrl);
+    if (!listingId) continue;
+    const list = groups.get(listingId) ?? [];
+    list.push(row);
+    groups.set(listingId, list);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const published = group.filter((p) => p.status === "published");
+    const keep =
+      published.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ??
+      group.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    for (const extra of group) {
+      if (extra.id === keep.id || extra.status === "published") continue;
+      await db.update(schema.products).set({ status: "archived" }).where(eq(schema.products.id, extra.id));
+    }
+  }
+  try {
+    await db.insert(schema.settings).values({ key: "deduped_listings_v1", value: "1" });
+  } catch {
+    /* already marked */
+  }
 }
 
 export async function wipeDemoIfPresent(db: DB) {

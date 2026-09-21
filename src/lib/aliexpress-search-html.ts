@@ -15,6 +15,22 @@ export function queryWords(query: string) {
     .filter((word) => word.length > 2 && !STOP.has(word));
 }
 
+export const NICHE_WORDS: Record<string, string[]> = {
+  home: ["home", "kitchen", "lamp", "organizer", "storage", "decor"],
+  car: ["car", "auto", "vehicle", "dash", "windshield"],
+  pet: ["pet", "dog", "cat", "puppy"],
+  beauty: ["beauty", "makeup", "skin", "cosmetic", "brush", "nail", "lash"],
+  health: ["health", "posture", "brace", "therapy", "massage", "back"],
+  outdoors: ["outdoor", "camp", "hiking", "garden", "travel"],
+};
+
+export function matchesNiche(title: string, niche: string) {
+  if (!niche || niche === "all") return true;
+  const hay = title.toLowerCase();
+  const words = NICHE_WORDS[niche] ?? [niche];
+  return words.some((word) => hay.includes(word));
+}
+
 export function titleMatches(title: string, words: string[]) {
   const hay = title.toLowerCase();
   if (!words.length) return false;
