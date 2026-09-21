@@ -7,8 +7,8 @@ import {
   importFromSupplierUrl,
   importProductsCsv,
   importScrapedListing,
-  searchDiscover,
 } from "@/app/actions/products";
+import { postJson } from "@/lib/retry-fetch";
 import { visualSearch } from "@/app/actions/ops";
 import { winningScore, unitMargin, suggestedRetail } from "@/lib/money";
 import { money, pct } from "@/lib/utils";
@@ -53,32 +53,46 @@ export function DiscoverDesk({
   const [liveRows, setLiveRows] = useState<FeedProduct[] | null>(null);
   const [searchError, setSearchError] = useState("");
   const [pending, start] = useTransition();
+  const [searching, setSearching] = useState(false);
   const [scraping, setScraping] = useState(false);
 
   useEffect(() => {
     if (!aliLive) {
       setLiveRows(null);
       setSearchError("");
+      setSearching(false);
       return;
     }
     if (query.trim().length < 2 && niche === "all") {
       setLiveRows([]);
       setSearchError("");
+      setSearching(false);
       return;
     }
-    const t = window.setTimeout(() => {
-      start(async () => {
-        try {
-          const res = await searchDiscover(query, niche);
-          setLiveRows(res.items);
-          setSearchError(res.error ?? "");
-        } catch {
-          setLiveRows([]);
-          setSearchError("Search is busy. Wait a second and try again.");
-        }
-      });
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      setSearching(true);
+      setSearchError("");
+      try {
+        const res = await postJson<{ items: FeedProduct[]; error?: string }>("/api/discover/search", {
+          query,
+          niche,
+        });
+        if (cancelled) return;
+        setLiveRows(res.items);
+        setSearchError(res.error ?? "");
+      } catch {
+        if (cancelled) return;
+        setLiveRows([]);
+        setSearchError("Search didn't come back. Try again.");
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
     }, 450);
-    return () => window.clearTimeout(t);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [aliLive, query, niche]);
 
   const rows = useMemo(() => {
@@ -343,9 +357,9 @@ export function DiscoverDesk({
         <p className="text-sm text-muted">Type a product name, or pick a niche to browse.</p>
       ) : null}
 
-      {pending ? <p className="text-sm text-muted">Searching live listings…</p> : null}
+      {searching ? <p className="text-sm text-muted">Searching live listings…</p> : null}
 
-      {aliLive && (query.trim().length >= 2 || niche !== "all") && !pending && rows.length === 0 && !searchError ? (
+      {aliLive && (query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
         <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
       ) : null}
 

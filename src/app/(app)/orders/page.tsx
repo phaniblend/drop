@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { DeskLink } from "@/components/desk-link";
 import { listOrders } from "@/lib/db/queries";
 import { money, shortDate } from "@/lib/utils";
 import { Button, Card } from "@/components/ui";
@@ -32,13 +32,13 @@ export default async function OrdersPage({
             double-counted here.
           </p>
         </div>
-        <Link href="/fulfillment">
+        <DeskLink href="/fulfillment">
           <Button tone="accent">Open fulfillment session</Button>
-        </Link>
+        </DeskLink>
       </div>
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <Link
+          <DeskLink
             key={f.id}
             href={f.id === "all" ? "/orders" : `/orders?status=${f.id}`}
             className={`rounded-full border px-3 py-1 text-xs ${
@@ -48,7 +48,7 @@ export default async function OrdersPage({
             }`}
           >
             {f.label}
-          </Link>
+          </DeskLink>
         ))}
       </div>
       <Card className="overflow-x-auto">

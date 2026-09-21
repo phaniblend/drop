@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { DeskLink } from "./desk-link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
@@ -112,10 +112,10 @@ export function Shell({
         )}
       >
         <div className="mb-6 flex items-start justify-between gap-2 px-2">
-          <Link href="/" className="min-w-0" onClick={() => setNavOpen(false)}>
+          <DeskLink href="/" className="min-w-0" onClick={() => setNavOpen(false)}>
             <BrandLogo />
             <p className="mt-1 truncate text-xs text-muted">{storeName}</p>
-          </Link>
+          </DeskLink>
           <button
             type="button"
             className="rounded-lg p-2 text-muted hover:bg-black/[0.04] md:hidden"
@@ -130,10 +130,9 @@ export function Shell({
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
             return (
-              <Link
+              <DeskLink
                 key={item.href}
                 href={item.href}
-                prefetch={false}
                 className={cn(
                   "flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition",
                   active
@@ -143,7 +142,7 @@ export function Shell({
               >
                 <Icon className={cn("h-4 w-4 shrink-0", active ? "text-accent" : "text-faint")} />
                 {item.label}
-              </Link>
+              </DeskLink>
             );
           })}
           <HelpMenuButton
@@ -159,9 +158,9 @@ export function Shell({
           <p className="mt-1 text-sm text-ink">
             {liveCount === 0 ? "No APIs connected" : `${liveCount} live API${liveCount === 1 ? "" : "s"}`}
           </p>
-          <Link href="/settings" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
+          <DeskLink href="/settings" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
             Connect stores →
-          </Link>
+          </DeskLink>
         </div>
       </aside>
 
@@ -209,10 +208,9 @@ export function Shell({
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
           return (
-            <Link
+            <DeskLink
               key={item.href}
               href={item.href}
-              prefetch={false}
               className={cn(
                 "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium",
                 active ? "text-accent" : "text-faint",
@@ -220,7 +218,7 @@ export function Shell({
             >
               <Icon className="h-5 w-5" />
               {item.label}
-            </Link>
+            </DeskLink>
           );
         })}
         <button

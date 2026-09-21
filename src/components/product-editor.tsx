@@ -6,8 +6,8 @@ import {
   publishProduct,
   rewriteProductCopy,
   setProductStatus,
-  updateProductPricing,
 } from "@/app/actions/products";
+import { postJson } from "@/lib/retry-fetch";
 import { money, pct } from "@/lib/utils";
 import { humanizeVariantLabel } from "@/lib/variant-label";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
@@ -152,22 +152,28 @@ export function ProductEditor({
                 startPrice(async () => {
                   setPriceMsg("");
                   try {
-                    await updateProductPricing(product.id, {
+                    await postJson<{ ok: boolean }>("/api/catalog/pricing", {
+                      productId: product.id,
                       retailPrice: Number(retail),
                       markupMultiplier: Number(markup),
                       shippingCost: Number(shipping),
                     });
                     setPriceMsg("Saved.");
-                    router.refresh();
                   } catch {
                     setPriceMsg("Could not save. Try again.");
+                    return;
                   }
+                  router.refresh();
                 })
               }
             >
               {savingPrice ? "Saving…" : "Save pricing"}
             </Button>
-            {priceMsg ? <p className="mt-2 text-xs text-profit">{priceMsg}</p> : null}
+            {priceMsg ? (
+              <p className={`mt-2 text-xs ${priceMsg === "Saved." ? "text-profit" : "text-loss"}`}>
+                {priceMsg}
+              </p>
+            ) : null}
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-faint">Supplier</p>

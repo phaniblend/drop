@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { DeskLink } from "@/components/desk-link";
 import { listSuppliers } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
 import { Badge, Card, CardHeader } from "@/components/ui";
@@ -51,7 +51,7 @@ export default async function SuppliersPage() {
           />
           <div className="divide-y divide-line">
             {s.skus.map((p) => (
-              <Link
+              <DeskLink
                 key={p.id}
                 href={`/catalog/${p.id}`}
                 className="flex items-center gap-3 px-5 py-3 hover:bg-black/[0.02]"
@@ -66,7 +66,7 @@ export default async function SuppliersPage() {
                 <span className={`font-mono text-sm ${p.stock < 30 ? "text-loss" : "text-muted"}`}>
                   {p.stock} pcs
                 </span>
-              </Link>
+              </DeskLink>
             ))}
             {s.skus.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">No products linked to this supplier yet.</p>

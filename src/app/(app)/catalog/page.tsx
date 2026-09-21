@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { DeskLink } from "@/components/desk-link";
 import { listProducts } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
 import { Badge, Button, Card } from "@/components/ui";
@@ -29,14 +29,14 @@ export default async function CatalogPage({
             <p className="mt-2 text-sm text-profit">Starter is on. Monthly import quota has reset.</p>
           ) : null}
         </div>
-        <Link href="/discover">
+        <DeskLink href="/discover">
           <Button tone="accent">Import product</Button>
-        </Link>
+        </DeskLink>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {filters.map((f) => (
-          <Link
+          <DeskLink
             key={f}
             href={f === "all" ? "/catalog" : `/catalog?status=${f}`}
             className={`rounded-full border px-3 py-1 text-xs capitalize ${
@@ -46,7 +46,7 @@ export default async function CatalogPage({
             }`}
           >
             {f}
-          </Link>
+          </DeskLink>
         ))}
       </div>
 
@@ -66,13 +66,13 @@ export default async function CatalogPage({
             {rows.map((p) => (
               <tr key={p.id} className="hover:bg-black/[0.02]">
                 <td className="px-4 py-3">
-                  <Link href={`/catalog/${p.id}`} className="flex items-center gap-3">
+                  <DeskLink href={`/catalog/${p.id}`} className="flex items-center gap-3">
                     <Thumb src={p.imageUrl} alt="" className="h-11 w-11" />
                     <span>
                       <span className="block font-medium">{p.cleanTitle ?? p.rawTitle}</span>
                       <span className="text-xs text-muted">{p.supplierName}</span>
                     </span>
-                  </Link>
+                  </DeskLink>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs">
                   {money(p.baseCost + p.shippingCost)}

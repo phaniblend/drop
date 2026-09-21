@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { DeskLink } from "@/components/desk-link";
 import { getDashboard } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Kpi } from "@/components/ui";
@@ -27,12 +27,12 @@ export default async function CommandPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/fulfillment">
+          <DeskLink href="/fulfillment">
             <Button tone="accent">Ship {data.pendingCount} waiting orders</Button>
-          </Link>
-          <Link href="/discover">
+          </DeskLink>
+          <DeskLink href="/discover">
             <Button tone="line">Find a test product</Button>
-          </Link>
+          </DeskLink>
         </div>
       </div>
 
@@ -62,9 +62,9 @@ export default async function CommandPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Badge tone={alert.tone === "loss" ? "loss" : "warn"}>{alert.tone}</Badge>
-                  <Link href={alert.href} className="text-xs text-accent">
+                  <DeskLink href={alert.href} className="text-xs text-accent">
                     Open
-                  </Link>
+                  </DeskLink>
                 </div>
               </li>
             ))}
@@ -119,9 +119,9 @@ export default async function CommandPage() {
             eyebrow="Orders"
             title="Latest checkouts"
             action={
-              <Link href="/orders" className="text-xs text-accent">
+              <DeskLink href="/orders" className="text-xs text-accent">
                 All orders
-              </Link>
+              </DeskLink>
             }
           />
           <div className="divide-y divide-line">
@@ -151,7 +151,7 @@ export default async function CommandPage() {
               <p className="px-5 py-6 text-sm text-muted">Catalog is empty. Import a test product from Discover.</p>
             ) : (
               data.topProducts.map((p) => (
-              <Link
+              <DeskLink
                 key={p.id}
                 href={`/catalog/${p.id}`}
                 className="flex items-center gap-3 px-5 py-3 hover:bg-black/[0.02]"
@@ -164,7 +164,7 @@ export default async function CommandPage() {
                   </p>
                 </div>
                 <p className="font-mono text-sm text-profit">{money(p.profit)}</p>
-              </Link>
+              </DeskLink>
               ))
             )}
           </div>
@@ -181,9 +181,9 @@ export default async function CommandPage() {
             <li key={item.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <span className="text-ink">{item.message}</span>
               {item.href ? (
-                <Link href={item.href} className="shrink-0 text-xs text-accent">
+                <DeskLink href={item.href} className="shrink-0 text-xs text-accent">
                   View
-                </Link>
+                </DeskLink>
               ) : null}
             </li>
             ))

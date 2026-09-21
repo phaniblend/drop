@@ -454,5 +454,29 @@ export async function insertImportedProduct(input: {
   return id;
 }
 
+export async function writeProductPricing(
+  productId: string,
+  input: { retailPrice: number; markupMultiplier: number; shippingCost: number },
+) {
+  const db = await ensureDb();
+  await db
+    .update(products)
+    .set({
+      retailPrice: input.retailPrice,
+      markupMultiplier: input.markupMultiplier,
+      shippingCost: input.shippingCost,
+    })
+    .where(eq(products.id, productId));
+  const vars = await db.select().from(productVariants).where(eq(productVariants.productId, productId));
+  await Promise.all(
+    vars.map((v) =>
+      db
+        .update(productVariants)
+        .set({ variantPrice: Number((v.variantCost * input.markupMultiplier).toFixed(2)) })
+        .where(eq(productVariants.id, v.id)),
+    ),
+  );
+}
+
 export { desc, eq };
 export type { CampaignTracker };

@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { enrichCopy } from "@/lib/ai-copy";
 import { ensureDb } from "@/lib/db";
-import { findProductBySupplierUrl, getProduct, insertImportedProduct } from "@/lib/db/queries";
-import { products, productVariants } from "@/lib/db/schema";
+import { findProductBySupplierUrl, getProduct, insertImportedProduct, writeProductPricing } from "@/lib/db/queries";
+import { products } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
 import { publishProductToShopify } from "@/lib/publisher";
@@ -317,24 +317,7 @@ export async function updateProductPricing(
   productId: string,
   input: { retailPrice: number; markupMultiplier: number; shippingCost: number },
 ) {
-  const db = await ensureDb();
-  await db
-    .update(products)
-    .set({
-      retailPrice: input.retailPrice,
-      markupMultiplier: input.markupMultiplier,
-      shippingCost: input.shippingCost,
-    })
-    .where(eq(products.id, productId));
-  const vars = await db.select().from(productVariants).where(eq(productVariants.productId, productId));
-  for (const v of vars) {
-    await db
-      .update(productVariants)
-      .set({ variantPrice: Number((v.variantCost * input.markupMultiplier).toFixed(2)) })
-      .where(eq(productVariants.id, v.id));
-  }
-  revalidatePath(`/catalog/${productId}`);
-  revalidatePath("/catalog");
+  await writeProductPricing(productId, input);
 }
 
 export async function publishProduct(productId: string) {
