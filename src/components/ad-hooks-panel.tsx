@@ -72,7 +72,7 @@ export function AdHooksPanel({
         </p>
         {mode ? (
           <Badge tone={mode === "ai" ? "profit" : "line"}>
-            {mode === "ai" ? "AI rewrite" : "Local angles (connect AI copy in Settings for live LLM)"}
+            {mode === "ai" ? "AI rewrite" : "Local angles (connect Gemini in Settings for live LLM)"}
           </Badge>
         ) : null}
         {error ? <p className="text-sm text-loss">{error}</p> : null}

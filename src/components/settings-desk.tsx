@@ -73,11 +73,11 @@ export function SettingsDesk({
       why: "Finds a supplier listing from a competitor ad photo.",
     },
     {
-      name: "AI copy",
+      name: "Gemini AI",
       ok: status.ai,
       why: status.ai
-        ? "Rewrites wholesale titles and writes ad angles with the live model."
-        : "Offline benefit-based copy runs today. Add AI_GATEWAY_API_KEY on the host for full LLM rewrites.",
+        ? "Rewrites wholesale titles and writes ad angles with Google Gemini."
+        : "Offline benefit-based copy runs today. Add GEMINI_API_KEY on Railway for live Gemini rewrites.",
     },
     {
       name: "Listing import",

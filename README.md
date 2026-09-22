@@ -40,7 +40,7 @@ I cannot create paid developer accounts or buy proxies. Plug these into `.env.lo
 | TikTok Marketing API | `TIKTOK_ACCESS_TOKEN`, `TIKTOK_ADVERTISER_ID` | Live spend + disable ad groups |
 | AliExpress Dropshipper developer app | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET`, `ALIEXPRESS_ACCESS_TOKEN` | Official catalog (preferred over scrape) |
 | SerpApi | `SERPAPI_KEY` | Google Lens visual match from competitor ads |
-| Vercel AI Gateway | `AI_GATEWAY_API_KEY` | LLM title/description rewrite |
+| Google Gemini API | `GEMINI_API_KEY` | LLM title/description rewrite + ad angles |
 | Optional Playwright + **residential proxies you pay for** | `ENABLE_HEADLESS_SCRAPE=true` | Headless supplier page parse (ToS/risk is on you) |
 | Production DB (Neon Postgres or Turso) + Redis | `DATABASE_URL` | Replace local `data/dropshipos.db` |
 

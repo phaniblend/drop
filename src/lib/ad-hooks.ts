@@ -1,6 +1,7 @@
 import "server-only";
 
-import { env, integrationStatus } from "./env";
+import { integrationStatus } from "./env";
+import { geminiGenerate, parseJsonObject } from "./gemini";
 import { extractProductBeats, spokenProductName } from "./product-title";
 
 export type AdHookAngle = {
@@ -42,14 +43,6 @@ function localHooks(input: { title: string; description: string; benefits: strin
   ];
 }
 
-function parseModelJson(content: string) {
-  const trimmed = content.replace(/```json|```/g, "").trim();
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  const slice = start >= 0 && end > start ? trimmed.slice(start, end + 1) : trimmed;
-  return JSON.parse(slice) as { hooks?: AdHookAngle[] };
-}
-
 export async function generateAdHooks(input: {
   title: string;
   description: string;
@@ -57,7 +50,7 @@ export async function generateAdHooks(input: {
   price: number;
 }) {
   const fallback = localHooks(input);
-  if (!integrationStatus().ai || !env.aiGatewayKey) {
+  if (!integrationStatus().ai) {
     return { hooks: fallback, mode: "local" as const };
   }
 
@@ -67,32 +60,15 @@ export async function generateAdHooks(input: {
       title: input.title,
       description: `${input.description} ${input.benefits}`,
     });
-    const res = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.aiGatewayKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: env.aiModel,
-        temperature: 0.75,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is 4-7 short lines. Use the short product name only — never paste long wholesale titles. Ground every angle in real benefits. Do not mail-merge the raw title into a fixed sentence.",
-          },
-          {
-            role: "user",
-            content: `Short name: ${spoken}\nRaw title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
-          },
-        ],
-      }),
+    const content = await geminiGenerate({
+      temperature: 0.75,
+      system:
+        "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is 4-7 short lines. Use the short product name only — never paste long wholesale titles. Ground every angle in real benefits. Do not mail-merge the raw title into a fixed sentence.",
+      user: `Short name: ${spoken}\nRaw title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
     });
-    if (!res.ok) return { hooks: fallback, mode: "local" as const };
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const parsed = parseModelJson(json.choices?.[0]?.message?.content ?? "");
-    const hooks = (parsed.hooks ?? []).filter((h) => h.hook && h.script);
+    if (!content) return { hooks: fallback, mode: "local" as const };
+    const parsed = parseJsonObject<{ hooks?: AdHookAngle[] }>(content);
+    const hooks = (parsed?.hooks ?? []).filter((h) => h.hook && h.script);
     if (hooks.length < 3) return { hooks: fallback, mode: "local" as const };
     return { hooks: hooks.slice(0, 3), mode: "ai" as const };
   } catch {

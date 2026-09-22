@@ -1,6 +1,7 @@
 import "server-only";
 
-import { env, integrationStatus } from "./env";
+import { integrationStatus } from "./env";
+import { geminiGenerate, parseJsonObject } from "./gemini";
 import { extractProductBeats, spokenProductName } from "./product-title";
 
 const JUNK = [
@@ -79,8 +80,7 @@ export async function enrichCopy(input: {
     descriptionHint: input.descriptionHint,
   });
 
-  const live = integrationStatus();
-  if (!live.ai || !env.aiGatewayKey) {
+  if (!integrationStatus().ai) {
     return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
   }
 
@@ -90,39 +90,19 @@ export async function enrichCopy(input: {
       description: input.descriptionHint,
       niche: input.niche,
     });
-    const res = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.aiGatewayKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: env.aiModel,
-        temperature: 0.55,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You write conversion-focused dropshipping product copy. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus exactly 4 unique benefit bullets grounded in the product — never generic lines like 'you pay about' or 'positioned for shoppers'.",
-          },
-          {
-            role: "user",
-            content: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nSupplier cost: $${(input.cost + input.shipping).toFixed(2)}\nKnown beats: ${beats.join("; ")}\nExisting description hint: ${(input.descriptionHint ?? "").slice(0, 500)}`,
-          },
-        ],
-      }),
+    const content = await geminiGenerate({
+      temperature: 0.55,
+      system:
+        "You write conversion-focused dropshipping product copy. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus exactly 4 unique benefit bullets grounded in the product — never generic lines like 'you pay about' or 'positioned for shoppers'.",
+      user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nSupplier cost: $${(input.cost + input.shipping).toFixed(2)}\nKnown beats: ${beats.join("; ")}\nExisting description hint: ${(input.descriptionHint ?? "").slice(0, 500)}`,
     });
-    if (!res.ok) {
+    if (!content) {
       return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
     }
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = json.choices?.[0]?.message?.content ?? "";
-    const parsed = JSON.parse(content.replace(/```json|```/g, "").trim()) as {
-      title?: string;
-      descriptionHtml?: string;
-    };
+    const parsed = parseJsonObject<{ title?: string; descriptionHtml?: string }>(content);
+    if (!parsed) {
+      return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
+    }
     return {
       title: parsed.title || fallbackTitle,
       descriptionHtml: parsed.descriptionHtml || fallbackHtml,
