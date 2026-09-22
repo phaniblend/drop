@@ -100,7 +100,7 @@ export async function listCampaigns() {
   const rows = await db.select().from(campaignTrackers);
   const catalog = await db.select().from(products);
   const byId = new Map(catalog.map((p) => [p.id, p]));
-  return rows.map((c) => {
+  const mapped = rows.map((c) => {
     const product = c.productId ? byId.get(c.productId) : undefined;
     const cogsToday = product
       ? round2((product.baseCost + product.shippingCost) * c.ordersCount)
@@ -117,7 +117,46 @@ export async function listCampaigns() {
     const atRisk =
       !paused &&
       (c.spendToday >= c.spendLimitThreshold && (profit < 0 || roas < c.minRoasThreshold));
-    return { ...c, isPaused: paused, product, cogsToday, profit, roas, ctr, cpc, atRisk };
+    return { ...c, isPaused: paused, product, cogsToday, profit, roas, ctr, cpc, atRisk, sample: false as const };
+  });
+
+  if (mapped.length > 0) return mapped;
+
+  // Empty desk + no ad accounts yet → show sample rows so Guard UX is visible.
+  const { integrationStatus } = await import("../env");
+  const live = integrationStatus();
+  if (live.meta || live.tiktok) return mapped;
+
+  const { sampleCampaignRows } = await import("../sample-campaigns");
+  const productId = catalog[0]?.id;
+  return sampleCampaignRows(productId).map((c) => {
+    const product = c.productId ? byId.get(c.productId) : catalog[0];
+    const cogsToday = product
+      ? round2((product.baseCost + product.shippingCost) * c.ordersCount)
+      : round2(c.revenueToday * 0.35);
+    const profit = netProfit({
+      revenue: c.revenueToday,
+      cogs: cogsToday,
+      adSpend: c.spendToday,
+    });
+    const roas = c.spendToday > 0 ? c.revenueToday / c.spendToday : 0;
+    const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
+    const cpc = c.clicks > 0 ? c.spendToday / c.clicks : 0;
+    const atRisk =
+      !c.isPaused &&
+      (c.spendToday >= c.spendLimitThreshold && (profit < 0 || roas < c.minRoasThreshold));
+    return {
+      ...c,
+      isPaused: Boolean(c.isPaused),
+      product,
+      cogsToday,
+      profit,
+      roas,
+      ctr,
+      cpc,
+      atRisk,
+      sample: true as const,
+    };
   });
 }
 

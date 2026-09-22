@@ -48,7 +48,7 @@ export function SettingsDesk({
     {
       name: "Shopify",
       ok: status.shopify,
-      why: "Publishes products to your store and brings new checkouts into Orders.",
+      why: "Publishes products to your store and brings new checkouts into Orders. Turn off password protection on the Online Store if customers need to buy without a storefront password.",
       href: storefrontUrl || undefined,
       hrefLabel: storefrontUrl ? "Open storefront" : undefined,
     },
@@ -75,7 +75,9 @@ export function SettingsDesk({
     {
       name: "AI copy",
       ok: status.ai,
-      why: "Rewrites wholesale titles into storefront copy.",
+      why: status.ai
+        ? "Rewrites wholesale titles and writes ad angles with the live model."
+        : "Offline benefit-based copy runs today. Add AI_GATEWAY_API_KEY on the host for full LLM rewrites.",
     },
     {
       name: "Listing import",

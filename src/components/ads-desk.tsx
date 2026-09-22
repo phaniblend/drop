@@ -33,6 +33,7 @@ type CampaignRow = {
   profit: number;
   roas: number;
   atRisk: boolean;
+  sample?: boolean;
   product?: {
     cleanTitle: string | null;
     rawTitle: string;
@@ -74,6 +75,11 @@ export function AdsDesk({
           </p>
           {adsLive ? (
             <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>
+          ) : campaigns.some((c) => c.sample) ? (
+            <p className="mt-2 text-xs text-warn">
+              Showing sample campaigns so you can learn Guard before connecting ads. Preview works; pause stays local
+              until Meta/TikTok are linked in Settings.
+            </p>
           ) : (
             <p className="mt-2 text-xs text-warn">
               Meta and TikTok are not connected. Checks stay in this desk. Connect those accounts in Settings before
@@ -211,6 +217,7 @@ export function AdsDesk({
                   <p className="text-xs uppercase tracking-wider text-faint">{c.platform}</p>
                   <h2 className="mt-1 text-base font-semibold">{c.adSetName}</h2>
                   <p className="text-xs text-muted">{c.product?.cleanTitle ?? c.product?.rawTitle ?? "No product linked"}</p>
+                  {c.sample ? <Badge tone="line">Sample data</Badge> : null}
                 </div>
                 {c.isPaused ? (
                   <Badge tone="line">{c.pauseReason ?? "Paused"}</Badge>

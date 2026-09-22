@@ -152,7 +152,10 @@ function skuList(root: Record<string, unknown>): ScrapedVariant[] {
       );
       const variant: ScrapedVariant = {
         skuId: String(rec.skuId ?? rec.sku_id ?? "default"),
-        name: labeledVariantName(rawName, index, lookup),
+        name: labeledVariantName(rawName, index, lookup, {
+          sku: String(rec.skuId ?? rec.sku_id ?? ""),
+          cost: price,
+        }),
         // Prefer SKU-specific stock. Skip trade/order volume fields that look like ~99k pools.
         inventory: Math.round(
           (() => {

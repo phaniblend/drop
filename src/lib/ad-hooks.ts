@@ -1,7 +1,7 @@
 import "server-only";
 
 import { env, integrationStatus } from "./env";
-import { spokenProductName } from "./product-title";
+import { extractProductBeats, spokenProductName } from "./product-title";
 
 export type AdHookAngle = {
   id: "pain" | "curiosity" | "price";
@@ -13,30 +13,31 @@ export type AdHookAngle = {
 function localHooks(input: { title: string; description: string; benefits: string; price: number }): AdHookAngle[] {
   const name = spokenProductName(input.title);
   const price = input.price > 0 ? `$${input.price.toFixed(2)}` : "the price on screen";
-  const benefit =
-    input.benefits.split(/[.\n]/)[0]?.trim() ||
-    "it actually solves the annoying part of the day";
-  const painThing = /fan|lamp|light|sign|holder|organizer|case|kit|bracelet|watch|camera/i.test(name)
-    ? name
-    : `${name} gadgets`;
+  const beats = extractProductBeats({
+    title: input.title,
+    description: `${input.description} ${input.benefits}`,
+  });
+  const primary = beats[0];
+  const secondary = beats[1];
+
   return [
     {
       id: "pain",
       label: "Pain-Agitate-Solve",
-      hook: `Stop buying ${painThing.toLowerCase()} that look perfect in the ad and fall apart in a week.`,
-      script: `Hook: You know that moment when ${benefit.toLowerCase()}... and then it doesn't.\nAgitate: Cheap versions fail in 10 days and you are back in the same loop.\nSolve: This ${name} is the one we kept after killing three losers. ${price}, shipped. Comment "link" if you want the exact product.`,
+      hook: `If you are still dealing with this the hard way, watch this ${name.toLowerCase()} fix.`,
+      script: `Hook: That annoying moment when ${primary}… fails again.\nAgitate: Cheap versions look fine in the ad and quit in a week.\nSolve: This ${name} is the one we kept after killing three losers — ${secondary}.\nOffer: ${price}, shipped. Comment "link" if you want the exact product.`,
     },
     {
       id: "curiosity",
       label: "Visual Curiosity / Unboxing",
-      hook: `Don't blink — the first 3 seconds of this unboxing is why this ${name.toLowerCase()} keeps getting stolen from my desk.`,
-      script: `Hook: Watch me unpack this ${name} with no talking for 3 seconds.\nHold: Then I show the one detail the cheap copies skip.\nPayoff: ${benefit}. ${price}. Follow for the supplier-to-store version.`,
+      hook: `Don't blink — the first 3 seconds show why this ${name.toLowerCase()} keeps getting stolen off my desk.`,
+      script: `Hook: Silent unboxing of this ${name} for 3 seconds.\nHold: Then the one detail cheap copies skip — ${primary}.\nPayoff: ${secondary}. ${price}. Follow for the supplier-to-store version.`,
     },
     {
       id: "price",
       label: "Price-Anchor / Comparison",
-      hook: `Same job as the $40 version. This one is ${price}. I'll show the side-by-side.`,
-      script: `Hook: Retailers want triple ${price} for a ${name}.\nCompare: Same core function, cleaner listing, a supplier price that still leaves room for ads.\nCTA: I listed it at ${price}. Steal the angle, don't steal the supplier markup.`,
+      hook: `Same job as the $40 aisle version. This ${name.toLowerCase()} is ${price}.`,
+      script: `Hook: Retail wants triple digit money for a ${name}.\nCompare: Same core job, cleaner listing, room left for ads after fees.\nProof: ${primary}.\nCTA: Live at ${price}. Steal the angle — not the markup.`,
     },
   ];
 }
@@ -56,12 +57,16 @@ export async function generateAdHooks(input: {
   price: number;
 }) {
   const fallback = localHooks(input);
-  if (!integrationStatus().ai) {
+  if (!integrationStatus().ai || !env.aiGatewayKey) {
     return { hooks: fallback, mode: "local" as const };
   }
 
   try {
     const spoken = spokenProductName(input.title);
+    const beats = extractProductBeats({
+      title: input.title,
+      description: `${input.description} ${input.benefits}`,
+    });
     const res = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -70,16 +75,16 @@ export async function generateAdHooks(input: {
       },
       body: JSON.stringify({
         model: env.aiModel,
-        temperature: 0.7,
+        temperature: 0.75,
         messages: [
           {
             role: "system",
             content:
-              "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is 4-7 short lines. Never paste long wholesale titles — use the short product name. Rewrite around real benefits, not mail-merge templates.",
+              "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is 4-7 short lines. Use the short product name only — never paste long wholesale titles. Ground every angle in real benefits. Do not mail-merge the raw title into a fixed sentence.",
           },
           {
             role: "user",
-            content: `Short name: ${spoken}\nRaw title: ${input.title}\nPrice: ${input.price}\nBenefits: ${input.benefits}\nDescription: ${input.description.slice(0, 800)}`,
+            content: `Short name: ${spoken}\nRaw title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
           },
         ],
       }),

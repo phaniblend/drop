@@ -13,7 +13,7 @@ export function integrationStatus() {
   const tiktok = Boolean(read("TIKTOK_ACCESS_TOKEN"));
   const aliexpress = Boolean(read("ALIEXPRESS_APP_KEY") && read("ALIEXPRESS_APP_SECRET"));
   const serp = Boolean(read("SERPAPI_KEY"));
-  const ai = Boolean(read("AI_GATEWAY_API_KEY") || read("VERCEL_OIDC_TOKEN"));
+  const ai = Boolean(read("AI_GATEWAY_API_KEY"));
   const scrape = true;
 
   return {

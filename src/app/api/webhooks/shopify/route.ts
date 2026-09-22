@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDb } from "@/lib/db";
-import { orders, orderItems, products, users } from "@/lib/db/schema";
+import { orders, orderItems, products, productVariants, users } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
-import { env } from "@/lib/env";
+import { verifyShopifyWebhookHmac } from "@/lib/publisher";
 import { netProfit, processorFee } from "@/lib/money";
 import { nid, nowIso } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
-  if (env.shopifyWebhookSecret) {
-    const hmac = req.headers.get("x-shopify-hmac-sha256");
-    if (!hmac) {
-      return NextResponse.json({ error: "Missing HMAC" }, { status: 401 });
-    }
+  const rawBody = await req.text();
+  const hmac = req.headers.get("x-shopify-hmac-sha256");
+  const verified = verifyShopifyWebhookHmac(rawBody, hmac);
+  if (!verified.ok) {
+    return NextResponse.json({ error: "Invalid HMAC" }, { status: 401 });
   }
 
-  const payload = (await req.json()) as {
+  let payload: {
     id?: number | string;
     name?: string;
     email?: string;
@@ -34,19 +34,50 @@ export async function POST(req: NextRequest) {
       price?: string;
     }>;
   };
+  try {
+    payload = JSON.parse(rawBody) as typeof payload;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
   const db = await ensureDb();
   const [operator] = await db.select({ id: users.id }).from(users).limit(1);
   if (!operator) {
     return NextResponse.json({ error: "No operator signed in yet" }, { status: 503 });
   }
+
   const catalog = await db.select().from(products);
+  const variants = await db.select().from(productVariants);
+  const costBySku = new Map(variants.map((v) => [v.supplierSkuId.toLowerCase(), v.variantCost]));
+  const costByProduct = new Map(catalog.map((p) => [p.id, p.baseCost + p.shippingCost]));
+
+  const lineItems = payload.line_items ?? [];
+  let totalCogs = 0;
+  for (const item of lineItems) {
+    const qty = item.quantity || 1;
+    const sku = (item.sku || "").toLowerCase();
+    const matched =
+      (sku && costBySku.get(sku)) ||
+      catalog.find((p) => p.cleanTitle === item.title || p.rawTitle === item.title);
+    const unit =
+      typeof matched === "number"
+        ? matched
+        : matched
+          ? costByProduct.get(matched.id) ?? matched.baseCost + matched.shippingCost
+          : catalog.length
+            ? catalog.reduce((s, p) => s + p.baseCost + p.shippingCost, 0) / catalog.length
+            : parseFloat(item.price || "0") * 0.35;
+    totalCogs += unit * qty;
+  }
+  if (!lineItems.length) {
+    totalCogs = catalog.length
+      ? catalog.reduce((s, p) => s + p.baseCost + p.shippingCost, 0) / catalog.length
+      : parseFloat(payload.total_price || "0") * 0.35;
+  }
+
   const revenue = parseFloat(payload.total_price || "0");
-  const cogsGuess = catalog.length
-    ? catalog.reduce((s, p) => s + p.baseCost + p.shippingCost, 0) / catalog.length
-    : revenue * 0.35;
   const fee = processorFee(revenue);
-  const margin = netProfit({ revenue, cogs: cogsGuess });
+  const margin = netProfit({ revenue, cogs: totalCogs });
   const address = payload.shipping_address
     ? [
         payload.shipping_address.address1,
@@ -69,22 +100,25 @@ export async function POST(req: NextRequest) {
     customerEmail: payload.email || "unknown@shop",
     shippingAddress: address,
     totalRevenue: revenue,
-    totalCogs: cogsGuess,
+    totalCogs,
     paymentFee: fee,
     netMargin: margin,
     fulfillmentStatus: "pending_batch",
     createdAt: nowIso(),
   });
 
-  for (const item of payload.line_items ?? []) {
+  for (const item of lineItems) {
+    const qty = item.quantity || 1;
+    const sku = (item.sku || "").toLowerCase();
+    const unitCost = (sku && costBySku.get(sku)) || totalCogs / Math.max(1, lineItems.length);
     await db.insert(orderItems).values({
       id: nid("itm"),
       orderId: id,
       title: item.title || "Item",
       sku: item.sku || "item",
-      quantity: item.quantity || 1,
+      quantity: qty,
       unitPrice: parseFloat(item.price || "0"),
-      unitCost: cogsGuess,
+      unitCost,
     });
   }
 

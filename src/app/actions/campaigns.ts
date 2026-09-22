@@ -18,6 +18,36 @@ import {
 import { runDaypartingTick } from "@/lib/dayparting";
 
 export async function runCampaignGuard(campaignId: string) {
+  const { isSampleCampaignId } = await import("@/lib/sample-campaigns");
+  if (isSampleCampaignId(campaignId)) {
+    const campaigns = await listCampaigns();
+    const campaign = campaigns.find((c) => c.id === campaignId);
+    if (!campaign) throw new Error("Campaign not found.");
+    const operator = await getOperator();
+    const result = await runSafetyCircuitCheck({
+      adSetId: campaign.adSetId,
+      platform: campaign.platform === "tiktok" ? "tiktok" : "meta",
+      attributedRevenue: campaign.revenueToday,
+      totalCogs: campaign.cogsToday,
+      spendThreshold: campaign.spendLimitThreshold,
+      minRoas: campaign.minRoasThreshold,
+      currentSpend: campaign.spendToday,
+      impressions: campaign.impressions ?? 0,
+      clicks: campaign.clicks ?? 0,
+      addToCartCount: campaign.addToCartCount ?? 0,
+      sentinel: operator?.sentinelSettings,
+      dryRun: true,
+    });
+    return {
+      ...result,
+      explanation: `${explainGuardDecision({
+        ...result,
+        spendThreshold: campaign.spendLimitThreshold,
+        dryRun: true,
+      })} (sample data — connect Meta/TikTok to act on live ads)`,
+    };
+  }
+
   const [campaigns, operator] = await Promise.all([listCampaigns(), getOperator()]);
   const campaign = campaigns.find((c) => c.id === campaignId);
   if (!campaign) throw new Error("Campaign not found.");
@@ -114,14 +144,23 @@ export async function runAllGuards() {
     timeZone: operator?.timezone || "America/Chicago",
   });
   const campaigns = await listCampaigns();
+  const { isSampleCampaignId } = await import("@/lib/sample-campaigns");
   const results = [];
   for (const c of campaigns) {
+    if (isSampleCampaignId(c.id)) {
+      results.push(await previewCampaignGuard(c.id));
+      continue;
+    }
     results.push(await runCampaignGuard(c.id));
   }
   return { daypart, results };
 }
 
 export async function togglePause(campaignId: string, paused: boolean) {
+  const { isSampleCampaignId } = await import("@/lib/sample-campaigns");
+  if (isSampleCampaignId(campaignId)) {
+    return { error: "These are sample ads. Connect Meta or TikTok in Settings to control live spend." };
+  }
   const db = await ensureDb();
   const [row] = await db.select().from(campaignTrackers).where(eq(campaignTrackers.id, campaignId)).limit(1);
   if (!row) throw new Error("Campaign not found.");

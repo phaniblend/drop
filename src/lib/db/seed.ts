@@ -24,7 +24,7 @@ async function maybeRepairCatalog(db: DB) {
   const [flag] = await db
     .select()
     .from(schema.settings)
-    .where(eq(schema.settings.key, "catalog_repair_v2"))
+    .where(eq(schema.settings.key, "catalog_repair_v3"))
     .limit(1);
   if (flag) return;
   const { repairCatalogData } = await import("./repair-catalog");

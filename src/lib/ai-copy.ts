@@ -1,6 +1,7 @@
 import "server-only";
 
 import { env, integrationStatus } from "./env";
+import { extractProductBeats, spokenProductName } from "./product-title";
 
 const JUNK = [
   /\bwholesale\b/gi,
@@ -11,6 +12,7 @@ const JUNK = [
   /\bfactory\b/gi,
   /\bfree shipping\b/gi,
   /\bready to ship\b/gi,
+  /\bgarvee\b/gi,
 ];
 
 function titleCaseWords(words: string[]) {
@@ -24,18 +26,39 @@ export function localCleanTitle(raw: string, currentTitle?: string) {
   let next = raw;
   for (const re of JUNK) next = next.replace(re, " ");
   next = next.replace(/[|/]+/g, " ").replace(/\s+/g, " ").trim();
-  const words = next.split(" ").filter((w) => w.length > 1);
+  const spoken = spokenProductName(next);
+  if (spoken && spoken !== "this product" && spoken !== currentTitle) {
+    return titleCaseWords(spoken.split(" "));
+  }
+  const words = next.split(" ").filter((w) => w.length > 1 && !/^\d+(\.\d+)?$/.test(w));
   const candidates = [
     titleCaseWords(words.slice(0, 6)),
-    titleCaseWords(words.filter((w) => !/^\d+$/.test(w)).slice(0, 6)),
+    titleCaseWords(words.filter((w) => !/^\d/.test(w)).slice(0, 6)),
     titleCaseWords(words.slice(1, 7)),
-    titleCaseWords([...words.slice(0, 3), ...words.slice(-2)].slice(0, 6)),
   ].filter((title) => title.length > 3);
   return candidates.find((title) => title !== currentTitle) ?? candidates[0] ?? titleCaseWords(words.slice(0, 6));
 }
 
-export function localDescription(title: string, extras: string[]) {
-  return `<p>${title} is designed for daily use — simple setup, clean look, and a price that still leaves room for ads.</p><ul>${extras.map((e) => `<li>${e}</li>`).join("")}<li>Tracked shipping</li><li>Easy returns if it doesn't land</li></ul>`;
+export function localDescription(input: {
+  title: string;
+  rawTitle: string;
+  cost: number;
+  shipping: number;
+  niche?: string;
+  descriptionHint?: string;
+}) {
+  const beats = extractProductBeats({
+    title: `${input.title} ${input.rawTitle}`,
+    description: input.descriptionHint,
+    niche: input.niche,
+  });
+  const lead = `${input.title} is built for everyday use — ${beats[0]}.`;
+  const bullets = [
+    beats[1],
+    beats[2],
+    beats[3] ?? "Tracked shipping with a clear return path if it does not land",
+  ];
+  return `<p>${lead}</p><ul>${bullets.map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`).join("")}</ul>`;
 }
 
 export async function enrichCopy(input: {
@@ -44,19 +67,29 @@ export async function enrichCopy(input: {
   shipping: number;
   niche?: string;
   currentTitle?: string;
+  descriptionHint?: string;
 }) {
   const fallbackTitle = localCleanTitle(input.rawTitle, input.currentTitle);
-  const fallbackHtml = localDescription(fallbackTitle, [
-    `You pay about $${(input.cost + input.shipping).toFixed(2)}`,
-    input.niche ? `Positioned for ${input.niche} shoppers` : "Impulse-friendly creative angle",
-  ]);
+  const fallbackHtml = localDescription({
+    title: fallbackTitle,
+    rawTitle: input.rawTitle,
+    cost: input.cost,
+    shipping: input.shipping,
+    niche: input.niche,
+    descriptionHint: input.descriptionHint,
+  });
 
   const live = integrationStatus();
-  if (!live.ai) {
+  if (!live.ai || !env.aiGatewayKey) {
     return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
   }
 
   try {
+    const beats = extractProductBeats({
+      title: input.rawTitle,
+      description: input.descriptionHint,
+      niche: input.niche,
+    });
     const res = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -65,16 +98,16 @@ export async function enrichCopy(input: {
       },
       body: JSON.stringify({
         model: env.aiModel,
-        temperature: 0.4,
+        temperature: 0.55,
         messages: [
           {
             role: "system",
             content:
-              "You write conversion-focused dropshipping product copy. Return JSON {title, descriptionHtml}. Title max 6 words, no wholesale language. Description is short HTML with a paragraph and 4 bullets.",
+              "You write conversion-focused dropshipping product copy. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus exactly 4 unique benefit bullets grounded in the product — never generic lines like 'you pay about' or 'positioned for shoppers'.",
           },
           {
             role: "user",
-            content: `Raw title: ${input.rawTitle}\nNiche: ${input.niche ?? "general"}`,
+            content: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nSupplier cost: $${(input.cost + input.shipping).toFixed(2)}\nKnown beats: ${beats.join("; ")}\nExisting description hint: ${(input.descriptionHint ?? "").slice(0, 500)}`,
           },
         ],
       }),

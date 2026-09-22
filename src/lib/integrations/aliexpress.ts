@@ -113,7 +113,10 @@ export async function fetchAliExpressProduct(url: string): Promise<ParsedSupplie
   const variants = normalizeVariantStocks(
     skus.map((sku, index) => ({
       skuId: String(sku.sku_id ?? "default"),
-      attributes: labeledVariantName(sku.sku_attr_name || sku.sku_attr || "Default", index, lookup),
+      attributes: labeledVariantName(sku.sku_attr_name || sku.sku_attr || "Default", index, lookup, {
+        sku: String(sku.sku_id ?? ""),
+        cost: num(sku.offer_sale_price),
+      }),
       cost: num(sku.offer_sale_price),
       stock: sku.sku_available_stock || 0,
       imageUrl: sku.sku_image || images[0],

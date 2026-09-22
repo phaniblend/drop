@@ -43,6 +43,12 @@ export default async function CommandPage() {
               No storefront linked yet — connect Shopify in Settings to publish and receive orders.
             </p>
           )}
+          {storefrontUrl ? (
+            <p className="mt-1 text-xs text-muted">
+              If the store asks for a password, open Shopify Admin → Online Store → Preferences and turn password
+              protection off before customers can check out.
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <DeskLink href="/fulfillment">

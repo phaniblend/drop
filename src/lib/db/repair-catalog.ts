@@ -40,7 +40,13 @@ export async function repairCatalogData(db: DB): Promise<{
       const row = rows[i]!;
       const stock = capped[i]?.stock ?? normalizeSupplierStock(row.inventoryCount);
       const label = humanizeVariantLabel(row.variantName);
-      const nextName = label === "Option" ? labeledVariantName(row.variantName, i) : row.variantName;
+      const nextName =
+        label === "Option" || /^Variant \d+$/i.test(row.variantName)
+          ? labeledVariantName(row.variantName, i, undefined, {
+              sku: row.supplierSkuId,
+              cost: row.variantCost,
+            })
+          : row.variantName;
       const nextPrice = Number((row.variantCost * product.markupMultiplier).toFixed(2));
       const changed =
         stock !== row.inventoryCount || nextName !== row.variantName || nextPrice !== row.variantPrice;
@@ -95,14 +101,14 @@ export async function repairCatalogData(db: DB): Promise<{
 
   try {
     await db.insert(schema.settings).values({
-      key: "catalog_repair_v2",
+      key: "catalog_repair_v3",
       value: nowIso(),
     });
   } catch {
     await db
       .update(schema.settings)
       .set({ value: nowIso() })
-      .where(eq(schema.settings.key, "catalog_repair_v2"));
+      .where(eq(schema.settings.key, "catalog_repair_v3"));
   }
 
   return { variantsFixed, productsPriced, suppliersLinked };

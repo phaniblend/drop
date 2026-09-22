@@ -303,6 +303,7 @@ export async function rewriteProductCopy(productId: string) {
     shipping: product.shippingCost,
     niche: product.niche,
     currentTitle: product.cleanTitle ?? undefined,
+    descriptionHint: product.descriptionHtml ?? undefined,
   });
   const db = await ensureDb();
   await db

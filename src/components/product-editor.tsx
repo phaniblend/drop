@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/products";
 import { postJson } from "@/lib/retry-fetch";
 import { money, pct } from "@/lib/utils";
-import { humanizeVariantLabel } from "@/lib/variant-label";
+import { humanizeVariantLabel, labeledVariantName } from "@/lib/variant-label";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
 import { Thumb } from "./thumb";
@@ -155,7 +155,7 @@ export function ProductEditor({
             </Button>
             {copyMode ? (
               <Badge tone={copyMode === "ai" ? "profit" : "line"}>
-                {copyMode === "ai" ? "AI rewrite" : "Quick clean"}
+                {copyMode === "ai" ? "AI rewrite" : "Benefit rewrite (local)"}
               </Badge>
             ) : null}
             {copyMsg ? <p className="text-xs text-muted">{copyMsg}</p> : null}
@@ -277,20 +277,30 @@ export function ProductEditor({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {product.variants.map((v) => (
-              <tr key={v.id}>
-                <td className="px-4 py-3">
-                  {(() => {
-                    const label = humanizeVariantLabel(v.variantName);
-                    return label === "Option" ? `Variant ${product.variants.indexOf(v) + 1}` : label;
-                  })()}
-                </td>
-                {showSupplier ? <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td> : null}
-                <td className="px-4 py-3 font-mono text-xs">{money(v.variantCost)}</td>
-                <td className="px-4 py-3 font-mono text-xs">{money(v.variantPrice)}</td>
-                <td className="px-4 py-3 font-mono text-xs">{v.inventoryCount}</td>
-              </tr>
-            ))}
+            {product.variants.map((v, index) => {
+              const label = labeledVariantName(v.variantName, index, undefined, {
+                sku: v.supplierSkuId,
+                cost: v.variantCost,
+              });
+              return (
+                <tr key={v.id}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Thumb
+                        src={v.cleanImageUrl || v.supplierImageUrl || product.imageUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-md"
+                      />
+                      <span>{label === "Option" ? humanizeVariantLabel(v.variantName) : label}</span>
+                    </div>
+                  </td>
+                  {showSupplier ? <td className="px-4 py-3 font-mono text-xs">{v.supplierSkuId}</td> : null}
+                  <td className="px-4 py-3 font-mono text-xs">{money(v.variantCost)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{money(v.variantPrice)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{v.inventoryCount}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
