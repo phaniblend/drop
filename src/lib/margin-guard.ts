@@ -162,9 +162,13 @@ export async function runSafetyCircuitCheck(input: {
   };
   let liveCall = false;
 
-  if (input.platform === "meta" && live.meta && env.metaToken) {
-    telemetry = await getMetaAdSetInsights(input.adSetId, env.metaToken);
-    liveCall = true;
+  if (input.platform === "meta" && live.meta) {
+    const { resolveMetaToken } = await import("./integrations/meta-token");
+    const metaToken = await resolveMetaToken();
+    if (metaToken) {
+      telemetry = await getMetaAdSetInsights(input.adSetId, metaToken);
+      liveCall = true;
+    }
   }
   if (input.platform === "tiktok" && live.tiktok && env.tiktokToken) {
     telemetry = await getTikTokAdGroupInsights(input.adSetId, env.tiktokToken);
@@ -200,8 +204,10 @@ export async function runSafetyCircuitCheck(input: {
   const shouldKill = actionTaken !== "MAINTAINED" && !input.dryRun;
   let pausedLive = false;
   if (shouldKill && liveCall) {
-    if (input.platform === "meta" && env.metaToken) {
-      pausedLive = await pauseAdSet(input.adSetId, env.metaToken);
+    if (input.platform === "meta") {
+      const { resolveMetaToken } = await import("./integrations/meta-token");
+      const metaToken = await resolveMetaToken();
+      if (metaToken) pausedLive = await pauseAdSet(input.adSetId, metaToken);
     }
     if (input.platform === "tiktok" && env.tiktokToken) {
       pausedLive = await pauseTikTokAdGroup(input.adSetId, env.tiktokToken);

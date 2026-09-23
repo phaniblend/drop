@@ -13,7 +13,7 @@ export default async function CatalogPage({
   const { status, upgraded } = await searchParams;
   const all = await listProducts();
   const rows = status ? all.filter((p) => p.status === status) : all;
-  const filters = ["all", "draft", "ready", "published"];
+  const filters = ["all", "draft", "ready", "local_only", "published"];
 
   return (
     <div className="space-y-6">
@@ -22,8 +22,8 @@ export default async function CatalogPage({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Catalog</p>
           <h1 className="mt-1 text-2xl font-semibold">Products you can actually sell</h1>
           <p className="mt-1 text-sm text-muted">
-            Drafts stay local. Publish pushes to Shopify when a token is present, otherwise it is marked
-            published in the desk.
+            Drafts stay local. Publish pushes to Shopify when connected. Without a valid Shopify token the
+            product stays <span className="text-ink">Local only</span> — never marked Published.
           </p>
           {upgraded ? (
             <p className="mt-2 text-sm text-profit">Starter is on. Monthly import quota has reset.</p>

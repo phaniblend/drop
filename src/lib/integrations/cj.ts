@@ -84,7 +84,8 @@ function toFeedProduct(item: CjProduct): FeedProduct | null {
     cost,
     shipping: 0,
     shippingDays: 7,
-    stock: stock || 100,
+    stock: stock || 0,
+    stockKnown: stock > 0,
     demand: Math.min(1, orders / 5000),
     orders30d: orders > 0 ? orders : undefined,
     image,
@@ -146,4 +147,112 @@ export function isCjProductUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+/** Extract CJ pid from common product URL shapes. */
+export function extractCjProductId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const detail = path.match(/\/product\/detail\/([^/?#]+)/i);
+    if (detail?.[1]) return decodeURIComponent(detail[1]);
+    const uuid = path.match(
+      /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+    );
+    if (uuid?.[1]) return uuid[1];
+    const q = parsed.searchParams.get("pid") || parsed.searchParams.get("id");
+    if (q) return q;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+type CjVariant = {
+  vid?: string;
+  variantSku?: string;
+  variantNameEn?: string;
+  variantName?: string;
+  variantKey?: string;
+  variantSellPrice?: number | string;
+  inventories?: Array<{ totalInventory?: number | string; cjInventory?: number | string }>;
+};
+
+type CjDetail = CjProduct & {
+  bigImage?: string;
+  productImageSet?: string[];
+  variants?: CjVariant[];
+};
+
+function variantStock(v: CjVariant) {
+  const inv = v.inventories?.[0];
+  return normalizeSupplierStock(num(inv?.totalInventory ?? inv?.cjInventory));
+}
+
+/** Full product detail for URL paste / deep import. Requires CJ_API_KEY. */
+export async function fetchCjProduct(url: string): Promise<import("../scraper").ParsedSupplierPayload> {
+  const token = await getCjAccessToken();
+  if (!token) {
+    throw new Error("Add CJ_API_KEY on Railway to import CJ product URLs.");
+  }
+  const pid = extractCjProductId(url);
+  if (!pid) {
+    throw new Error("Could not find a CJ product id in that URL. Open the product page and copy the full link.");
+  }
+
+  const res = await fetch(
+    `${CJ_BASE}/product/query?${new URLSearchParams({ pid, countryCode: "US" })}`,
+    {
+      headers: {
+        "CJ-Access-Token": token,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`CJ product lookup failed (${res.status}).`);
+  }
+  const json = (await res.json()) as { data?: CjDetail; result?: boolean; message?: string };
+  const data = json.data;
+  if (!data?.pid && !data?.productId) {
+    throw new Error(json.message || "CJ returned no product for that URL.");
+  }
+
+  const title = String(data.productNameEn || data.productName || "CJ listing").trim();
+  const images = [
+    ...(Array.isArray(data.productImageSet) ? data.productImageSet : []),
+    String(data.bigImage || data.productImageUrl || data.productImage || ""),
+  ].filter(Boolean);
+  const variantsRaw = Array.isArray(data.variants) ? data.variants : [];
+  const baseCost = num(data.discountPrice ?? data.nowPrice ?? data.sellPrice);
+
+  const variants =
+    variantsRaw.length > 0
+      ? variantsRaw.map((v) => ({
+          skuId: String(v.vid || v.variantSku || pid),
+          attributes: String(v.variantNameEn || v.variantName || v.variantKey || "Default"),
+          cost: num(v.variantSellPrice, baseCost),
+          stock: variantStock(v),
+          imageUrl: images[0],
+        }))
+      : [
+          {
+            skuId: String(pid),
+            attributes: "Default",
+            cost: baseCost,
+            stock: normalizeSupplierStock(num(data.warehouseInventoryNum)),
+            imageUrl: images[0],
+          },
+        ];
+
+  return {
+    title,
+    baseCost: variants[0]?.cost ?? baseCost,
+    shippingCost: 0,
+    shippingDays: 7,
+    source: "cj",
+    galleryImages: images,
+    variants,
+    importPath: "catalog",
+  };
 }

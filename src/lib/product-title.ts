@@ -73,7 +73,7 @@ export function extractProductBeats(input: {
   }
 
   if (beats.length < 2) {
-    beats.push("solves a small daily annoyance without another expensive gadget");
+    beats.push("a small daily annoyance solved without another expensive gadget");
   }
   if (beats.length < 3) {
     beats.push(

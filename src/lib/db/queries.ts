@@ -2,6 +2,7 @@ import { desc, eq, ne } from "drizzle-orm";
 import { integrationStatus } from "../env";
 import { netProfit, unitMargin, winningScore } from "../money";
 import { round2, todayKey } from "../utils";
+import { isLowStock, LOW_STOCK_THRESHOLD } from "../stock-threshold";
 import { ensureDb } from "./index";
 import {
   activityLog,
@@ -179,7 +180,7 @@ export async function listSuppliers() {
 
   return [...byName.entries()].map(([name, skus], index) => {
     const meta = vendorByName.get(name.toLowerCase());
-    const lowStock = skus.filter((p) => p.stock > 0 && p.stock < 30);
+    const lowStock = skus.filter((p) => isLowStock(p.stock));
     const avgShip =
       skus.length > 0
         ? Math.round(skus.reduce((s, p) => s + p.shippingDays, 0) / skus.length)
@@ -291,7 +292,9 @@ export async function getDashboard() {
     (o) => o.fulfillmentStatus === "ordered_supplier" && !o.trackingNumber,
   );
   const staleOrders = orderRows.filter(isStaleOrder);
-  const lowStock = catalog.filter((p) => p.stock < 30 && p.status === "published");
+  const lowStock = catalog.filter(
+    (p) => isLowStock(p.stock) && (p.status === "published" || p.status === "local_only" || p.status === "ready"),
+  );
   const atRiskAds = campaignRows.filter((c) => c.atRisk);
 
   const last7 = Array.from({ length: 7 }).map((_, i) => {
@@ -354,7 +357,7 @@ export async function getDashboard() {
       ...lowStock.map((p) => ({
         tone: "warn" as const,
         title: `${p.cleanTitle ?? p.rawTitle} low at supplier`,
-        detail: `${p.stock} units left — pause ads if it hits 10`,
+        detail: `${p.stock} units left — pause ads below ${LOW_STOCK_THRESHOLD}`,
         href: "/suppliers",
       })),
       ...staleOrders.map((o) => ({
@@ -402,7 +405,7 @@ export function productScore(p: Product & { stock?: number }) {
     retail: p.retailPrice,
     cost: p.baseCost,
     shipping: p.shippingCost,
-    stock: p.stock ?? 100,
+    stock: p.stock ?? 0,
     shippingDays: p.shippingDays,
     demand: p.status === "published" ? 0.8 : 0.55,
   });

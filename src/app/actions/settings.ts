@@ -51,3 +51,23 @@ export async function repairCatalog() {
   revalidatePath("/", "layout");
   return result;
 }
+
+/** Exchange Graph Explorer short-lived token → ~60-day token; store on operator. */
+export async function extendMetaAccessToken() {
+  const { exchangeMetaLongLivedToken } = await import("@/lib/integrations/meta-token");
+  const result = await exchangeMetaLongLivedToken();
+  revalidatePath("/settings");
+  revalidatePath("/ads");
+  const days =
+    result.expiresIn != null ? Math.max(1, Math.round(result.expiresIn / 86_400)) : null;
+  return {
+    ok: true as const,
+    saved: result.saved,
+    expiresInDays: days,
+    message: result.saved
+      ? days
+        ? `Meta token extended (~${days} days). Guard will use the desk copy.`
+        : "Meta token extended and saved on this desk."
+      : "Token exchanged but no operator row to save — paste the new token into META_ACCESS_TOKEN on Railway.",
+  };
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { repairCatalog, resetDemoData, saveOperatorSettings } from "@/app/actions/settings";
+import { repairCatalog, resetDemoData, saveOperatorSettings, extendMetaAccessToken } from "@/app/actions/settings";
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
@@ -16,6 +16,10 @@ type Status = {
   cj?: boolean;
   serp: boolean;
   ai: boolean;
+  aiConfigured?: boolean;
+  aiError?: string | null;
+  aiModel?: string;
+  aiCheckedAt?: string | null;
   scrape: boolean;
   demo: boolean;
   liveCount: number;
@@ -26,10 +30,16 @@ export function SettingsDesk({
   user,
   billing,
   storefrontUrl = "",
+  metaLongLived = false,
+  canExtendMeta = false,
+  metaAppReady = false,
 }: {
   status: Status;
   billing: BillingSummary;
   storefrontUrl?: string;
+  metaLongLived?: boolean;
+  canExtendMeta?: boolean;
+  metaAppReady?: boolean;
   user: {
     displayName: string;
     storeName: string;
@@ -45,6 +55,8 @@ export function SettingsDesk({
   const [form, setForm] = useState(user);
   const [msg, setMsg] = useState("");
 
+  const [clearConfirm, setClearConfirm] = useState("");
+
   const connections = [
     {
       name: "Shopify",
@@ -55,8 +67,13 @@ export function SettingsDesk({
     },
     {
       name: "Meta ads",
-      ok: status.meta,
-      why: "Reads spend and can pause Facebook and Instagram ads that are losing money.",
+      ok: status.meta || metaLongLived,
+      why: metaLongLived
+        ? "Long-lived token saved on this desk (~60 days). Guard can read spend and pause losers."
+        : status.meta
+          ? "Short-lived token on Railway — extend it so Guard does not die in ~2 hours."
+          : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
+      metaExtend: Boolean(status.meta || metaLongLived),
     },
     {
       name: "TikTok ads",
@@ -65,38 +82,46 @@ export function SettingsDesk({
     },
     {
       name: "AliExpress",
-      ok: true,
+      ok: status.aliexpress,
       why: status.aliexpress
         ? "Live Discover search + Open API catalog enrich when you import."
-        : "Live Discover search via public AliExpress listings. Add Open Platform keys to enrich official catalog data.",
+        : "Needs ALIEXPRESS_APP_KEY + SECRET on Railway for Open API enrich. Public HTML Discover still works without them.",
     },
     {
       name: "CJ Dropshipping",
       ok: Boolean(status.cj),
       why: status.cj
-        ? "Second live supplier catalog in Discover search."
-        : "Optional. Add CJ_API_KEY on Railway to search CJ alongside AliExpress.",
+        ? "Second live supplier catalog + paste-URL import."
+        : "Optional. Add CJ_API_KEY on Railway to search CJ and import CJ product URLs.",
     },
     {
-      name: "Visual match",
+      name: "SerpApi (visual match)",
       ok: status.serp,
-      why: "Finds a supplier listing from a competitor ad photo.",
+      why: status.serp
+        ? "Google Lens reverse image search is live on Discover."
+        : "Used on Discover for competitor creative reverse search. Add SERPAPI_KEY on Railway.",
     },
     {
       name: "Gemini AI",
       ok: status.ai,
       why: status.ai
-        ? "Rewrites wholesale titles and writes ad angles with Google Gemini."
-        : "Offline benefit-based copy runs today. Add GEMINI_API_KEY on Railway for live Gemini rewrites.",
+        ? `Live ping ok${status.aiModel ? ` · ${status.aiModel}` : ""}${
+            status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""
+          }.`
+        : status.aiConfigured
+          ? `Key is set but live ping failed${status.aiError ? `: ${status.aiError}` : ""}. Rewrite falls back to local copy.`
+          : "Offline benefit-based copy runs today. Add GEMINI_API_KEY on Railway for live Gemini rewrites.",
     },
     {
       name: "Listing import",
       ok: status.scrape,
-      why: "Pulls photos and price when you paste a supplier URL. If the official catalog is blocked, the desk reads the listing page instead and writes that to Command activity.",
+      readyLabel: true,
+      why: "Pulls photos and price when you paste a supplier URL. If the official catalog is blocked, the desk reads the listing page instead.",
     },
     {
       name: "Billing",
       ok: billing.stripeReady,
+      readyLabel: true,
       why: "Takes the Starter or Scaler upgrade after the free trial.",
     },
   ];
@@ -107,8 +132,8 @@ export function SettingsDesk({
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Settings</p>
         <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Store + integrations</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Connected means that account is live. Needs you means it still has to be linked by whoever set up the
-          store — you do not paste keys on this page.
+          Connected means that account is live ({status.liveCount} live APIs in the sidebar). Listing import and
+          Billing use Ready / Needs you and are not counted as live APIs.
         </p>
         <PwaInstallButton />
       </div>
@@ -157,9 +182,44 @@ export function SettingsDesk({
           <Card key={c.name} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-semibold">{c.name}</h2>
-              <Badge tone={c.ok ? "profit" : "line"}>{c.ok ? "Connected" : "Needs you"}</Badge>
+              <Badge tone={c.ok ? "profit" : "line"}>
+                {"readyLabel" in c && c.readyLabel
+                  ? c.ok
+                    ? "Ready"
+                    : "Needs you"
+                  : c.ok
+                    ? "Connected"
+                    : "Needs you"}
+              </Badge>
             </div>
             <p className="mt-2 text-sm text-muted">{c.why}</p>
+            {"metaExtend" in c && c.metaExtend ? (
+              metaAppReady ? (
+                <Button
+                  className="mt-3 h-8 px-3 text-xs"
+                  tone="line"
+                  disabled={pending || !canExtendMeta}
+                  onClick={() =>
+                    start(async () => {
+                      setMsg("");
+                      try {
+                        const res = await extendMetaAccessToken();
+                        setMsg(res.message);
+                      } catch (e) {
+                        setMsg(e instanceof Error ? e.message : "Could not extend Meta token.");
+                      }
+                    })
+                  }
+                >
+                  Extend Meta token (~60d)
+                </Button>
+              ) : (
+                <p className="mt-3 text-xs text-muted">
+                  Extend Meta token is hidden until META_APP_ID and META_APP_SECRET are set on Railway (App
+                  settings → Basic).
+                </p>
+              )
+            ) : null}
             {"href" in c && c.href ? (
               <a href={c.href} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-accent">
                 {c.hrefLabel ?? "Open"} →
@@ -244,7 +304,15 @@ export function SettingsDesk({
             <Button type="submit" disabled={pending}>
               Save defaults
             </Button>
-            {msg ? <span className="ml-3 text-sm text-profit">{msg}</span> : null}
+            {msg ? (
+              <span
+                className={`ml-3 text-sm ${
+                  /fail|could not|add meta|error|no meta/i.test(msg) ? "text-loss" : "text-profit"
+                }`}
+              >
+                {msg}
+              </span>
+            ) : null}
           </div>
         </form>
       </Card>
@@ -276,12 +344,27 @@ export function SettingsDesk({
         <h2 className="text-sm font-semibold">Clear workspace</h2>
         <p className="mt-1 text-sm text-muted">
           Removes catalog, orders, campaigns, and suppliers. Keeps your Google account and store settings.
+          Type <span className="font-mono text-ink">{user.storeName}</span> to confirm.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <Field label="Confirm store name">
+            <input
+              className={inputClass}
+              value={clearConfirm}
+              onChange={(e) => setClearConfirm(e.target.value)}
+              placeholder={user.storeName}
+            />
+          </Field>
           <Button
             tone="loss"
-            disabled={pending}
-            onClick={() => start(() => resetDemoData())}
+            disabled={pending || clearConfirm.trim() !== user.storeName.trim()}
+            onClick={() =>
+              start(async () => {
+                await resetDemoData();
+                setClearConfirm("");
+                setMsg("Workspace cleared.");
+              })
+            }
           >
             Clear catalog &amp; orders
           </Button>

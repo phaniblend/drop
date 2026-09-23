@@ -412,7 +412,9 @@ export function DiscoverDesk({
                   <span className="text-right text-muted">
                     {p.orders30d
                       ? `${p.orders30d.toLocaleString()} sold / 30d`
-                      : `${p.shippingDays}d ship · ${p.stock} pcs`}
+                      : `${p.shippingDays}d ship · ${
+                          p.stockKnown === false || p.stock <= 0 ? "— pcs" : `${p.stock} pcs`
+                        }`}
                   </span>
                 </div>
                 <Button

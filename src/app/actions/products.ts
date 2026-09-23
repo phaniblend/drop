@@ -149,63 +149,69 @@ export async function importFromFeed(_feedId: string) {
   throw new Error("Sample supplier feed is retired. Search live listings or paste a supplier URL.");
 }
 
-/** Import a live Discover card (AliExpress or CJ) using the search snapshot. */
+/** Import a live Discover card — refresh via supplier scrape/API for real stock & freight. */
 export async function importLiveListing(feed: FeedProduct) {
   if (!feed?.url || !feed.live) {
     throw new Error("Only live supplier listings can be imported.");
   }
-  const existing = await findProductBySupplierUrl(feed.url);
-  if (!existing) {
-    try {
-      await assertProductQuota();
-    } catch (error) {
-      return paywallResult(error);
+  // Prefer full product fetch so stock/ship are not the Discover feed placeholders.
+  try {
+    return await importFromSupplierUrl(feed.url);
+  } catch (first) {
+    // Fall back to the search snapshot if the listing scrape is blocked.
+    const existing = await findProductBySupplierUrl(feed.url);
+    if (!existing) {
+      try {
+        await assertProductQuota();
+      } catch (error) {
+        return paywallResult(error);
+      }
     }
-  }
-  const copy = await enrichCopy({
-    rawTitle: feed.cleanTitle || feed.title,
-    cost: feed.cost,
-    shipping: feed.shipping,
-    niche: feed.niche,
-  });
-  const retail = suggestedRetail(feed.cost, feed.shipping, 3);
-  const id = await insertImportedProduct({
-    rawTitle: feed.title,
-    cleanTitle: copy.title,
-    descriptionHtml: copy.descriptionHtml,
-    supplierUrl: feed.url,
-    supplierName: feed.supplierName,
-    supplierSource: feed.source,
-    imageUrl: feed.image,
-    gallery: feed.image ? [feed.image] : [],
-    baseCost: feed.cost,
-    shippingCost: feed.shipping,
-    retailPrice: retail,
-    shippingDays: feed.shippingDays,
-    niche: feed.niche,
-    tags: feed.tags.join(","),
-    variants: feed.variants.map((v) => ({
-      skuId: v.skuId,
-      name: v.attributes,
-      cost: v.cost,
-      price: suggestedRetail(v.cost, feed.shipping, 3),
-      stock: v.stock,
+    const copy = await enrichCopy({
+      rawTitle: feed.cleanTitle || feed.title,
+      cost: feed.cost,
+      shipping: feed.shipping,
+      niche: feed.niche,
+    });
+    const retail = suggestedRetail(feed.cost, feed.shipping, 3);
+    const id = await insertImportedProduct({
+      rawTitle: feed.title,
+      cleanTitle: copy.title,
+      descriptionHtml: copy.descriptionHtml,
+      supplierUrl: feed.url,
+      supplierName: feed.supplierName,
+      supplierSource: feed.source,
       imageUrl: feed.image,
-    })),
-  });
-  const db = await ensureDb();
-  await logActivity(db, {
-    kind: "import",
-    message: existing
-      ? `Updated existing draft for ${copy.title}.`
-      : `Imported ${copy.title} from ${feed.supplierName}.`,
-    href: `/catalog/${id}`,
-  });
-  revalidatePath("/catalog");
-  revalidatePath("/discover");
-  revalidatePath("/");
-  revalidatePath("/", "layout");
-  return { id, reused: Boolean(existing) };
+      gallery: feed.image ? [feed.image] : [],
+      baseCost: feed.cost,
+      shippingCost: feed.shipping,
+      retailPrice: retail,
+      shippingDays: feed.shippingDays,
+      niche: feed.niche,
+      tags: feed.tags.join(","),
+      variants: feed.variants.map((v) => ({
+        skuId: v.skuId,
+        name: v.attributes,
+        cost: v.cost,
+        price: suggestedRetail(v.cost, feed.shipping, 3),
+        stock: v.stock,
+        imageUrl: feed.image,
+      })),
+    });
+    const db = await ensureDb();
+    await logActivity(db, {
+      kind: "import",
+      message: `Imported ${copy.title} from feed snapshot (${
+        first instanceof Error ? first.message.slice(0, 80) : "scrape failed"
+      }).`,
+      href: `/catalog/${id}`,
+    });
+    revalidatePath("/catalog");
+    revalidatePath("/discover");
+    revalidatePath("/");
+    revalidatePath("/", "layout");
+    return { id, reused: Boolean(existing) };
+  }
 }
 
 export async function searchDiscover(
@@ -288,13 +294,34 @@ export async function rewriteProductCopy(productId: string) {
     currentTitle: product.cleanTitle ?? undefined,
     descriptionHint: product.descriptionHtml ?? undefined,
   });
+
+  // AI mode applies immediately. Local fallback is a suggestion only (Apply/Discard in UI).
+  if (copy.mode === "ai" && copy.applyTitle) {
+    const db = await ensureDb();
+    await db
+      .update(products)
+      .set({ cleanTitle: copy.title, descriptionHtml: copy.descriptionHtml })
+      .where(eq(products.id, productId));
+    revalidatePath(`/catalog/${productId}`);
+  }
+
+  return copy;
+}
+
+export async function applyCopySuggestion(
+  productId: string,
+  input: { title: string; descriptionHtml: string },
+) {
   const db = await ensureDb();
   await db
     .update(products)
-    .set({ cleanTitle: copy.title, descriptionHtml: copy.descriptionHtml })
+    .set({
+      cleanTitle: input.title.trim() || undefined,
+      descriptionHtml: input.descriptionHtml,
+    })
     .where(eq(products.id, productId));
   revalidatePath(`/catalog/${productId}`);
-  return copy;
+  return { ok: true as const };
 }
 
 export async function updateProductPricing(
@@ -307,27 +334,43 @@ export async function updateProductPricing(
 export async function publishProduct(productId: string) {
   const product = await getProduct(productId);
   if (!product) throw new Error("Product not found.");
-  const result = await publishProductToShopify({
-    title: product.cleanTitle || product.rawTitle,
-    descriptionHtml: product.descriptionHtml || `<p>${product.cleanTitle}</p>`,
-    tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
-    variants: product.variants.map((v) => ({
-      sku: v.supplierSkuId,
-      cost: v.variantCost,
-      title: v.variantName,
-      price: v.variantPrice,
-    })),
-  });
+
+  let result;
+  try {
+    result = await publishProductToShopify({
+      title: product.cleanTitle || product.rawTitle,
+      descriptionHtml: product.descriptionHtml || `<p>${product.cleanTitle}</p>`,
+      tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
+      variants: product.variants.map((v) => ({
+        sku: v.supplierSkuId,
+        cost: v.variantCost,
+        title: v.variantName,
+        price: v.variantPrice,
+      })),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Shopify publish failed";
+    // Keep draft on API failure.
+    revalidatePath(`/catalog/${productId}`);
+    throw new Error(msg);
+  }
+
+  const { productStatusAfterPublish } = await import("@/lib/publish-status");
+  const nextStatus = productStatusAfterPublish(result.mode);
   const db = await ensureDb();
   await db
     .update(products)
-    .set({ status: "published", shopifyProductId: result.productId })
+    .set({
+      status: nextStatus,
+      shopifyProductId: result.mode === "live" ? result.productId : product.shopifyProductId,
+    })
     .where(eq(products.id, productId));
   await logActivity(db, {
     kind: "publish",
-    message: result.warning
-      ? `${product.cleanTitle} marked published locally (Shopify offline).`
-      : `${product.cleanTitle} pushed to Shopify as ${result.handle}.`,
+    message:
+      result.mode === "local_only"
+        ? `${product.cleanTitle} saved as Local only (Shopify offline).`
+        : `${product.cleanTitle} pushed to Shopify as ${result.handle} (${result.productId}).`,
     href: `/catalog/${productId}`,
   });
   revalidatePath(`/catalog/${productId}`);
@@ -336,7 +379,8 @@ export async function publishProduct(productId: string) {
   const { shopifyProductUrl, shopifyStorefrontHomeUrl } = await import("@/lib/shopify-storefront");
   return {
     ...result,
-    storefrontUrl: shopifyProductUrl(result.handle) || shopifyStorefrontHomeUrl(),
+    status: nextStatus,
+    storefrontUrl: result.mode === "live" ? shopifyProductUrl(result.handle) || shopifyStorefrontHomeUrl() : "",
   };
 }
 

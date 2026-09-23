@@ -118,18 +118,21 @@ export async function fetchAliExpressProduct(url: string): Promise<ParsedSupplie
         cost: num(sku.offer_sale_price),
       }),
       cost: num(sku.offer_sale_price),
-      stock: sku.sku_available_stock || 0,
+      stock: normalizeSupplierStock(Number(sku.sku_available_stock ?? 0)),
       imageUrl: sku.sku_image || images[0],
     })),
   );
 
   const days = num(result?.logistics_info_dto?.delivery_time || result?.ae_item_base_info_dto?.delivery_time, 14);
+  // Open API product detail often omits freight — leave 0 and let UI flag "shipping unknown".
+  const shippingCost = 0;
 
   return {
     title: result?.ae_item_base_info_dto?.subject || "AliExpress product",
     baseCost: variants[0]?.cost ?? 0,
-    shippingCost: 0,
+    shippingCost,
     shippingDays: Math.max(1, Math.round(days)),
+    shippingUnknown: true,
     source: "aliexpress",
     galleryImages: images,
     variants,
@@ -217,8 +220,9 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     cost,
     shipping: 0,
     shippingDays: 14,
-    // Feed endpoints expose sales volume, not true inventory — don't treat orders as stock.
-    stock: 100,
+    // Feed endpoints expose sales volume, not true inventory — leave stock unknown.
+    stock: 0,
+    stockKnown: false as const,
     demand: Math.min(1, orders / 5000),
     orders30d: orders,
     image: (() => {
@@ -229,7 +233,7 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     })(),
     tags: ["aliexpress", "live"],
     live: true,
-    variants: [{ skuId: id, attributes: "Default", cost, stock: normalizeSupplierStock(0) }],
+    variants: [{ skuId: id, attributes: "Default", cost, stock: 0 }],
   };
 }
 

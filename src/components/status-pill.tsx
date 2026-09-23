@@ -9,6 +9,7 @@ const ORDER: Record<string, { label: string; tone: "line" | "accent" | "profit" 
   cancelled: { label: "Cancelled", tone: "line" },
   draft: { label: "Draft", tone: "line" },
   ready: { label: "Ready", tone: "warn" },
+  local_only: { label: "Local only", tone: "warn" },
   published: { label: "Published", tone: "profit" },
   archived: { label: "Archived", tone: "line" },
 };

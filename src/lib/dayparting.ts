@@ -45,8 +45,10 @@ export async function runDaypartingTick(input?: { enabled?: boolean; timeZone?: 
     for (const row of rows) {
       if (row.isPaused) continue;
       let pausedLive = false;
-      if (row.platform === "meta" && live.meta && env.metaToken) {
-        pausedLive = await pauseAdSet(row.adSetId, env.metaToken);
+      if (row.platform === "meta" && live.meta) {
+        const { resolveMetaToken } = await import("./integrations/meta-token");
+        const metaToken = await resolveMetaToken();
+        if (metaToken) pausedLive = await pauseAdSet(row.adSetId, metaToken);
       }
       if (row.platform === "tiktok" && live.tiktok && env.tiktokToken) {
         pausedLive = await pauseTikTokAdGroup(row.adSetId, env.tiktokToken);
@@ -73,8 +75,10 @@ export async function runDaypartingTick(input?: { enabled?: boolean; timeZone?: 
   for (const row of rows) {
     if (!row.isPaused || row.pauseSource !== "dayparting") continue;
     let resumedLive = false;
-    if (row.platform === "meta" && live.meta && env.metaToken) {
-      resumedLive = await activateAdSet(row.adSetId, env.metaToken);
+    if (row.platform === "meta" && live.meta) {
+      const { resolveMetaToken } = await import("./integrations/meta-token");
+      const metaToken = await resolveMetaToken();
+      if (metaToken) resumedLive = await activateAdSet(row.adSetId, metaToken);
     }
     if (row.platform === "tiktok" && live.tiktok && env.tiktokToken) {
       resumedLive = await resumeTikTokAdGroup(row.adSetId, env.tiktokToken);

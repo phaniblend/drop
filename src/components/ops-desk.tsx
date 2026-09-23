@@ -11,10 +11,10 @@ import type { CsMacro, DailyTask, Order, Product, Refund } from "@/lib/db/schema
 
 function fillMacro(body: string, order?: Order) {
   return body
-    .replaceAll("{{name}}", order?.customerName.split(" ")[0] ?? "there")
-    .replaceAll("{{order}}", order?.orderNumber ?? "{{order}}")
-    .replaceAll("{{tracking}}", order?.trackingNumber ?? "not yet assigned")
-    .replaceAll("{{carrier}}", order?.carrier ?? "the carrier");
+    .replaceAll("{{name}}", order?.customerName.split(" ")[0] ?? "[customer]")
+    .replaceAll("{{order}}", order?.orderNumber ?? "[order #]")
+    .replaceAll("{{tracking}}", order?.trackingNumber ?? "[tracking #]")
+    .replaceAll("{{carrier}}", order?.carrier ?? "[carrier]");
 }
 
 export function OpsDesk({
@@ -88,6 +88,7 @@ export function OpsDesk({
         <CardHeader title="Saved replies" eyebrow="Customer messages" />
         <div className="grid gap-3 p-4 md:grid-cols-2">
           {macros.map((m) => {
+            const ready = Boolean(selected);
             const body = fillMacro(m.body, selected);
             return (
               <div key={m.id} className="rounded-xl border border-line bg-bg p-4">
@@ -96,9 +97,12 @@ export function OpsDesk({
                     <p className="text-[11px] uppercase tracking-wider text-faint">{m.category}</p>
                     <p className="text-sm font-semibold">{m.title}</p>
                   </div>
-                  <CopyButton text={body} />
+                  <CopyButton text={body} disabled={!ready} label={ready ? "Copy" : "Pick an order"} />
                 </div>
                 <p className="mt-3 text-sm text-muted">{body}</p>
+                {!ready ? (
+                  <p className="mt-2 text-xs text-warn">Select an aging shipment above before copying.</p>
+                ) : null}
               </div>
             );
           })}

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { isSuperuser } from "../superuser";
+import { LOW_STOCK_THRESHOLD } from "../stock-threshold";
 import { nowIso, todayKey } from "../utils";
 import { extractAliExpressProductId } from "../aliexpress-url";
 import * as schema from "./schema";
@@ -245,7 +246,7 @@ function taskRows(forDate: string) {
     {
       id: "task_stock",
       title: "Check supplier stock on winners",
-      detail: "Pause ads if a bestseller has fewer than 30 left.",
+      detail: `Pause ads if a bestseller has fewer than ${LOW_STOCK_THRESHOLD} left.`,
       done: false,
       sortOrder: 5,
       forDate,

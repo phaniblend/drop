@@ -23,11 +23,13 @@ export function AdHooksPanel({
   const [pending, start] = useTransition();
   const [hooks, setHooks] = useState<AdHookAngle[]>([]);
   const [mode, setMode] = useState("");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [open, setOpen] = useState(true);
 
   function generate() {
     setError("");
+    setReason("");
     start(async () => {
       try {
         const res = await fetch("/api/ai/generate-hooks", {
@@ -40,13 +42,20 @@ export function AdHooksPanel({
             price,
           }),
         });
-        const json = (await res.json()) as { ok?: boolean; error?: string; hooks?: AdHookAngle[]; mode?: string };
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          hooks?: AdHookAngle[];
+          mode?: string;
+          reason?: string;
+        };
         if (!res.ok || !json.hooks?.length) {
           setError(json.error || "Could not generate ad angles.");
           return;
         }
         setHooks(json.hooks);
         setMode(json.mode ?? "");
+        setReason(json.reason ?? "");
         setOpen(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not generate ad angles.");
@@ -72,9 +81,10 @@ export function AdHooksPanel({
         </p>
         {mode ? (
           <Badge tone={mode === "ai" ? "profit" : "line"}>
-            {mode === "ai" ? "AI rewrite" : "Local angles (connect Gemini in Settings for live LLM)"}
+            {mode === "ai" ? "AI rewrite" : "Local angles"}
           </Badge>
         ) : null}
+        {reason ? <p className="text-xs text-warn">{reason}</p> : null}
         {error ? <p className="text-sm text-loss">{error}</p> : null}
         {open && hooks.length > 0
           ? hooks.map((hook) => (

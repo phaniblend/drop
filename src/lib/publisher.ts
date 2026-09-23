@@ -13,11 +13,12 @@ export type TransformedProductInput = {
 };
 
 export type PublishResult = {
-  mode: "live" | "demo";
+  mode: "live" | "local_only";
   productId: string;
   handle: string;
   title: string;
   warning?: string;
+  adminUrl?: string;
 };
 
 async function client() {
@@ -49,11 +50,12 @@ export async function publishProductToShopify(
   const gqlClient = await client();
   if (!gqlClient) {
     return {
-      mode: "demo",
-      productId: `gid://shopify/Product/demo_${Date.now()}`,
+      mode: "local_only",
+      productId: "",
       handle: slugHandle(data.title),
       title: data.title,
-      warning: "Shopify is not connected. The product is marked published here only.",
+      warning:
+        "Shopify is not connected (or the token failed). Saved as Local only — not published to Shopify.",
     };
   }
 
@@ -66,65 +68,20 @@ export async function publishProductToShopify(
     name: (v.title || `Option ${i + 1}`).slice(0, 100),
   }));
 
-  const createMutation = gql`
-    mutation ProductCreate($product: ProductCreateInput!) {
-      productCreate(product: $product) {
-        product {
-          id
-          title
-          handle
-          variants(first: 50) {
-            nodes {
-              id
+  try {
+    const createMutation = gql`
+      mutation ProductCreate($product: ProductCreateInput!) {
+        productCreate(product: $product) {
+          product {
+            id
+            title
+            handle
+            variants(first: 50) {
+              nodes {
+                id
+              }
             }
           }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }
-  `;
-
-  const created = (await gqlClient.request(createMutation, {
-    product: {
-      title: data.title,
-      descriptionHtml: data.descriptionHtml,
-      vendor: "SetoStore",
-      status: "DRAFT",
-      tags: data.tags,
-      productOptions: [
-        {
-          name: "Title",
-          values: optionValues,
-        },
-      ],
-    },
-  })) as {
-    productCreate: {
-      product?: {
-        id: string;
-        title: string;
-        handle: string;
-        variants?: { nodes: Array<{ id: string }> };
-      };
-      userErrors: Array<{ field?: string[]; message: string }>;
-    };
-  };
-
-  if (created.productCreate.userErrors.length > 0) {
-    throw new Error(`Shopify publishing failed: ${JSON.stringify(created.productCreate.userErrors)}`);
-  }
-
-  const product = created.productCreate.product;
-  if (!product) throw new Error("Shopify returned no product.");
-
-  const variantNodes = product.variants?.nodes ?? [];
-  if (variantNodes.length > 0) {
-    const bulk = gql`
-      mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
           userErrors {
             field
             message
@@ -132,35 +89,96 @@ export async function publishProductToShopify(
         }
       }
     `;
-    const updates = variantNodes.map((node, i) => {
-      const v = variants[Math.min(i, variants.length - 1)]!;
-      return {
-        id: node.id,
-        price: String(Number(v.price || 0).toFixed(2)),
-        inventoryItem: {
-          sku: v.sku || undefined,
-          cost: v.cost > 0 ? String(Number(v.cost).toFixed(2)) : undefined,
-        },
-      };
-    });
-    const bulkRes = (await gqlClient.request(bulk, {
-      productId: product.id,
-      variants: updates,
-    })) as {
-      productVariantsBulkUpdate: { userErrors: Array<{ message: string }> };
-    };
-    if (bulkRes.productVariantsBulkUpdate.userErrors.length > 0) {
-      return {
-        mode: "live",
-        productId: product.id,
-        handle: product.handle,
-        title: product.title,
-        warning: `Product created, but variant prices need a manual check: ${bulkRes.productVariantsBulkUpdate.userErrors[0]?.message}`,
-      };
-    }
-  }
 
-  return { mode: "live", productId: product.id, handle: product.handle, title: product.title };
+    const created = (await gqlClient.request(createMutation, {
+      product: {
+        title: data.title,
+        descriptionHtml: data.descriptionHtml,
+        vendor: "SetoStore",
+        status: "DRAFT",
+        tags: data.tags,
+        productOptions: [
+          {
+            name: "Title",
+            values: optionValues,
+          },
+        ],
+      },
+    })) as {
+      productCreate: {
+        product?: {
+          id: string;
+          title: string;
+          handle: string;
+          variants?: { nodes: Array<{ id: string }> };
+        };
+        userErrors: Array<{ field?: string[]; message: string }>;
+      };
+    };
+
+    if (created.productCreate.userErrors.length > 0) {
+      throw new Error(`Shopify publishing failed: ${JSON.stringify(created.productCreate.userErrors)}`);
+    }
+
+    const product = created.productCreate.product;
+    if (!product) throw new Error("Shopify returned no product.");
+
+    const { shopifyAdminProductUrl } = await import("./publish-status");
+    const adminUrl = shopifyAdminProductUrl(env.shopifyDomain, product.id);
+
+    const variantNodes = product.variants?.nodes ?? [];
+    if (variantNodes.length > 0) {
+      const bulk = gql`
+        mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+      const updates = variantNodes.map((node, i) => {
+        const v = variants[Math.min(i, variants.length - 1)]!;
+        return {
+          id: node.id,
+          price: String(Number(v.price || 0).toFixed(2)),
+          inventoryItem: {
+            sku: v.sku || undefined,
+            cost: v.cost > 0 ? String(Number(v.cost).toFixed(2)) : undefined,
+          },
+        };
+      });
+      const bulkRes = (await gqlClient.request(bulk, {
+        productId: product.id,
+        variants: updates,
+      })) as {
+        productVariantsBulkUpdate: { userErrors: Array<{ message: string }> };
+      };
+      if (bulkRes.productVariantsBulkUpdate.userErrors.length > 0) {
+        return {
+          mode: "live",
+          productId: product.id,
+          handle: product.handle,
+          title: product.title,
+          adminUrl,
+          warning: `Product created, but variant prices need a manual check: ${bulkRes.productVariantsBulkUpdate.userErrors[0]?.message}`,
+        };
+      }
+    }
+
+    return {
+      mode: "live",
+      productId: product.id,
+      handle: product.handle,
+      title: product.title,
+      adminUrl,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Shopify API error";
+    console.error("[publishProductToShopify]", msg);
+    throw new Error(msg);
+  }
 }
 
 export function shopifyConnected() {

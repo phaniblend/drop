@@ -1,43 +1,13 @@
 import "server-only";
 
-import { integrationStatus } from "./env";
 import { geminiGenerate, parseJsonObject } from "./gemini";
+import { formatGeminiFallback, localCleanTitle as cleanTitle } from "./copy-local";
+import { recordGeminiCall } from "./gemini-health";
 import { extractProductBeats, spokenProductName } from "./product-title";
-
-const JUNK = [
-  /\bwholesale\b/gi,
-  /\bdropshipping\b/gi,
-  /\bdropship\b/gi,
-  /\bhot sale\b/gi,
-  /\bnew 20\d{2}\b/gi,
-  /\bfactory\b/gi,
-  /\bfree shipping\b/gi,
-  /\bready to ship\b/gi,
-  /\bgarvee\b/gi,
-];
-
-function titleCaseWords(words: string[]) {
-  return words
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
-}
+import { env } from "./env";
 
 export function localCleanTitle(raw: string, currentTitle?: string) {
-  let next = raw;
-  for (const re of JUNK) next = next.replace(re, " ");
-  next = next.replace(/[|/]+/g, " ").replace(/\s+/g, " ").trim();
-  const spoken = spokenProductName(next);
-  if (spoken && spoken !== "this product" && spoken !== currentTitle) {
-    return titleCaseWords(spoken.split(" "));
-  }
-  const words = next.split(" ").filter((w) => w.length > 1 && !/^\d+(\.\d+)?$/.test(w));
-  const candidates = [
-    titleCaseWords(words.slice(0, 6)),
-    titleCaseWords(words.filter((w) => !/^\d/.test(w)).slice(0, 6)),
-    titleCaseWords(words.slice(1, 7)),
-  ].filter((title) => title.length > 3);
-  return candidates.find((title) => title !== currentTitle) ?? candidates[0] ?? titleCaseWords(words.slice(0, 6));
+  return cleanTitle(raw, currentTitle, spokenProductName);
 }
 
 export function localDescription(input: {
@@ -53,6 +23,7 @@ export function localDescription(input: {
     description: input.descriptionHint,
     niche: input.niche,
   });
+  // beats are noun-phrase / clause fragments — lead with a full sentence.
   const lead = `${input.title} is built for everyday use — ${beats[0]}.`;
   const bullets = [
     beats[1],
@@ -62,6 +33,15 @@ export function localDescription(input: {
   return `<p>${lead}</p><ul>${bullets.map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`).join("")}</ul>`;
 }
 
+export type EnrichCopyResult = {
+  title: string;
+  descriptionHtml: string;
+  mode: "ai" | "local";
+  reason?: string;
+  /** When mode is local, title/description are suggestions — caller must not auto-apply title. */
+  applyTitle: boolean;
+};
+
 export async function enrichCopy(input: {
   rawTitle: string;
   cost: number;
@@ -69,7 +49,7 @@ export async function enrichCopy(input: {
   niche?: string;
   currentTitle?: string;
   descriptionHint?: string;
-}) {
+}): Promise<EnrichCopyResult> {
   const fallbackTitle = localCleanTitle(input.rawTitle, input.currentTitle);
   const fallbackHtml = localDescription({
     title: fallbackTitle,
@@ -80,8 +60,14 @@ export async function enrichCopy(input: {
     descriptionHint: input.descriptionHint,
   });
 
-  if (!integrationStatus().ai) {
-    return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
+  if (!env.geminiApiKey) {
+    return {
+      title: fallbackTitle,
+      descriptionHtml: fallbackHtml,
+      mode: "local",
+      reason: formatGeminiFallback("GEMINI_API_KEY is not set"),
+      applyTitle: false,
+    };
   }
 
   try {
@@ -90,25 +76,48 @@ export async function enrichCopy(input: {
       description: input.descriptionHint,
       niche: input.niche,
     });
-    const content = await geminiGenerate({
+    const result = await geminiGenerate({
       temperature: 0.55,
       system:
         "You write conversion-focused dropshipping product copy. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus exactly 4 unique benefit bullets grounded in the product — never generic lines like 'you pay about' or 'positioned for shoppers'.",
       user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nSupplier cost: $${(input.cost + input.shipping).toFixed(2)}\nKnown beats: ${beats.join("; ")}\nExisting description hint: ${(input.descriptionHint ?? "").slice(0, 500)}`,
     });
-    if (!content) {
-      return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
+    await recordGeminiCall(result);
+
+    if (!result.text) {
+      return {
+        title: fallbackTitle,
+        descriptionHtml: fallbackHtml,
+        mode: "local",
+        reason: formatGeminiFallback(result.error),
+        applyTitle: false,
+      };
     }
-    const parsed = parseJsonObject<{ title?: string; descriptionHtml?: string }>(content);
+    const parsed = parseJsonObject<{ title?: string; descriptionHtml?: string }>(result.text);
     if (!parsed) {
-      return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
+      return {
+        title: fallbackTitle,
+        descriptionHtml: fallbackHtml,
+        mode: "local",
+        reason: formatGeminiFallback("could not parse model JSON"),
+        applyTitle: false,
+      };
     }
     return {
       title: parsed.title || fallbackTitle,
       descriptionHtml: parsed.descriptionHtml || fallbackHtml,
-      mode: "ai" as const,
+      mode: "ai",
+      applyTitle: true,
     };
-  } catch {
-    return { title: fallbackTitle, descriptionHtml: fallbackHtml, mode: "local" as const };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown error";
+    console.error("[enrichCopy]", msg);
+    return {
+      title: fallbackTitle,
+      descriptionHtml: fallbackHtml,
+      mode: "local",
+      reason: formatGeminiFallback(msg),
+      applyTitle: false,
+    };
   }
 }

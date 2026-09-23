@@ -8,6 +8,7 @@
     "start": "next start --hostname 0.0.0.0 --port ${PORT:-3000}",
     "preinstall": "node -e \"console.log('using public npm registry')\"",
     "lint": "eslint",
+    "test": "vitest run",
     "smoke": "node scripts/smoke.mjs"
   },
   "engines": {
@@ -40,7 +41,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "optionalDependencies": {
     "@libsql/linux-x64-gnu": "^0.5.29",

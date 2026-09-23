@@ -10,6 +10,8 @@ export type FeedProduct = {
   shipping: number;
   shippingDays: number;
   stock: number;
+  /** False when feed only exposes sales volume, not inventory. */
+  stockKnown?: boolean;
   demand: number;
   orders30d?: number;
   live?: boolean;

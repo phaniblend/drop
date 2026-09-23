@@ -1,7 +1,5 @@
 import "server-only";
 
-import { env } from "../env";
-
 const GRAPH = "https://graph.facebook.com/v20.0/ads_archive";
 
 export type CompetitorAd = {
@@ -58,7 +56,9 @@ export async function searchCompetitorAds(query: string) {
     return { ok: false as const, error: "Enter a product keyword to search the Meta Ad Library." };
   }
 
-  if (!env.metaToken) {
+  const { resolveMetaToken } = await import("./meta-token");
+  const accessToken = await resolveMetaToken();
+  if (!accessToken) {
     return {
       ok: true as const,
       mode: "demo" as const,
@@ -68,7 +68,7 @@ export async function searchCompetitorAds(query: string) {
   }
 
   const params = new URLSearchParams({
-    access_token: env.metaToken,
+    access_token: accessToken,
     ad_type: "all",
     search_terms: searchTerms,
     ad_reached_countries: JSON.stringify(["US"]),

@@ -47,12 +47,18 @@ export function AdsDesk({
   sentinelRaw,
   daypartingEnabled,
   adsLive = false,
+  metaAccountId = "",
+  metaError = null,
+  metaFetchedCount = null,
   guardLog = [],
 }: {
   campaigns: CampaignRow[];
   sentinelRaw: string;
   daypartingEnabled: boolean;
   adsLive?: boolean;
+  metaAccountId?: string;
+  metaError?: string | null;
+  metaFetchedCount?: number | null;
   guardLog?: Array<{ id: string; message: string }>;
 }) {
   const [pending, start] = useTransition();
@@ -189,10 +195,28 @@ export function AdsDesk({
           Net profit = sales from the ad − what you paid for the products − ad spend − card fees (2.9% + $0.30)
         </p>
         <p className="mt-2 text-xs text-muted">
-          Ads are checked automatically every 15 minutes. Quiet hours (1:00–6:00 store time) pause spend while
-          shoppers are asleep. Use Preview pause to see why an ad would stop before it actually stops.
+          Ads are checked automatically every hour (Railway cron → /api/cron/hourly). Quiet hours (1:00–6:00
+          store time) pause spend while shoppers are asleep. Use Preview pause to see why an ad would stop
+          before it actually stops — Preview never calls Meta or TikTok pause APIs.
         </p>
       </Card>
+
+      {metaError ? (
+        <p className="rounded-xl border border-loss/30 bg-[rgba(255,107,122,0.08)] px-4 py-3 text-sm text-loss">
+          Meta sync: {metaError}
+        </p>
+      ) : null}
+
+      {adsLive && campaigns.length === 0 ? (
+        <Card className="p-5">
+          <p className="text-sm text-muted">
+            Meta connected — 0 active campaigns found in ad account{" "}
+            <span className="font-mono text-ink">{metaAccountId || "unknown"}</span>
+            {metaFetchedCount === 0 ? " (API returned no ad sets)." : "."} Register an ad set in Meta Ads
+            Manager, or confirm META_AD_ACCOUNT_ID and token permissions (ads_read).
+          </p>
+        </Card>
+      ) : null}
 
       {guardLog.length ? (
         <Card>
@@ -217,7 +241,7 @@ export function AdsDesk({
                   <p className="text-xs uppercase tracking-wider text-faint">{c.platform}</p>
                   <h2 className="mt-1 text-base font-semibold">{c.adSetName}</h2>
                   <p className="text-xs text-muted">{c.product?.cleanTitle ?? c.product?.rawTitle ?? "No product linked"}</p>
-                  {c.sample ? <Badge tone="line">Sample data</Badge> : null}
+                  {c.sample ? <Badge tone="warn">DEMO</Badge> : null}
                 </div>
                 {c.isPaused ? (
                   <Badge tone="line">{c.pauseReason ?? "Paused"}</Badge>

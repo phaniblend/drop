@@ -36,10 +36,11 @@ I cannot create paid developer accounts or buy proxies. Plug these into `.env.lo
 | You create | Env vars | Unlocks |
 |---|---|---|
 | Shopify custom app (Admin API, `write_products`, `read_orders`) | `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ADMIN_TOKEN`, `SHOPIFY_WEBHOOK_SECRET` | Real product push + order ingest |
-| Meta Marketing API token | `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` | Live spend + pause |
+| Meta Marketing API token | `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `META_APP_ID`, `META_APP_SECRET` | Live spend + pause; Settings → Extend Meta token (~60d) |
 | TikTok Marketing API | `TIKTOK_ACCESS_TOKEN`, `TIKTOK_ADVERTISER_ID` | Live spend + disable ad groups |
 | AliExpress (public search; Open API optional) | `ALIEXPRESS_*` optional | Live Discover + richer imports |
-| CJ Dropshipping Open API | `CJ_API_KEY` | Second live supplier catalog in Discover |
+| CJ Dropshipping Open API | `CJ_API_KEY` | Second live supplier catalog + URL import |
+| SerpApi | `SERPAPI_KEY` | Google Lens visual match (already wired on Discover) |
 | Google Gemini API | `GEMINI_API_KEY` | LLM title/description rewrite + ad angles |
 | Optional Playwright + **residential proxies you pay for** | `ENABLE_HEADLESS_SCRAPE=true` | Headless supplier page parse (ToS/risk is on you) |
 | Production DB (Neon Postgres or Turso) + Redis | `DATABASE_URL` | Replace local `data/dropshipos.db` |

@@ -15,6 +15,8 @@ export type ParsedSupplierPayload = {
   baseCost: number;
   shippingCost: number;
   shippingDays: number;
+  /** True when freight was not available from supplier APIs. */
+  shippingUnknown?: boolean;
   galleryImages: string[];
   source: "aliexpress" | "cj" | "manual";
   variants: SupplierVariant[];
@@ -49,6 +51,7 @@ export function listingToParsed(listing: ScrapedListing): ParsedSupplierPayload 
     baseCost: variants[0]?.cost ?? sale,
     shippingCost: 0,
     shippingDays: 14,
+    shippingUnknown: true,
     source: "aliexpress",
     galleryImages: listing.images,
     variants,
@@ -81,9 +84,8 @@ export async function scrapeSupplierUrl(targetUrl: string): Promise<ParsedSuppli
   const { isCjProductUrl } = await import("./integrations/cj");
 
   if (isCjProductUrl(url)) {
-    throw new Error(
-      "CJ URL import needs a product detail API next — use Discover search → Import on a CJ card for now.",
-    );
+    const { fetchCjProduct } = await import("./integrations/cj");
+    return fetchCjProduct(url);
   }
 
   if (env.aliexpressAppKey && env.aliexpressAppSecret && /aliexpress\./i.test(url)) {

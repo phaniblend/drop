@@ -15,7 +15,13 @@ export default async function CommandPage() {
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
   const storefrontUrl = shopifyStorefrontHomeUrl();
-  const shopifyLive = integrationStatus().shopify;
+  const integrations = integrationStatus();
+  const shopifyLive = integrations.shopify;
+  const missing = [
+    !integrations.shopify ? "Shopify" : null,
+    !integrations.meta ? "Meta" : null,
+    !integrations.tiktok ? "TikTok" : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-6">
@@ -27,7 +33,9 @@ export default async function CommandPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Net profit is sales minus what you paid for the products, ad spend, and card fees (2.9% + $0.30).
-            Connect Shopify, Meta, and TikTok when you are ready — the desk stays empty until live orders land.
+            {missing.length
+              ? ` Still need to connect: ${missing.join(", ")}.`
+              : " Shopify and Meta are connected — the desk stays quiet until live orders land."}
           </p>
           {storefrontUrl ? (
             <a

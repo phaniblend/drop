@@ -1,6 +1,7 @@
 import { DeskLink } from "@/components/desk-link";
 import { listSuppliers } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
+import { LOW_STOCK_THRESHOLD, isLowStock } from "@/lib/stock-threshold";
 import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
 
@@ -12,8 +13,8 @@ export default async function SuppliersPage() {
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Suppliers</p>
         <h1 className="mt-1 text-2xl font-semibold">Who you actually buy from</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Watch stock on winners. If a bestseller runs out at the factory while ads keep spending,
-          pausing ads later will not save you.
+          Watch stock on winners. Low stock is under {LOW_STOCK_THRESHOLD} pcs — pause ads before the
+          factory runs out.
         </p>
       </div>
 
@@ -81,7 +82,7 @@ export default async function SuppliersPage() {
                     Your cost {money(p.baseCost + p.shippingCost)} · {p.shippingDays}d
                   </p>
                 </div>
-                <span className={`font-mono text-sm ${p.stock < 30 ? "text-loss" : "text-muted"}`}>
+                <span className={`font-mono text-sm ${isLowStock(p.stock) ? "text-loss" : "text-muted"}`}>
                   {p.stock} pcs
                 </span>
               </DeskLink>

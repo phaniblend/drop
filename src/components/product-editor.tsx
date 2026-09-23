@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  applyCopySuggestion,
   publishProduct,
   rewriteProductCopy,
   setProductStatus,
@@ -38,6 +39,8 @@ export function ProductEditor({
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
   const [copyMode, setCopyMode] = useState("");
+  const [copyReason, setCopyReason] = useState("");
+  const [suggestion, setSuggestion] = useState<{ title: string; descriptionHtml: string } | null>(null);
   const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
     null,
   );
@@ -73,20 +76,29 @@ export function ProductEditor({
                 setPublishMsg({ tone: "warn", text: "Publishing to Shopify…" });
                 try {
                   const res = await publishProduct(product.id);
-                  if (res.warning) {
-                    setPublishMsg({ tone: "warn", text: res.warning });
+                  if (res.mode === "local_only") {
+                    setPublishMsg({
+                      tone: "warn",
+                      text: res.warning || "Saved as Local only — not published to Shopify.",
+                    });
+                  } else if (res.warning) {
+                    setPublishMsg({
+                      tone: "warn",
+                      text: `${res.warning} Shopify id: ${res.productId}`,
+                      href: res.adminUrl || res.storefrontUrl || undefined,
+                    });
                   } else {
                     setPublishMsg({
                       tone: "profit",
-                      text: `Published as draft “${res.handle}”. Open it on your storefront to preview.`,
-                      href: res.storefrontUrl || undefined,
+                      text: `Published to Shopify as “${res.handle}” (${res.productId}).`,
+                      href: res.adminUrl || res.storefrontUrl || undefined,
                     });
                   }
                   router.refresh();
                 } catch (e) {
                   setPublishMsg({
                     tone: "loss",
-                    text: e instanceof Error ? e.message : "Publish failed. Try again.",
+                    text: e instanceof Error ? e.message : "Publish failed. Product stays Draft.",
                   });
                 }
               })
@@ -112,7 +124,7 @@ export function ProductEditor({
             <>
               {" "}
               <a href={publishMsg.href} target="_blank" rel="noreferrer" className="underline">
-                View listing
+                Open in Shopify
               </a>
             </>
           ) : null}
@@ -140,11 +152,19 @@ export function ProductEditor({
               onClick={() =>
                 startRewrite(async () => {
                   setCopyMsg("");
+                  setCopyReason("");
+                  setSuggestion(null);
                   try {
                     const copy = await rewriteProductCopy(product.id);
                     setCopyMode(copy.mode);
-                    setCopyMsg("Title and bullets updated.");
-                    router.refresh();
+                    if (copy.mode === "local") {
+                      setSuggestion({ title: copy.title, descriptionHtml: copy.descriptionHtml });
+                      setCopyReason(copy.reason || "Gemini failed; used local copy");
+                      setCopyMsg("Local suggestion ready — Apply or Discard.");
+                    } else {
+                      setCopyMsg("Title and bullets updated with Gemini.");
+                      router.refresh();
+                    }
                   } catch {
                     setCopyMsg("Could not rewrite. Try again.");
                   }
@@ -157,6 +177,43 @@ export function ProductEditor({
               <Badge tone={copyMode === "ai" ? "profit" : "line"}>
                 {copyMode === "ai" ? "AI rewrite" : "Benefit rewrite (local)"}
               </Badge>
+            ) : null}
+            {copyReason ? <p className="text-xs text-warn">{copyReason}</p> : null}
+            {suggestion ? (
+              <div className="rounded-xl border border-warn/30 bg-warn/5 p-3 space-y-2">
+                <p className="text-xs uppercase tracking-wider text-faint">Suggested title</p>
+                <p className="text-sm font-semibold">{suggestion.title}</p>
+                <div
+                  className="prose-sm text-xs text-muted [&_li]:ml-4 [&_li]:list-disc"
+                  dangerouslySetInnerHTML={{ __html: suggestion.descriptionHtml }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    tone="accent"
+                    disabled={rewriting}
+                    onClick={() =>
+                      startRewrite(async () => {
+                        await applyCopySuggestion(product.id, suggestion);
+                        setSuggestion(null);
+                        setCopyMsg("Local suggestion applied.");
+                        router.refresh();
+                      })
+                    }
+                  >
+                    Apply
+                  </Button>
+                  <Button
+                    tone="ghost"
+                    disabled={rewriting}
+                    onClick={() => {
+                      setSuggestion(null);
+                      setCopyMsg("Suggestion discarded. Title unchanged.");
+                    }}
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
             ) : null}
             {copyMsg ? <p className="text-xs text-muted">{copyMsg}</p> : null}
           </div>
@@ -180,7 +237,12 @@ export function ProductEditor({
               </div>
               <div>
                 <dt className="text-faint">Margin</dt>
-                <dd>{pct(product.economics.margin)}</dd>
+                <dd>
+                  {pct(product.economics.margin)}
+                  {product.shippingCost <= 0 ? (
+                    <span className="ml-1 text-[10px] text-warn">est., shipping unknown</span>
+                  ) : null}
+                </dd>
               </div>
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-2">
@@ -194,6 +256,11 @@ export function ProductEditor({
                 <input className={inputClass} value={shipping} onChange={(e) => setShipping(e.target.value)} />
               </Field>
             </div>
+            {product.shippingCost <= 0 ? (
+              <p className="mt-2 text-xs text-warn">
+                Supplier freight was not available — margin is estimated until you enter ship cost.
+              </p>
+            ) : null}
             <Button
               className="mt-3"
               tone="line"
