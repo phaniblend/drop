@@ -63,7 +63,7 @@ export default async function CommandPage() {
             <Button tone="accent">Ship {data.pendingCount} waiting orders</Button>
           </DeskLink>
           <DeskLink href="/discover">
-            <Button tone="line">Find a test product</Button>
+            <Button tone="line">What do you want to sell?</Button>
           </DeskLink>
         </div>
       </div>
@@ -180,7 +180,9 @@ export default async function CommandPage() {
           <CardHeader eyebrow="Catalog" title="Profit by product (each × sold)" />
           <div className="divide-y divide-line">
             {data.topProducts.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted">Catalog is empty. Import a test product from Discover.</p>
+              <p className="px-5 py-6 text-sm text-muted">
+                Nothing in the catalog yet. Start with what you want to sell.
+              </p>
             ) : (
               data.topProducts.map((p) => (
               <DeskLink

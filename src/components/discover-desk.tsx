@@ -23,12 +23,11 @@ import { CompetitorAdsPanel } from "./competitor-ads-panel";
 const NICHES = ["all", "home", "car", "pet", "beauty", "health", "outdoors"] as const;
 
 export function DiscoverDesk({
-  aiLive,
   serpLive,
   cjLive,
   aliApiLive,
 }: {
-  aiLive: boolean;
+  aiLive?: boolean;
   serpLive: boolean;
   cjLive: boolean;
   aliApiLive: boolean;
@@ -163,19 +162,20 @@ export function DiscoverDesk({
     <div className="space-y-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Discover</p>
-        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Find something worth testing</h1>
+        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">What do you want to sell?</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Live supplier search across AliExpress
-          {cjLive ? " and CJ Dropshipping" : ""}
-          {aliApiLive ? " (Open API enrich on)" : ""}
-          . Import a URL to pull a listing into your catalog draft.
+          Search live suppliers
+          {cjLive ? " (AliExpress + CJ)" : " on AliExpress"}
+          {aliApiLive ? " with Open API enrich" : ""}
+          , then import a listing into your catalog. Small ad spend decides if it deserves more budget —
+          Seto watches the rest.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
         <Badge tone="profit">Live supplier search</Badge>
         {cjLive ? <Badge tone="profit">CJ on</Badge> : <Badge tone="line">CJ optional</Badge>}
-        <Badge tone={aiLive ? "profit" : "line"}>{aiLive ? "AI rewrite on" : "Quick clean titles"}</Badge>
+        <Badge tone="profit">Clean titles</Badge>
         {serpLive ? <Badge tone="profit">Visual match on</Badge> : null}
       </div>
 

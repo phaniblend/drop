@@ -26,7 +26,7 @@ export default async function SuppliersPage() {
             from your catalog.
           </p>
           <DeskLink href="/discover" className="mt-5 inline-block">
-            <Button tone="accent">Find a product</Button>
+            <Button tone="accent">What do you want to sell?</Button>
           </DeskLink>
         </Card>
       ) : null}

@@ -11,7 +11,7 @@ import {
 import { postJson } from "@/lib/retry-fetch";
 import { money, pct } from "@/lib/utils";
 import { humanizeVariantLabel, labeledVariantName } from "@/lib/variant-label";
-import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
+import { Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
 import { Thumb } from "./thumb";
 import type { CampaignTracker, Product, ProductVariant } from "@/lib/db/schema";
@@ -38,7 +38,6 @@ export function ProductEditor({
   const [retail, setRetail] = useState(String(product.retailPrice));
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
-  const [copyMode, setCopyMode] = useState("");
   const [copyReason, setCopyReason] = useState("");
   const [suggestion, setSuggestion] = useState<{ title: string; descriptionHtml: string } | null>(null);
   const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
@@ -47,6 +46,39 @@ export function ProductEditor({
   const [priceMsg, setPriceMsg] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
   const [showSupplier, setShowSupplier] = useState(false);
+
+  function runPublish() {
+    startPublish(async () => {
+      setPublishMsg({ tone: "warn", text: "Publishing to Shopify…" });
+      try {
+        const res = await publishProduct(product.id);
+        if (res.mode === "local_only") {
+          setPublishMsg({
+            tone: "warn",
+            text: res.warning || "Saved as Local only — not published to Shopify.",
+          });
+        } else if (res.warning) {
+          setPublishMsg({
+            tone: "warn",
+            text: `${res.warning} Shopify id: ${res.productId}`,
+            href: res.adminUrl || res.storefrontUrl || undefined,
+          });
+        } else {
+          setPublishMsg({
+            tone: "profit",
+            text: `Published to Shopify as “${res.handle}” (${res.productId}).`,
+            href: res.adminUrl || res.storefrontUrl || undefined,
+          });
+        }
+        router.refresh();
+      } catch (e) {
+        setPublishMsg({
+          tone: "loss",
+          text: e instanceof Error ? e.message : "Publish failed. Product stays Draft.",
+        });
+      }
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -66,47 +98,7 @@ export function ProductEditor({
             </a>
           ) : null}
         </div>
-        <div className="flex gap-2">
-          <StatusPill value={product.status} />
-          <Button
-            tone="accent"
-            disabled={publishing}
-            onClick={() =>
-              startPublish(async () => {
-                setPublishMsg({ tone: "warn", text: "Publishing to Shopify…" });
-                try {
-                  const res = await publishProduct(product.id);
-                  if (res.mode === "local_only") {
-                    setPublishMsg({
-                      tone: "warn",
-                      text: res.warning || "Saved as Local only — not published to Shopify.",
-                    });
-                  } else if (res.warning) {
-                    setPublishMsg({
-                      tone: "warn",
-                      text: `${res.warning} Shopify id: ${res.productId}`,
-                      href: res.adminUrl || res.storefrontUrl || undefined,
-                    });
-                  } else {
-                    setPublishMsg({
-                      tone: "profit",
-                      text: `Published to Shopify as “${res.handle}” (${res.productId}).`,
-                      href: res.adminUrl || res.storefrontUrl || undefined,
-                    });
-                  }
-                  router.refresh();
-                } catch (e) {
-                  setPublishMsg({
-                    tone: "loss",
-                    text: e instanceof Error ? e.message : "Publish failed. Product stays Draft.",
-                  });
-                }
-              })
-            }
-          >
-            {publishing ? "Publishing…" : "Publish to Shopify"}
-          </Button>
-        </div>
+        <StatusPill value={product.status} />
       </div>
 
       {publishMsg ? (
@@ -156,13 +148,16 @@ export function ProductEditor({
                   setSuggestion(null);
                   try {
                     const copy = await rewriteProductCopy(product.id);
-                    setCopyMode(copy.mode);
                     if (copy.mode === "local") {
                       setSuggestion({ title: copy.title, descriptionHtml: copy.descriptionHtml });
-                      setCopyReason(copy.reason || "Gemini failed; used local copy");
-                      setCopyMsg("Local suggestion ready — Apply or Discard.");
+                      setCopyReason(
+                        copy.reason
+                          ? "Couldn’t refresh copy automatically — review this suggestion."
+                          : "Review this suggestion before applying.",
+                      );
+                      setCopyMsg("");
                     } else {
-                      setCopyMsg("Title and bullets updated with Gemini.");
+                      setCopyMsg("Title and bullets updated.");
                       router.refresh();
                     }
                   } catch {
@@ -173,11 +168,6 @@ export function ProductEditor({
             >
               {rewriting ? "Rewriting…" : "Rewrite title & bullets"}
             </Button>
-            {copyMode ? (
-              <Badge tone={copyMode === "ai" ? "profit" : "line"}>
-                {copyMode === "ai" ? "AI rewrite" : "Benefit rewrite (local)"}
-              </Badge>
-            ) : null}
             {copyReason ? <p className="text-xs text-warn">{copyReason}</p> : null}
             {suggestion ? (
               <div className="rounded-xl border border-warn/30 bg-warn/5 p-3 space-y-2">
@@ -195,7 +185,8 @@ export function ProductEditor({
                       startRewrite(async () => {
                         await applyCopySuggestion(product.id, suggestion);
                         setSuggestion(null);
-                        setCopyMsg("Local suggestion applied.");
+                        setCopyReason("");
+                        setCopyMsg("Suggestion applied.");
                         router.refresh();
                       })
                     }
@@ -207,6 +198,7 @@ export function ProductEditor({
                     disabled={rewriting}
                     onClick={() => {
                       setSuggestion(null);
+                      setCopyReason("");
                       setCopyMsg("Suggestion discarded. Title unchanged.");
                     }}
                   >
@@ -291,6 +283,9 @@ export function ProductEditor({
                 {priceMsg}
               </p>
             ) : null}
+            <Button className="mt-3 w-full" tone="accent" disabled={publishing} onClick={runPublish}>
+              {publishing ? "Publishing…" : "Publish to Shopify"}
+            </Button>
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-faint">Supplier</p>

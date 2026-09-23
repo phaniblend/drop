@@ -43,5 +43,7 @@ export function localCleanTitle(
 
 export function formatGeminiFallback(reason: string | null | undefined) {
   const r = (reason || "unknown error").trim();
-  return `Gemini failed: ${r}; used local copy`;
+  // Operator-facing copy stays vendor-neutral; reason is logged server-side.
+  void r;
+  return "Couldn’t refresh copy automatically; used a local suggestion";
 }

@@ -48,7 +48,7 @@ describe("import stock / ship mapping", () => {
 describe("gemini fallback reason", () => {
   it("formats a visible reason for the UI", () => {
     expect(formatGeminiFallback("model not found")).toBe(
-      "Gemini failed: model not found; used local copy",
+      "Couldn’t refresh copy automatically; used a local suggestion",
     );
   });
 });

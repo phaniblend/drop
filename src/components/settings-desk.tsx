@@ -102,15 +102,13 @@ export function SettingsDesk({
         : "Used on Discover for competitor creative reverse search. Add SERPAPI_KEY on Railway.",
     },
     {
-      name: "Gemini AI",
+      name: "Listing copy",
       ok: status.ai,
       why: status.ai
-        ? `Live ping ok${status.aiModel ? ` · ${status.aiModel}` : ""}${
-            status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""
-          }.`
+        ? `Title and ad-angle rewrite is live${status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""}.`
         : status.aiConfigured
-          ? `Key is set but live ping failed${status.aiError ? `: ${status.aiError}` : ""}. Rewrite falls back to local copy.`
-          : "Offline benefit-based copy runs today. Add GEMINI_API_KEY on Railway for live Gemini rewrites.",
+          ? `Key is set but the copy service failed a health check${status.aiError ? ` (${status.aiError})` : ""}. Offline benefit copy still runs.`
+          : "Offline benefit-based copy runs today. Add the copy API key on Railway to turn on live rewrites.",
     },
     {
       name: "Listing import",

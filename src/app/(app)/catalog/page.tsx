@@ -30,7 +30,7 @@ export default async function CatalogPage({
           ) : null}
         </div>
         <DeskLink href="/discover">
-          <Button tone="accent">Import product</Button>
+          <Button tone="accent">What do you want to sell?</Button>
         </DeskLink>
       </div>
 
