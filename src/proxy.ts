@@ -15,7 +15,8 @@ export const proxy = auth((req) => {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/cron") ||
-    pathname.startsWith("/api/webhooks");
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/shopify/callback");
 
   if (publicPath) {
     if (loggedIn && pathname === "/login") {

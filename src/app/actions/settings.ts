@@ -71,3 +71,14 @@ export async function extendMetaAccessToken() {
       : "Token exchanged but no operator row to save — paste the new token into META_ACCESS_TOKEN on Railway.",
   };
 }
+
+export async function disconnectShopify() {
+  const { clearShopifyOAuthConnection } = await import("@/lib/shopify-oauth");
+  const { invalidateDeskShell } = await import("@/lib/desk-shell");
+  await clearShopifyOAuthConnection();
+  invalidateDeskShell();
+  revalidatePath("/settings");
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  return { ok: true as const, message: "Shopify disconnected from this desk." };
+}

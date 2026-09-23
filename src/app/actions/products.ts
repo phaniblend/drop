@@ -377,10 +377,14 @@ export async function publishProduct(productId: string) {
   revalidatePath("/catalog");
   revalidatePath("/");
   const { shopifyProductUrl, shopifyStorefrontHomeUrl } = await import("@/lib/shopify-storefront");
+  const storefrontUrl =
+    result.mode === "live"
+      ? (await shopifyProductUrl(result.handle)) || (await shopifyStorefrontHomeUrl())
+      : "";
   return {
     ...result,
     status: nextStatus,
-    storefrontUrl: result.mode === "live" ? shopifyProductUrl(result.handle) || shopifyStorefrontHomeUrl() : "",
+    storefrontUrl,
   };
 }
 

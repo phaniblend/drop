@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { repairCatalog, resetDemoData, saveOperatorSettings, extendMetaAccessToken } from "@/app/actions/settings";
+import {
+  repairCatalog,
+  resetDemoData,
+  saveOperatorSettings,
+  extendMetaAccessToken,
+  disconnectShopify,
+} from "@/app/actions/settings";
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
@@ -25,11 +31,19 @@ type Status = {
   liveCount: number;
 };
 
+type ShopifyOAuthProps = {
+  connected: boolean;
+  domain: string;
+  appReady: boolean;
+  flash: { tone: "ok" | "err"; message: string } | null;
+};
+
 export function SettingsDesk({
   status,
   user,
   billing,
   storefrontUrl = "",
+  shopifyOAuth,
   metaLongLived = false,
   canExtendMeta = false,
   metaAppReady = false,
@@ -37,6 +51,7 @@ export function SettingsDesk({
   status: Status;
   billing: BillingSummary;
   storefrontUrl?: string;
+  shopifyOAuth?: ShopifyOAuthProps;
   metaLongLived?: boolean;
   canExtendMeta?: boolean;
   metaAppReady?: boolean;
@@ -53,7 +68,8 @@ export function SettingsDesk({
 }) {
   const [pending, start] = useTransition();
   const [form, setForm] = useState(user);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState(shopifyOAuth?.flash?.message || "");
+  const [shopInput, setShopInput] = useState(shopifyOAuth?.domain || "");
 
   const [clearConfirm, setClearConfirm] = useState("");
 
@@ -61,9 +77,12 @@ export function SettingsDesk({
     {
       name: "Shopify",
       ok: status.shopify,
-      why: "Publishes products to your store and brings new checkouts into Orders. Turn off password protection on the Online Store if customers need to buy without a storefront password.",
+      why: shopifyOAuth?.connected
+        ? `Connected as ${shopifyOAuth.domain}.myshopify.com — publish and order ingest use this store.`
+        : "Publishes products to your store and brings new checkouts into Orders. Connect with Shopify login (or keep env tokens on Railway).",
       href: storefrontUrl || undefined,
       hrefLabel: storefrontUrl ? "Open storefront" : undefined,
+      shopifyConnect: true as const,
     },
     {
       name: "Meta ads",
@@ -191,6 +210,66 @@ export function SettingsDesk({
               </Badge>
             </div>
             <p className="mt-2 text-sm text-muted">{c.why}</p>
+            {"shopifyConnect" in c && c.shopifyConnect ? (
+              <div className="mt-3 space-y-2">
+                {shopifyOAuth?.connected ? (
+                  <Button
+                    className="h-8 px-3 text-xs"
+                    tone="line"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        setMsg("");
+                        try {
+                          const res = await disconnectShopify();
+                          setMsg(res.message);
+                          setShopInput("");
+                        } catch (e) {
+                          setMsg(e instanceof Error ? e.message : "Could not disconnect Shopify.");
+                        }
+                      })
+                    }
+                  >
+                    Disconnect Shopify
+                  </Button>
+                ) : shopifyOAuth?.appReady ? (
+                  <form
+                    className="flex flex-wrap items-end gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const shop = shopInput.trim();
+                      if (!shop) {
+                        setMsg("Enter your shop name (e.g. my-store).");
+                        return;
+                      }
+                      window.location.href = `/api/shopify/auth?shop=${encodeURIComponent(shop)}`;
+                    }}
+                  >
+                    <label className="min-w-[10rem] flex-1">
+                      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-faint">
+                        Shop name
+                      </span>
+                      <input
+                        className={inputClass}
+                        placeholder="my-store"
+                        value={shopInput}
+                        onChange={(e) => setShopInput(e.target.value)}
+                        autoComplete="off"
+                      />
+                    </label>
+                    <Button type="submit" className="h-10 px-3 text-xs" tone="accent">
+                      Connect Shopify
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Connect needs SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET on Railway (Dev Dashboard app), with
+                    redirect URI{" "}
+                    <span className="font-mono text-[10px]">/api/shopify/callback</span> on that app.
+                  </p>
+                )}
+              </div>
+            ) : null}
             {"metaExtend" in c && c.metaExtend ? (
               metaAppReady ? (
                 <Button

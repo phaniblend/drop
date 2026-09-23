@@ -14,11 +14,14 @@ export default async function CommandPage() {
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
-  const storefrontUrl = shopifyStorefrontHomeUrl();
+  const [storefrontUrl, shopifyOAuthLive] = await Promise.all([
+    shopifyStorefrontHomeUrl(),
+    import("@/lib/shopify-oauth").then((m) => m.shopifyIsConnected()),
+  ]);
   const integrations = integrationStatus();
-  const shopifyLive = integrations.shopify;
+  const shopifyLive = shopifyOAuthLive || integrations.shopify;
   const missing = [
-    !integrations.shopify ? "Shopify" : null,
+    !shopifyLive ? "Shopify" : null,
     !integrations.meta ? "Meta" : null,
     !integrations.tiktok ? "TikTok" : null,
   ].filter(Boolean) as string[];

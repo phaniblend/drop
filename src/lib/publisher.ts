@@ -3,7 +3,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
 import { GraphQLClient, gql } from "graphql-request";
 import { env, integrationStatus } from "./env";
-import { getShopifyAdminToken, shopifyCredentialsReady } from "./shopify-token";
+import { resolveShopifyConnection, shopifyIsConnected } from "./shopify-oauth";
 
 export type TransformedProductInput = {
   title: string;
@@ -22,14 +22,13 @@ export type PublishResult = {
 };
 
 async function client() {
-  if (!shopifyCredentialsReady()) return null;
-  const token = await getShopifyAdminToken();
-  if (!token) return null;
+  const conn = await resolveShopifyConnection();
+  if (!conn) return null;
   return new GraphQLClient(
-    `https://${env.shopifyDomain}.myshopify.com/admin/api/2026-07/graphql.json`,
+    `https://${conn.domain}.myshopify.com/admin/api/2026-07/graphql.json`,
     {
       headers: {
-        "X-Shopify-Access-Token": token,
+        "X-Shopify-Access-Token": conn.token,
         "Content-Type": "application/json",
       },
     },
@@ -124,7 +123,8 @@ export async function publishProductToShopify(
     if (!product) throw new Error("Shopify returned no product.");
 
     const { shopifyAdminProductUrl } = await import("./publish-status");
-    const adminUrl = shopifyAdminProductUrl(env.shopifyDomain, product.id);
+    const conn = await resolveShopifyConnection();
+    const adminUrl = shopifyAdminProductUrl(conn?.domain || env.shopifyDomain, product.id);
 
     const variantNodes = product.variants?.nodes ?? [];
     if (variantNodes.length > 0) {
@@ -181,7 +181,8 @@ export async function publishProductToShopify(
   }
 }
 
-export function shopifyConnected() {
+export async function shopifyConnected() {
+  if (await shopifyIsConnected()) return true;
   return integrationStatus().shopify;
 }
 

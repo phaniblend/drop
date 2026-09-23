@@ -29,8 +29,16 @@ export async function loadDeskShell(input: {
 }): Promise<DeskShell | { denied: true }> {
   const email = input.email.trim().toLowerCase();
   const hit = globalForDesk.setoDesk;
+  const { shopifyIsConnected } = await import("./shopify-oauth");
+
+  async function liveCountWithShopify() {
+    const status = integrationStatus();
+    const shopify = (await shopifyIsConnected()) || status.shopify;
+    return Object.values({ ...status.liveApis, shopify }).filter(Boolean).length;
+  }
+
   if (hit && hit.email === email && Date.now() - hit.at < TTL_MS) {
-    return { ...hit.shell, liveCount: integrationStatus().liveCount };
+    return { ...hit.shell, liveCount: await liveCountWithShopify() };
   }
 
   const db = await ensureDb();
@@ -47,7 +55,7 @@ export async function loadDeskShell(input: {
     storeName: user.storeName,
     displayName: user.displayName,
     billing,
-    liveCount: integrationStatus().liveCount,
+    liveCount: await liveCountWithShopify(),
   };
   globalForDesk.setoDesk = { email, at: Date.now(), shell };
   return shell;

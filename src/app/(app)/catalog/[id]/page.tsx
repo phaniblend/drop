@@ -11,5 +11,6 @@ export default async function ProductPage({
   const { id } = await params;
   const product = await getProduct(id);
   if (!product) notFound();
-  return <ProductEditor product={product} storefrontHomeUrl={shopifyStorefrontHomeUrl()} />;
+  const storefrontHomeUrl = await shopifyStorefrontHomeUrl();
+  return <ProductEditor product={product} storefrontHomeUrl={storefrontHomeUrl} />;
 }
