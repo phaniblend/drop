@@ -38,8 +38,8 @@ I cannot create paid developer accounts or buy proxies. Plug these into `.env.lo
 | Shopify custom app (Admin API, `write_products`, `read_orders`) | `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ADMIN_TOKEN`, `SHOPIFY_WEBHOOK_SECRET` | Real product push + order ingest |
 | Meta Marketing API token | `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` | Live spend + pause |
 | TikTok Marketing API | `TIKTOK_ACCESS_TOKEN`, `TIKTOK_ADVERTISER_ID` | Live spend + disable ad groups |
-| AliExpress Dropshipper developer app | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET`, `ALIEXPRESS_ACCESS_TOKEN` | Official catalog (preferred over scrape) |
-| SerpApi | `SERPAPI_KEY` | Google Lens visual match from competitor ads |
+| AliExpress (public search; Open API optional) | `ALIEXPRESS_*` optional | Live Discover + richer imports |
+| CJ Dropshipping Open API | `CJ_API_KEY` | Second live supplier catalog in Discover |
 | Google Gemini API | `GEMINI_API_KEY` | LLM title/description rewrite + ad angles |
 | Optional Playwright + **residential proxies you pay for** | `ENABLE_HEADLESS_SCRAPE=true` | Headless supplier page parse (ToS/risk is on you) |
 | Production DB (Neon Postgres or Turso) + Redis | `DATABASE_URL` | Replace local `data/dropshipos.db` |

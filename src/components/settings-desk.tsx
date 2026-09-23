@@ -13,6 +13,7 @@ type Status = {
   meta: boolean;
   tiktok: boolean;
   aliexpress: boolean;
+  cj?: boolean;
   serp: boolean;
   ai: boolean;
   scrape: boolean;
@@ -64,8 +65,17 @@ export function SettingsDesk({
     },
     {
       name: "AliExpress",
-      ok: status.aliexpress,
-      why: "Finds live supplier listings when you search on Discover.",
+      ok: true,
+      why: status.aliexpress
+        ? "Live Discover search + Open API catalog enrich when you import."
+        : "Live Discover search via public AliExpress listings. Add Open Platform keys to enrich official catalog data.",
+    },
+    {
+      name: "CJ Dropshipping",
+      ok: Boolean(status.cj),
+      why: status.cj
+        ? "Second live supplier catalog in Discover search."
+        : "Optional. Add CJ_API_KEY on Railway to search CJ alongside AliExpress.",
     },
     {
       name: "Visual match",

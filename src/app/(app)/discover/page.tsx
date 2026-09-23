@@ -1,5 +1,4 @@
 import { integrationStatus } from "@/lib/env";
-import { SUPPLIER_FEED } from "@/lib/supplier-feed";
 import { DiscoverDesk } from "@/components/discover-desk";
 
 export default async function DiscoverPage({
@@ -17,10 +16,10 @@ export default async function DiscoverPage({
         </p>
       ) : null}
       <DiscoverDesk
-        feed={SUPPLIER_FEED}
         aiLive={status.ai}
         serpLive={status.serp}
-        aliLive={status.aliexpress}
+        cjLive={status.cj}
+        aliApiLive={status.aliexpress}
       />
     </div>
   );

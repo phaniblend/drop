@@ -11,21 +11,27 @@ export function integrationStatus() {
   );
   const meta = Boolean(read("META_ACCESS_TOKEN"));
   const tiktok = Boolean(read("TIKTOK_ACCESS_TOKEN"));
+  // Official Open API keys — HTML Discover still works without these.
   const aliexpress = Boolean(read("ALIEXPRESS_APP_KEY") && read("ALIEXPRESS_APP_SECRET"));
+  const cj = Boolean(read("CJ_API_KEY"));
   const serp = Boolean(read("SERPAPI_KEY"));
   const ai = Boolean(read("GEMINI_API_KEY") || read("GOOGLE_AI_API_KEY"));
   const scrape = true;
+  // Discover is always "live capable" via public AliExpress HTML (+ CJ/API when keyed).
+  const discover = true;
 
   return {
     shopify,
     meta,
     tiktok,
     aliexpress,
+    cj,
     serp,
     ai,
     scrape,
-    demo: !shopify && !meta && !tiktok && !aliexpress && !serp,
-    liveCount: [shopify, meta, tiktok, aliexpress, serp, ai].filter(Boolean).length,
+    discover,
+    demo: false,
+    liveCount: [shopify, meta, tiktok, true, cj, serp, ai].filter(Boolean).length,
   };
 }
 
@@ -43,6 +49,7 @@ export const env = {
   aliexpressAppKey: read("ALIEXPRESS_APP_KEY"),
   aliexpressAppSecret: read("ALIEXPRESS_APP_SECRET"),
   aliexpressAccessToken: read("ALIEXPRESS_ACCESS_TOKEN"),
+  cjApiKey: read("CJ_API_KEY"),
   serpApiKey: read("SERPAPI_KEY"),
   geminiApiKey: read("GEMINI_API_KEY") || read("GOOGLE_AI_API_KEY"),
   geminiModel: read("GEMINI_MODEL") || "gemini-2.0-flash",

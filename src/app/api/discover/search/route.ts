@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { integrationStatus } from "@/lib/env";
-import { searchFeed } from "@/lib/supplier-feed";
+import { searchLiveSuppliers } from "@/lib/discover-search";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,34 +14,20 @@ export async function POST(req: NextRequest) {
     niche = String(body.niche ?? "all");
   } catch {
     return NextResponse.json(
-      { mode: "live", items: [], error: "Search request was invalid." },
+      { mode: "live", items: [], error: "Search request was invalid.", sources: [] },
       { status: 400 },
     );
   }
 
-  const canSearch = query.trim().length >= 2 || niche !== "all";
-  if (integrationStatus().aliexpress && canSearch) {
-    try {
-      const { searchAliExpress } = await import("@/lib/integrations/aliexpress");
-      const items = await searchAliExpress(query.trim(), niche);
-      return NextResponse.json({
-        mode: "live",
-        items,
-        error:
-          items.length === 0
-            ? niche !== "all" && query.trim()
-              ? `No ${niche} listings matched that name. Try All, or a more specific product.`
-              : "No live listings matched that name. Try two or three simple words."
-            : undefined,
-      });
-    } catch (error) {
-      return NextResponse.json({
-        mode: "live",
-        items: [],
-        error: error instanceof Error ? error.message : "Search failed. Try again.",
-      });
-    }
+  try {
+    const result = await searchLiveSuppliers(query, niche);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json({
+      mode: "live",
+      items: [],
+      sources: [],
+      error: error instanceof Error ? error.message : "Search failed. Try again.",
+    });
   }
-
-  return NextResponse.json({ mode: "demo", items: canSearch ? searchFeed(query, niche) : [] });
 }

@@ -9,7 +9,7 @@ import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
 import { publishProductToShopify } from "@/lib/publisher";
 import { listingToParsed, scrapeSupplierUrl } from "@/lib/scraper";
-import { getFeedProduct, searchFeed, type FeedProduct } from "@/lib/supplier-feed";
+import type { FeedProduct } from "@/lib/supplier-feed";
 import { eq } from "drizzle-orm";
 import { num, parseCsv } from "@/lib/csv";
 import { assertProductQuota, isBillingError } from "@/lib/billing";
@@ -19,63 +19,6 @@ import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 function paywallResult(error: unknown): { paywall: PaywallPayload } {
   if (isBillingError(error)) return { paywall: error.paywall };
   throw error;
-}
-
-export async function importFromFeed(feedId: string) {
-  const feed = getFeedProduct(feedId);
-  if (!feed) throw new Error("That supplier listing is no longer in the feed.");
-  const existing = await findProductBySupplierUrl(feed.url);
-  if (!existing) {
-    try {
-      await assertProductQuota();
-    } catch (error) {
-      return paywallResult(error);
-    }
-  }
-  const copy = await enrichCopy({
-    rawTitle: feed.cleanTitle,
-    cost: feed.cost,
-    shipping: feed.shipping,
-    niche: feed.niche,
-  });
-  const retail = suggestedRetail(feed.cost, feed.shipping, 3);
-  const id = await insertImportedProduct({
-    rawTitle: feed.title,
-    cleanTitle: feed.cleanTitle,
-    descriptionHtml: copy.descriptionHtml,
-    supplierUrl: feed.url,
-    supplierName: feed.supplierName,
-    supplierSource: feed.source,
-    imageUrl: feed.image,
-    gallery: [feed.image],
-    baseCost: feed.cost,
-    shippingCost: feed.shipping,
-    retailPrice: retail,
-    shippingDays: feed.shippingDays,
-    niche: feed.niche,
-    tags: feed.tags.join(","),
-    variants: feed.variants.map((v) => ({
-      skuId: v.skuId,
-      name: v.attributes,
-      cost: v.cost,
-      price: suggestedRetail(v.cost, feed.shipping, 3),
-      stock: v.stock,
-      imageUrl: feed.image,
-    })),
-  });
-  const db = await ensureDb();
-  await logActivity(db, {
-    kind: "import",
-    message: existing
-      ? `Updated existing draft for ${copy.title}.`
-      : `Imported ${copy.title} from ${feed.supplierName}.`,
-    href: `/catalog/${id}`,
-  });
-  revalidatePath("/catalog");
-  revalidatePath("/discover");
-  revalidatePath("/");
-  revalidatePath("/", "layout");
-  return { id, reused: Boolean(existing) };
 }
 
 export async function importFromSupplierUrl(url: string) {
@@ -202,35 +145,75 @@ export async function importScrapedListing(listing: ScrapedListing) {
   return { id, reused: Boolean(existing) };
 }
 
+export async function importFromFeed(_feedId: string) {
+  throw new Error("Sample supplier feed is retired. Search live listings or paste a supplier URL.");
+}
+
+/** Import a live Discover card (AliExpress or CJ) using the search snapshot. */
+export async function importLiveListing(feed: FeedProduct) {
+  if (!feed?.url || !feed.live) {
+    throw new Error("Only live supplier listings can be imported.");
+  }
+  const existing = await findProductBySupplierUrl(feed.url);
+  if (!existing) {
+    try {
+      await assertProductQuota();
+    } catch (error) {
+      return paywallResult(error);
+    }
+  }
+  const copy = await enrichCopy({
+    rawTitle: feed.cleanTitle || feed.title,
+    cost: feed.cost,
+    shipping: feed.shipping,
+    niche: feed.niche,
+  });
+  const retail = suggestedRetail(feed.cost, feed.shipping, 3);
+  const id = await insertImportedProduct({
+    rawTitle: feed.title,
+    cleanTitle: copy.title,
+    descriptionHtml: copy.descriptionHtml,
+    supplierUrl: feed.url,
+    supplierName: feed.supplierName,
+    supplierSource: feed.source,
+    imageUrl: feed.image,
+    gallery: feed.image ? [feed.image] : [],
+    baseCost: feed.cost,
+    shippingCost: feed.shipping,
+    retailPrice: retail,
+    shippingDays: feed.shippingDays,
+    niche: feed.niche,
+    tags: feed.tags.join(","),
+    variants: feed.variants.map((v) => ({
+      skuId: v.skuId,
+      name: v.attributes,
+      cost: v.cost,
+      price: suggestedRetail(v.cost, feed.shipping, 3),
+      stock: v.stock,
+      imageUrl: feed.image,
+    })),
+  });
+  const db = await ensureDb();
+  await logActivity(db, {
+    kind: "import",
+    message: existing
+      ? `Updated existing draft for ${copy.title}.`
+      : `Imported ${copy.title} from ${feed.supplierName}.`,
+    href: `/catalog/${id}`,
+  });
+  revalidatePath("/catalog");
+  revalidatePath("/discover");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
+  return { id, reused: Boolean(existing) };
+}
+
 export async function searchDiscover(
   query: string,
   niche = "all",
-): Promise<{ mode: "live" | "demo"; items: FeedProduct[]; error?: string }> {
-  const { integrationStatus } = await import("@/lib/env");
-  const canSearch = query.trim().length >= 2 || niche !== "all";
-  if (integrationStatus().aliexpress && canSearch) {
-    try {
-      const { searchAliExpress } = await import("@/lib/integrations/aliexpress");
-      const items = await searchAliExpress(query.trim(), niche);
-      return {
-        mode: "live",
-        items,
-        error:
-          items.length === 0
-            ? niche !== "all" && query.trim()
-              ? `No ${niche} listings matched that name. Try All, or a more specific product.`
-              : "No live listings matched that name. Try two or three simple words."
-            : undefined,
-      };
-    } catch (error) {
-      return {
-        mode: "live",
-        items: [],
-        error: error instanceof Error ? error.message : "AliExpress search failed.",
-      };
-    }
-  }
-  return { mode: "demo", items: searchFeed(query, niche) };
+): Promise<{ mode: "live"; items: FeedProduct[]; error?: string }> {
+  const { searchLiveSuppliers } = await import("@/lib/discover-search");
+  return searchLiveSuppliers(query, niche);
 }
 
 export async function importProductsCsv(text: string) {

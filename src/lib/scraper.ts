@@ -77,11 +77,14 @@ function assertHttpUrl(targetUrl: string) {
 export async function scrapeSupplierUrl(targetUrl: string): Promise<ParsedSupplierPayload> {
   const url = assertHttpUrl(targetUrl);
   const { env } = await import("./env");
-  const { lookupFeedByUrl } = await import("./supplier-feed");
   const { isAliExpressItemUrl } = await import("./aliexpress-url");
+  const { isCjProductUrl } = await import("./integrations/cj");
 
-  const fromFeed = lookupFeedByUrl(url);
-  if (fromFeed) return fromFeed;
+  if (isCjProductUrl(url)) {
+    throw new Error(
+      "CJ URL import needs a product detail API next — use Discover search → Import on a CJ card for now.",
+    );
+  }
 
   if (env.aliexpressAppKey && env.aliexpressAppSecret && /aliexpress\./i.test(url)) {
     try {

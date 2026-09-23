@@ -297,7 +297,7 @@ async function searchAliExpressInner(keyword: string, niche: string): Promise<Fe
 }
 
 export async function searchAliExpress(keyword: string, niche = "all"): Promise<FeedProduct[]> {
-  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
+  // Public HTML search works without Open API keys; recommend feeds need keys.
   return Promise.race([
     searchAliExpressInner(keyword, niche),
     new Promise<FeedProduct[]>((_, reject) => {
@@ -307,6 +307,7 @@ export async function searchAliExpress(keyword: string, niche = "all"): Promise<
 }
 
 async function searchFromFeeds(query: string, words: string[], seen: Set<string>) {
+  if (!env.aliexpressAppKey || !env.aliexpressAppSecret) return [];
   const names = await listFeedNames();
   const feeds = pickFeeds(names, query);
   const pages = await Promise.all(

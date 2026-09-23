@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  importFromFeed,
+  importLiveListing,
   importFromSupplierUrl,
   importProductsCsv,
   importScrapedListing,
@@ -23,15 +23,15 @@ import { CompetitorAdsPanel } from "./competitor-ads-panel";
 const NICHES = ["all", "home", "car", "pet", "beauty", "health", "outdoors"] as const;
 
 export function DiscoverDesk({
-  feed,
   aiLive,
   serpLive,
-  aliLive,
+  cjLive,
+  aliApiLive,
 }: {
-  feed: FeedProduct[];
   aiLive: boolean;
   serpLive: boolean;
-  aliLive: boolean;
+  cjLive: boolean;
+  aliApiLive: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -57,12 +57,6 @@ export function DiscoverDesk({
   const [scraping, setScraping] = useState(false);
 
   useEffect(() => {
-    if (!aliLive) {
-      setLiveRows(null);
-      setSearchError("");
-      setSearching(false);
-      return;
-    }
     if (query.trim().length < 2 && niche === "all") {
       setLiveRows([]);
       setSearchError("");
@@ -93,21 +87,33 @@ export function DiscoverDesk({
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [aliLive, query, niche]);
+  }, [query, niche]);
 
-  const rows = useMemo(() => {
-    if (aliLive) return liveRows ?? [];
-    const q = query.trim().toLowerCase();
-    return feed.filter((p) => {
-      const hay = `${p.title} ${p.cleanTitle} ${p.tags.join(" ")}`.toLowerCase();
-      return (!q || hay.includes(q)) && (niche === "all" || p.niche === niche);
-    });
-  }, [aliLive, liveRows, feed, query, niche]);
+  const rows = liveRows ?? [];
 
   async function runImportUrl(target: string) {
     setError("");
-    if (!isAliExpressItemUrl(target)) {
-      setError("Paste a valid AliExpress item link, like https://www.aliexpress.com/item/123.html");
+    const trimmed = target.trim();
+    const isCj = /cjdropshipping\.(com|cn)/i.test(trimmed);
+    if (!isAliExpressItemUrl(trimmed) && !isCj) {
+      setError("Paste an AliExpress item link or a CJ Dropshipping product URL.");
+      return;
+    }
+
+    if (isCj) {
+      setScraping(true);
+      try {
+        const res = await importFromSupplierUrl(trimmed);
+        if (hasPaywall(res)) {
+          emitPaywall(res.paywall);
+          return;
+        }
+        router.push(`/catalog/${res.id}`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Import failed");
+      } finally {
+        setScraping(false);
+      }
       return;
     }
 
@@ -116,7 +122,7 @@ export function DiscoverDesk({
       const scrapeRes = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: target.trim() }),
+        body: JSON.stringify({ url: trimmed }),
       });
       const json = (await scrapeRes.json()) as {
         ok?: boolean;
@@ -159,16 +165,16 @@ export function DiscoverDesk({
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Discover</p>
         <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Find something worth testing</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          {aliLive
-            ? "Search hits AliExpress live. Import URL scrapes the listing into a catalog draft."
-            : "Paste an AliExpress item URL to scrape a live listing into a catalog draft. Search still uses the sandbox feed until Open Platform keys exist."}
+          Live supplier search across AliExpress
+          {cjLive ? " and CJ Dropshipping" : ""}
+          {aliApiLive ? " (Open API enrich on)" : ""}
+          . Import a URL to pull a listing into your catalog draft.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <Badge tone={aliLive ? "profit" : "line"}>
-          {aliLive ? "Live supplier search" : "Sample listings"}
-        </Badge>
+        <Badge tone="profit">Live supplier search</Badge>
+        {cjLive ? <Badge tone="profit">CJ on</Badge> : <Badge tone="line">CJ optional</Badge>}
         <Badge tone={aiLive ? "profit" : "line"}>{aiLive ? "AI rewrite on" : "Quick clean titles"}</Badge>
         {serpLive ? <Badge tone="profit">Visual match on</Badge> : null}
       </div>
@@ -177,11 +183,11 @@ export function DiscoverDesk({
         <Card className="p-5">
           <Field
             label="Supplier URL"
-            hint="Paste an AliExpress item URL. We fetch the listing, then save a catalog draft."
+            hint="Paste an AliExpress or CJ Dropshipping product URL."
           >
             <input
               className={inputClass}
-              placeholder="https://www.aliexpress.com/item/..."
+              placeholder="https://www.aliexpress.com/item/... or cjdropshipping.com/..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
@@ -353,13 +359,13 @@ export function DiscoverDesk({
 
       {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
 
-      {aliLive && query.trim().length < 2 && niche === "all" ? (
-        <p className="text-sm text-muted">Type a product name, or pick a niche to browse.</p>
+      {query.trim().length < 2 && niche === "all" ? (
+        <p className="text-sm text-muted">Type a product name, or pick a niche to browse live suppliers.</p>
       ) : null}
 
       {searching ? <p className="text-sm text-muted">Searching live listings…</p> : null}
 
-      {aliLive && (query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
+      {(query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
         <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
       ) : null}
 
@@ -383,6 +389,9 @@ export function DiscoverDesk({
                   <div>
                     <p className="text-sm font-semibold">{p.cleanTitle}</p>
                     <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
+                      {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
+                    </p>
                   </div>
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
                 </div>
@@ -413,7 +422,7 @@ export function DiscoverDesk({
                     start(async () => {
                       setError("");
                       try {
-                        const res = p.live ? await importFromSupplierUrl(p.url) : await importFromFeed(p.id);
+                        const res = await importLiveListing(p);
                         if (hasPaywall(res)) {
                           emitPaywall(res.paywall);
                           return;
