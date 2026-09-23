@@ -47,6 +47,8 @@ export function AdsDesk({
   sentinelRaw,
   daypartingEnabled,
   adsLive = false,
+  metaFullyConnected = false,
+  metaDegraded = false,
   metaAccountId = "",
   metaError = null,
   metaFetchedCount = null,
@@ -56,6 +58,8 @@ export function AdsDesk({
   sentinelRaw: string;
   daypartingEnabled: boolean;
   adsLive?: boolean;
+  metaFullyConnected?: boolean;
+  metaDegraded?: boolean;
   metaAccountId?: string;
   metaError?: string | null;
   metaFetchedCount?: number | null;
@@ -79,8 +83,14 @@ export function AdsDesk({
             Pauses ads that are losing money, and watches the first clicks before anyone buys. Quiet hours
             {daypartingEnabled ? " are on" : " are off"} in Settings.
           </p>
-          {adsLive ? (
+          {metaFullyConnected ? (
             <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>
+          ) : metaDegraded ? (
+            <p className="mt-2 text-xs text-warn">
+              Margin Guard is not protecting spend — finish Meta setup (account ID + long-lived token).
+            </p>
+          ) : adsLive ? (
+            <p className="mt-2 text-xs text-profit">TikTok is connected — a real pause can hit the live ad set.</p>
           ) : campaigns.some((c) => c.sample) ? (
             <p className="mt-2 text-xs text-warn">
               Showing sample campaigns so you can learn Guard before connecting ads. Preview works; pause stays local
@@ -201,13 +211,31 @@ export function AdsDesk({
         </p>
       </Card>
 
-      {metaError ? (
+      {metaDegraded ? (
+        <Card className="p-5">
+          <p className="text-sm font-semibold text-ink">Finish Meta setup</p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
+            <li>
+              Set <span className="font-mono text-xs">META_AD_ACCOUNT_ID</span> on Railway (
+              <span className="font-mono text-xs">act_…</span> from Ads Manager).
+            </li>
+            <li>
+              Set <span className="font-mono text-xs">META_APP_ID</span> +{" "}
+              <span className="font-mono text-xs">META_APP_SECRET</span>, then Settings → Extend Meta token (~60d).
+            </li>
+            <li>Confirm the token has <span className="font-mono text-xs">ads_read</span> (and ads_management to pause).</li>
+          </ol>
+          {metaError ? <p className="mt-3 text-xs text-loss">{metaError}</p> : null}
+        </Card>
+      ) : null}
+
+      {metaError && !metaDegraded ? (
         <p className="rounded-xl border border-loss/30 bg-[rgba(255,107,122,0.08)] px-4 py-3 text-sm text-loss">
           Meta sync: {metaError}
         </p>
       ) : null}
 
-      {adsLive && campaigns.length === 0 ? (
+      {metaFullyConnected && campaigns.length === 0 ? (
         <Card className="p-5">
           <p className="text-sm text-muted">
             Meta connected — 0 active campaigns found in ad account{" "}

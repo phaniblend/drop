@@ -337,17 +337,25 @@ export async function publishProduct(productId: string) {
 
   let result;
   try {
-    result = await publishProductToShopify({
-      title: product.cleanTitle || product.rawTitle,
-      descriptionHtml: product.descriptionHtml || `<p>${product.cleanTitle}</p>`,
-      tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
-      variants: product.variants.map((v) => ({
-        sku: v.supplierSkuId,
-        cost: v.variantCost,
-        title: v.variantName,
-        price: v.variantPrice,
-      })),
-    });
+    // Server guard: existing GID always updates — never create a duplicate.
+    const { shouldUpdateShopifyProduct } = await import("@/lib/pricing");
+    const existingId = shouldUpdateShopifyProduct(product.shopifyProductId)
+      ? product.shopifyProductId
+      : null;
+    result = await publishProductToShopify(
+      {
+        title: product.cleanTitle || product.rawTitle,
+        descriptionHtml: product.descriptionHtml || `<p>${product.cleanTitle}</p>`,
+        tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        variants: product.variants.map((v) => ({
+          sku: v.supplierSkuId,
+          cost: v.variantCost,
+          title: v.variantName,
+          price: v.variantPrice,
+        })),
+      },
+      existingId,
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Shopify publish failed";
     // Keep draft on API failure.

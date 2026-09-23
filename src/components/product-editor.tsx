@@ -38,6 +38,23 @@ export function ProductEditor({
   const [retail, setRetail] = useState(String(product.retailPrice));
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
+  const baseCost = product.variants[0]?.variantCost ?? product.baseCost;
+
+  function onRetailChange(value: string) {
+    setRetail(value);
+    const price = Number(value);
+    if (baseCost > 0 && Number.isFinite(price) && price > 0) {
+      setMarkup((price / baseCost).toFixed(2));
+    }
+  }
+
+  function onMarkupChange(value: string) {
+    setMarkup(value);
+    const m = Number(value);
+    if (baseCost > 0 && Number.isFinite(m) && m > 0) {
+      setRetail((baseCost * m).toFixed(2));
+    }
+  }
   const [copyReason, setCopyReason] = useState("");
   const [suggestion, setSuggestion] = useState<{ title: string; descriptionHtml: string } | null>(null);
   const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
@@ -49,7 +66,8 @@ export function ProductEditor({
 
   function runPublish() {
     startPublish(async () => {
-      setPublishMsg({ tone: "warn", text: "Publishing to Shopify…" });
+      const updating = Boolean(product.shopifyProductId);
+      setPublishMsg({ tone: "warn", text: updating ? "Updating in Shopify…" : "Publishing to Shopify…" });
       try {
         const res = await publishProduct(product.id);
         if (res.mode === "local_only") {
@@ -66,7 +84,9 @@ export function ProductEditor({
         } else {
           setPublishMsg({
             tone: "profit",
-            text: `Published to Shopify as “${res.handle}” (${res.productId}).`,
+            text: res.updated
+              ? `Updated in Shopify as “${res.handle}” (${res.productId}).`
+              : `Published to Shopify as “${res.handle}” (${res.productId}).`,
             href: res.adminUrl || res.storefrontUrl || undefined,
           });
         }
@@ -124,9 +144,19 @@ export function ProductEditor({
       ) : null}
 
       <AdHooksPanel
+        productId={product.id}
         title={product.cleanTitle ?? product.rawTitle}
         description={product.descriptionHtml ?? ""}
         price={product.retailPrice}
+        initialHooks={(() => {
+          try {
+            const raw = (product as { adAnglesJson?: string | null }).adAnglesJson;
+            if (!raw) return [];
+            return JSON.parse(raw) as Array<{ id: string; label: string; hook: string; script: string }>;
+          } catch {
+            return [];
+          }
+        })()}
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -239,10 +269,10 @@ export function ProductEditor({
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-2">
               <Field label="Selling price">
-                <input className={inputClass} value={retail} onChange={(e) => setRetail(e.target.value)} />
+                <input className={inputClass} value={retail} onChange={(e) => onRetailChange(e.target.value)} />
               </Field>
               <Field label="Markup">
-                <input className={inputClass} value={markup} onChange={(e) => setMarkup(e.target.value)} />
+                <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
               <Field label="Ship $">
                 <input className={inputClass} value={shipping} onChange={(e) => setShipping(e.target.value)} />
@@ -261,12 +291,20 @@ export function ProductEditor({
                 startPrice(async () => {
                   setPriceMsg("");
                   try {
-                    await postJson<{ ok: boolean }>("/api/catalog/pricing", {
+                    const saved = await postJson<{
+                      ok: boolean;
+                      retailPrice: number;
+                      markupMultiplier: number;
+                      shippingCost: number;
+                    }>("/api/catalog/pricing", {
                       productId: product.id,
                       retailPrice: Number(retail),
                       markupMultiplier: Number(markup),
                       shippingCost: Number(shipping),
                     });
+                    setRetail(String(saved.retailPrice));
+                    setMarkup(String(saved.markupMultiplier));
+                    setShipping(String(saved.shippingCost));
                     setPriceMsg("Saved.");
                   } catch {
                     setPriceMsg("Could not save. Try again.");
@@ -284,7 +322,13 @@ export function ProductEditor({
               </p>
             ) : null}
             <Button className="mt-3 w-full" tone="accent" disabled={publishing} onClick={runPublish}>
-              {publishing ? "Publishing…" : "Publish to Shopify"}
+              {publishing
+                ? product.shopifyProductId
+                  ? "Updating…"
+                  : "Publishing…"
+                : product.shopifyProductId
+                  ? "Update in Shopify"
+                  : "Publish to Shopify"}
             </Button>
           </Card>
           <Card className="p-5">

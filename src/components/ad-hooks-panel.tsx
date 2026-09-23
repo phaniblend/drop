@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
+import { formatScript } from "@/lib/format-script";
 
 type AdHookAngle = {
   id: string;
@@ -23,20 +24,28 @@ async function copyAndOpen(text: string, url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function fullScript(hook: AdHookAngle) {
+  return formatScript([hook.hook, hook.script]);
+}
+
 export function AdHooksPanel({
+  productId,
   title,
   description,
   price,
+  initialHooks = [],
 }: {
+  productId?: string;
   title: string;
   description: string;
   price: number;
+  initialHooks?: AdHookAngle[];
 }) {
   const [pending, start] = useTransition();
-  const [hooks, setHooks] = useState<AdHookAngle[]>([]);
+  const [hooks, setHooks] = useState<AdHookAngle[]>(initialHooks);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(initialHooks.length > 0);
   const [posted, setPosted] = useState<string>("");
 
   function generate() {
@@ -49,6 +58,7 @@ export function AdHooksPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            productId,
             title,
             description: description.replace(/<[^>]+>/g, " "),
             benefits: description.replace(/<[^>]+>/g, " ").slice(0, 400),
@@ -66,7 +76,12 @@ export function AdHooksPanel({
           setError(json.error || "Could not generate ad angles.");
           return;
         }
-        setHooks(json.hooks);
+        setHooks(
+          json.hooks.map((h) => ({
+            ...h,
+            script: formatScript(h.script),
+          })),
+        );
         setReason(json.mode === "local" ? json.reason ?? "" : "");
         setOpen(true);
       } catch (e) {
@@ -97,7 +112,7 @@ export function AdHooksPanel({
         {posted ? <p className="text-xs text-profit">{posted}</p> : null}
         {open && hooks.length > 0
           ? hooks.map((hook) => {
-              const full = `${hook.hook}\n\n${hook.script}`;
+              const full = fullScript(hook);
               return (
                 <div key={hook.id} className="rounded-xl border border-line bg-bg p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -107,7 +122,9 @@ export function AdHooksPanel({
                     </div>
                     <CopyButton text={full} label="Copy script" />
                   </div>
-                  <pre className="mt-3 whitespace-pre-wrap font-sans text-sm text-muted">{hook.script}</pre>
+                  <pre className="mt-3 whitespace-pre-wrap font-sans text-sm text-muted">
+                    {formatScript(hook.script)}
+                  </pre>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       tone="accent"

@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS products (
   niche TEXT NOT NULL DEFAULT 'general',
   organic_status TEXT NOT NULL DEFAULT 'pending',
   organic_views_json TEXT NOT NULL DEFAULT '[0,0,0]',
+  ad_angles_json TEXT NOT NULL DEFAULT '[]',
+  ad_angles_prev_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS product_variants (
@@ -249,6 +251,8 @@ async function migrateAdProtection(client: Client) {
   await addMissingColumns(client, "products", [
     ["organic_status", "TEXT NOT NULL DEFAULT 'pending'"],
     ["organic_views_json", "TEXT NOT NULL DEFAULT '[0,0,0]'"],
+    ["ad_angles_json", "TEXT NOT NULL DEFAULT '[]'"],
+    ["ad_angles_prev_json", "TEXT NOT NULL DEFAULT '[]'"],
   ]);
   await addMissingColumns(client, "campaign_trackers", [
     ["impressions", "REAL NOT NULL DEFAULT 0"],

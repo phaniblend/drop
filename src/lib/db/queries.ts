@@ -53,7 +53,20 @@ export async function listProducts() {
     const vars = byProduct.get(p.id) ?? [];
     const stock = vars.reduce((s, v) => s + v.inventoryCount, 0);
     const economics = unitMargin(p.retailPrice, p.baseCost, p.shippingCost);
-    return { ...p, variants: vars, stock, economics };
+    let thumb = p.imageUrl;
+    if (!thumb) {
+      const withImg = vars.find((v) => v.cleanImageUrl || v.supplierImageUrl);
+      thumb = withImg?.cleanImageUrl || withImg?.supplierImageUrl || null;
+    }
+    if (!thumb) {
+      try {
+        const gallery = JSON.parse(p.galleryJson || "[]") as string[];
+        thumb = gallery.find((u) => Boolean(u?.trim())) || null;
+      } catch {
+        thumb = null;
+      }
+    }
+    return { ...p, imageUrl: thumb || p.imageUrl, variants: vars, stock, economics };
   });
 }
 
@@ -545,6 +558,8 @@ export async function insertImportedProduct(input: {
     niche: input.niche ?? "general",
     organicStatus: "pending",
     organicViewsJson: "[0,0,0]",
+    adAnglesJson: "[]",
+    adAnglesPrevJson: "[]",
     createdAt: new Date().toISOString(),
   });
   if (input.variants.length) {
@@ -572,32 +587,46 @@ export async function insertImportedProduct(input: {
   return id;
 }
 
+import { applyExplicitRetailPrice } from "../pricing";
+
+/**
+ * Persist operator pricing. Explicit retailPrice wins over cost × markup.
+ * The same selling price is applied to every variant (no per-variant overrides yet).
+ * Markup is stored for display; editing markup in the UI recomputes price client-side.
+ */
 export async function writeProductPricing(
   productId: string,
   input: { retailPrice: number; markupMultiplier: number; shippingCost: number },
 ) {
   const db = await ensureDb();
   const vars = await db.select().from(productVariants).where(eq(productVariants.productId, productId));
-  const priced = vars.map((v) => ({
-    id: v.id,
-    price: Number((v.variantCost * input.markupMultiplier).toFixed(2)),
-  }));
-  // Keep the top selling price aligned with variant rows (first option wins).
-  const retailPrice = priced[0]?.price ?? input.retailPrice;
+  if (!Number.isFinite(Number(input.retailPrice)) || Number(input.retailPrice) < 0) {
+    throw new Error("Selling price must be a valid number.");
+  }
+  const shippingCost = Number(Number(input.shippingCost).toFixed(2));
+  if (!Number.isFinite(shippingCost) || shippingCost < 0) {
+    throw new Error("Ship cost must be a valid number.");
+  }
+  const firstCost = vars[0]?.variantCost ?? 0;
+  const { retailPrice, markupMultiplier } = applyExplicitRetailPrice({
+    retailPrice: Number(input.retailPrice),
+    markupMultiplier: Number(input.markupMultiplier),
+    firstVariantCost: firstCost,
+  });
   await db
     .update(products)
     .set({
       retailPrice,
-      markupMultiplier: input.markupMultiplier,
-      shippingCost: input.shippingCost,
+      markupMultiplier,
+      shippingCost,
     })
     .where(eq(products.id, productId));
   await Promise.all(
-    priced.map((v) =>
-      db.update(productVariants).set({ variantPrice: v.price }).where(eq(productVariants.id, v.id)),
+    vars.map((v) =>
+      db.update(productVariants).set({ variantPrice: retailPrice }).where(eq(productVariants.id, v.id)),
     ),
   );
-  return { retailPrice };
+  return { retailPrice, markupMultiplier, shippingCost };
 }
 
 export { desc, eq };

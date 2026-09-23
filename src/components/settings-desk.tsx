@@ -17,6 +17,9 @@ import type { BillingSummary } from "@/lib/paywall";
 type Status = {
   shopify: boolean;
   meta: boolean;
+  metaStatus?: "connected" | "degraded" | "offline";
+  metaError?: string | null;
+  metaCheckedAt?: string | null;
   tiktok: boolean;
   aliexpress: boolean;
   cj?: boolean;
@@ -86,13 +89,16 @@ export function SettingsDesk({
     },
     {
       name: "Meta ads",
-      ok: status.meta || metaLongLived,
-      why: metaLongLived
-        ? "Long-lived token saved on this desk (~60 days). Guard can read spend and pause losers."
-        : status.meta
-          ? "Short-lived token on Railway — extend it so Guard does not die in ~2 hours."
-          : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
-      metaExtend: Boolean(status.meta || metaLongLived),
+      ok: status.metaStatus === "connected",
+      degraded: status.metaStatus === "degraded",
+      why:
+        status.metaStatus === "connected"
+          ? `Live ad account check passed${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`
+          : status.metaStatus === "degraded"
+            ? status.metaError ||
+              "Token present but Guard cannot protect spend yet — finish Meta setup (account ID + long-lived token)."
+            : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
+      metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded"),
     },
     {
       name: "TikTok ads",
@@ -199,14 +205,24 @@ export function SettingsDesk({
           <Card key={c.name} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-semibold">{c.name}</h2>
-              <Badge tone={c.ok ? "profit" : "line"}>
+              <Badge
+                tone={
+                  "degraded" in c && c.degraded
+                    ? "warn"
+                    : c.ok
+                      ? "profit"
+                      : "line"
+                }
+              >
                 {"readyLabel" in c && c.readyLabel
                   ? c.ok
                     ? "Ready"
                     : "Needs you"
-                  : c.ok
-                    ? "Connected"
-                    : "Needs you"}
+                  : "degraded" in c && c.degraded
+                    ? "Needs setup"
+                    : c.ok
+                      ? "Connected"
+                      : "Needs you"}
               </Badge>
             </div>
             <p className="mt-2 text-sm text-muted">{c.why}</p>

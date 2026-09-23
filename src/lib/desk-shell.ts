@@ -31,14 +31,21 @@ export async function loadDeskShell(input: {
   const hit = globalForDesk.setoDesk;
   const { shopifyIsConnected } = await import("./shopify-oauth");
 
-  async function liveCountWithShopify() {
+  async function liveApiCount() {
     const status = integrationStatus();
     const shopify = (await shopifyIsConnected()) || status.shopify;
-    return Object.values({ ...status.liveApis, shopify }).filter(Boolean).length;
+    let meta = false;
+    try {
+      const health = await import("./meta-health").then((m) => m.getMetaHealth(false));
+      meta = health.live;
+    } catch {
+      meta = false;
+    }
+    return Object.values({ ...status.liveApis, shopify, meta }).filter(Boolean).length;
   }
 
   if (hit && hit.email === email && Date.now() - hit.at < TTL_MS) {
-    return { ...hit.shell, liveCount: await liveCountWithShopify() };
+    return { ...hit.shell, liveCount: await liveApiCount() };
   }
 
   const db = await ensureDb();
@@ -55,7 +62,7 @@ export async function loadDeskShell(input: {
     storeName: user.storeName,
     displayName: user.displayName,
     billing,
-    liveCount: await liveCountWithShopify(),
+    liveCount: await liveApiCount(),
   };
   globalForDesk.setoDesk = { email, at: Date.now(), shell };
   return shell;

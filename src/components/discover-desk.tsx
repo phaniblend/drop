@@ -371,16 +371,30 @@ export function DiscoverDesk({
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((p) => {
-          const retail = suggestedRetail(p.cost, p.shipping, 3);
-          const econ = unitMargin(retail, p.cost, p.shipping);
+          const variantCosts = (p.variants ?? [])
+            .map((v) => v.cost)
+            .filter((c) => Number.isFinite(c) && c > 0);
+          const minCost = variantCosts.length ? Math.min(...variantCosts) : p.cost;
+          const maxCost = variantCosts.length ? Math.max(...variantCosts) : p.cost;
+          const displayCost = minCost;
+          const costLabel =
+            variantCosts.length > 1 && maxCost - minCost > 0.01
+              ? `from ${money(minCost + p.shipping)}`
+              : displayCost > 0
+                ? money(displayCost + p.shipping)
+                : "On import";
+          const retail = suggestedRetail(displayCost, p.shipping, 3);
+          const econ = unitMargin(retail, displayCost, p.shipping);
           const score = winningScore({
             retail,
-            cost: p.cost,
+            cost: displayCost,
             shipping: p.shipping,
             stock: p.stock,
             shippingDays: p.shippingDays,
             demand: p.demand,
           });
+          const shipLabel =
+            p.shippingDays > 0 ? `${p.shippingDays}d ship` : "— ship";
           return (
             <Card key={p.id} className="overflow-hidden">
               <Thumb src={p.image} alt={p.cleanTitle} className="h-40 w-full rounded-none" />
@@ -391,6 +405,7 @@ export function DiscoverDesk({
                     <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
                     <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
                       {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
+                      {p.stockKnown === false ? " · est. feed price" : ""}
                     </p>
                   </div>
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
@@ -398,21 +413,19 @@ export function DiscoverDesk({
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-faint">Your cost</p>
-                    <p className="mt-0.5 text-muted">
-                      {p.cost > 0 ? money(p.cost + p.shipping) : "On import"}
-                    </p>
+                    <p className="mt-0.5 text-muted">{costLabel}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (3×)</p>
-                    <p className="mt-0.5 font-semibold text-ink">{p.cost > 0 ? money(retail) : "—"}</p>
+                    <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
                   </div>
                   <span className="text-profit">
-                    {p.cost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}
+                    {displayCost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}
                   </span>
                   <span className="text-right text-muted">
                     {p.orders30d
                       ? `${p.orders30d.toLocaleString()} sold / 30d`
-                      : `${p.shippingDays}d ship · ${
+                      : `${shipLabel} · ${
                           p.stockKnown === false || p.stock <= 0 ? "— pcs" : `${p.stock} pcs`
                         }`}
                   </span>

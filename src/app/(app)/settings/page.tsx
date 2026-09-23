@@ -11,11 +11,12 @@ export default async function SettingsPage({
   searchParams: Promise<{ shopify?: string; shopify_error?: string }>;
 }) {
   const params = await searchParams;
-  const [user, status, billing, gemini, storefrontUrl, shopifyLive] = await Promise.all([
+  const [user, status, billing, gemini, meta, storefrontUrl, shopifyLive] = await Promise.all([
     getOperator(),
     Promise.resolve(integrationStatus()),
     getBillingSummary(),
     import("@/lib/gemini-health").then((m) => m.getGeminiHealth(true)),
+    import("@/lib/meta-health").then((m) => m.getMetaHealth(true)),
     shopifyStorefrontHomeUrl(),
     shopifyIsConnected(),
   ]);
@@ -25,12 +26,17 @@ export default async function SettingsPage({
 
   const shopifyOk = shopifyLive || status.shopify;
   const oauthConnected = Boolean(user.shopifyDomain?.trim() && user.shopifyAccessToken?.trim());
+  const metaLive = meta.live;
 
   return (
     <SettingsDesk
       status={{
         ...status,
         shopify: shopifyOk,
+        meta: metaLive,
+        metaStatus: meta.status,
+        metaError: meta.error,
+        metaCheckedAt: meta.checkedAt,
         ai: gemini.live,
         aiConfigured: gemini.configured,
         aiError: gemini.error,
@@ -38,7 +44,7 @@ export default async function SettingsPage({
         aiCheckedAt: gemini.checkedAt,
         liveCount: Object.values({
           shopify: shopifyOk,
-          meta: status.meta,
+          meta: metaLive,
           tiktok: status.tiktok,
           aliexpress: status.aliexpress,
           cj: Boolean(status.cj),
@@ -62,7 +68,7 @@ export default async function SettingsPage({
                 }
               : null,
       }}
-      metaLongLived={Boolean(user.metaAccessToken?.trim())}
+      metaLongLived={Boolean(user.metaAccessToken?.trim()) || meta.longLived}
       canExtendMeta={Boolean(env.metaAppId && env.metaAppSecret && (env.metaToken || user.metaAccessToken))}
       metaAppReady={Boolean(env.metaAppId && env.metaAppSecret)}
       user={{

@@ -4,6 +4,7 @@ import { geminiGenerate, parseJsonObject } from "./gemini";
 import { formatGeminiFallback } from "./copy-local";
 import { recordGeminiCall } from "./gemini-health";
 import { extractProductBeats, spokenProductName } from "./product-title";
+import { normalizeHookScript } from "./format-script";
 import { env } from "./env";
 
 export type AdHookAngle = {
@@ -20,30 +21,46 @@ function localHooks(input: { title: string; description: string; benefits: strin
     title: input.title,
     description: `${input.description} ${input.benefits}`,
   });
-  // beats are clause fragments (e.g. "machine-washable so it stays clean…")
   const primary = beats[0];
   const secondary = beats[1];
 
   return [
     {
-      id: "pain",
+      id: "pain" as const,
       label: "Pain-Agitate-Solve",
       hook: `Still stuck with the old way? Watch this ${name} fix it.`,
-      script: `Hook: You know that annoying moment — ${primary} — and it fails again.\nAgitate: Cheap versions look fine in the ad and quit in a week.\nSolve: This ${name} is the one we kept after killing three losers — ${secondary}.\nOffer: ${price}, shipped. Comment "link" if you want the exact product.`,
+      script: normalizeHookScript(
+        `Hook: You know that annoying moment — ${primary} — and it fails again.\nAgitate: Cheap versions look fine in the ad and quit in a week.\nSolve: This ${name} is the one we kept after killing three losers — ${secondary}.\nOffer: ${price}, shipped. Comment "link" if you want the exact product.`,
+      ),
     },
     {
-      id: "curiosity",
+      id: "curiosity" as const,
       label: "Visual Curiosity / Unboxing",
       hook: `Don't blink — the first 3 seconds show why this ${name} keeps getting stolen off my desk.`,
-      script: `Hook: Silent unboxing of this ${name} for 3 seconds.\nHold: Then the one detail cheap copies skip — ${primary}.\nPayoff: ${secondary}. ${price}. Follow for the supplier-to-store version.`,
+      script: normalizeHookScript(
+        `Hook: Silent unboxing of this ${name} for 3 seconds.\nHold: Then the one detail cheap copies skip — ${primary}.\nPayoff: ${secondary}. ${price}. Follow for the supplier-to-store version.`,
+      ),
     },
     {
-      id: "price",
+      id: "price" as const,
       label: "Price-Anchor / Comparison",
       hook: `Same job as the $40 aisle version. This ${name} is ${price}.`,
-      script: `Hook: Retail wants triple-digit money for a ${name}.\nCompare: Same core job, cleaner listing, room left for ads after fees.\nProof: ${primary}.\nCTA: Live at ${price}. Steal the angle — not the markup.`,
+      script: normalizeHookScript(
+        `Hook: Retail wants triple-digit money for a ${name}.\nCompare: Same core job, cleaner listing, room left for ads after fees.\nProof: ${primary}.\nCTA: Live at ${price}. Steal the angle — not the markup.`,
+      ),
     },
   ];
+}
+
+function normalizeHooks(raw: Array<Partial<AdHookAngle> & { script?: unknown }>): AdHookAngle[] {
+  return raw
+    .map((h) => ({
+      id: h.id as AdHookAngle["id"],
+      label: String(h.label || h.id || "Angle"),
+      hook: String(h.hook || "").trim(),
+      script: normalizeHookScript(h.script),
+    }))
+    .filter((h) => h.hook && h.script && ["pain", "curiosity", "price"].includes(h.id));
 }
 
 export async function generateAdHooks(input: {
@@ -70,8 +87,8 @@ export async function generateAdHooks(input: {
     const result = await geminiGenerate({
       temperature: 0.75,
       system:
-        "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is 4-7 short lines. Use the short product name only — never paste long wholesale titles. Ground every angle in real benefits. Do not mail-merge the raw title into a fixed sentence.",
-      user: `Short name: ${spoken}\nRaw title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
+        "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is an array of 4-7 short lines (or a single string with newlines). Use the short product name from Short name — never invent a different product noun and never paste long wholesale titles. Ground every angle in real benefits.",
+      user: `Short name (use this noun): ${spoken}\nFinal title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
     });
     await recordGeminiCall(result);
 
@@ -82,8 +99,10 @@ export async function generateAdHooks(input: {
         reason: formatGeminiFallback(result.error),
       };
     }
-    const parsed = parseJsonObject<{ hooks?: AdHookAngle[] }>(result.text);
-    const hooks = (parsed?.hooks ?? []).filter((h) => h.hook && h.script);
+    const parsed = parseJsonObject<{ hooks?: Array<Partial<AdHookAngle> & { script?: unknown }> }>(
+      result.text,
+    );
+    const hooks = normalizeHooks(parsed?.hooks ?? []);
     if (hooks.length < 3) {
       return {
         hooks: fallback,

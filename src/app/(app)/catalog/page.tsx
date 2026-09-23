@@ -13,7 +13,13 @@ export default async function CatalogPage({
   const { status, upgraded } = await searchParams;
   const all = await listProducts();
   const rows = status ? all.filter((p) => p.status === status) : all;
-  const filters = ["all", "draft", "ready", "local_only", "published"];
+  const filters = [
+    { id: "all", label: "All" },
+    { id: "draft", label: "Draft" },
+    { id: "ready", label: "Ready" },
+    { id: "local_only", label: "Local only" },
+    { id: "published", label: "Published" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -37,15 +43,15 @@ export default async function CatalogPage({
       <div className="flex gap-2 overflow-x-auto pb-1">
         {filters.map((f) => (
           <DeskLink
-            key={f}
-            href={f === "all" ? "/catalog" : `/catalog?status=${f}`}
-            className={`rounded-full border px-3 py-1 text-xs capitalize ${
-              (status ?? "all") === f
+            key={f.id}
+            href={f.id === "all" ? "/catalog" : `/catalog?status=${f.id}`}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              (status ?? "all") === f.id
                 ? "border-accent bg-accent/10"
                 : "border-line text-muted"
             }`}
           >
-            {f}
+            {f.label}
           </DeskLink>
         ))}
       </div>

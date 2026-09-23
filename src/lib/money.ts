@@ -55,7 +55,8 @@ export function winningScore(input: {
   const { margin } = unitMargin(input.retail, input.cost, input.shipping);
   const marginPts = clamp01(margin) * 40;
   const stockPts = input.stock >= 200 ? 15 : input.stock >= 50 ? 10 : 4;
-  const shipPts = input.shippingDays <= 10 ? 20 : input.shippingDays <= 16 ? 12 : 5;
+  const shipPts =
+    input.shippingDays <= 0 ? 10 : input.shippingDays <= 10 ? 20 : input.shippingDays <= 16 ? 12 : 5;
   const demandPts = clamp01(input.demand) * 25;
   return Math.round(marginPts + stockPts + shipPts + demandPts);
 }

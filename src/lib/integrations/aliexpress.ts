@@ -219,7 +219,7 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     niche: "general",
     cost,
     shipping: 0,
-    shippingDays: 14,
+    shippingDays: 0, // unknown from feed — show "— ship" until import
     // Feed endpoints expose sales volume, not true inventory — leave stock unknown.
     stock: 0,
     stockKnown: false as const,

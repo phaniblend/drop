@@ -23,12 +23,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await writeProductPricing(productId, {
+    const result = await writeProductPricing(productId, {
       retailPrice: Number(body.retailPrice),
       markupMultiplier: Number(body.markupMultiplier),
       shippingCost: Number(body.shippingCost),
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not save pricing." },

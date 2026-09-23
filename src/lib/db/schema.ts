@@ -56,6 +56,8 @@ export const products = sqliteTable(
     niche: text("niche").notNull().default("general"),
     organicStatus: text("organic_status").notNull().default("pending"),
     organicViewsJson: text("organic_views_json").notNull().default("[0,0,0]"),
+    adAnglesJson: text("ad_angles_json").notNull().default("[]"),
+    adAnglesPrevJson: text("ad_angles_prev_json").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("idx_products_user").on(t.userId), index("idx_products_status").on(t.status)],

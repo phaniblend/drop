@@ -18,6 +18,11 @@ export async function resolveMetaToken(): Promise<string> {
   return env.metaToken;
 }
 
+export async function hasDeskMetaToken(): Promise<boolean> {
+  const operator = await getOperator();
+  return Boolean(operator?.metaAccessToken?.trim());
+}
+
 export async function exchangeMetaLongLivedToken(shortLived?: string): Promise<{
   accessToken: string;
   expiresIn: number | null;
