@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: `%s · ${BRAND.name}`,
   },
   description:
-    "Source products, manage suppliers, and run fulfillment — product discovery, Shopify publishing, and ad margin protection.",
+    "Source products, run your own store, and fulfill orders — product discovery, Stripe checkout, and ad margin protection.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

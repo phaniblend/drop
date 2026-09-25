@@ -7,7 +7,7 @@ import { findProductBySupplierUrl, getProduct, insertImportedProduct, writeProdu
 import { products } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
-import { publishProductToShopify } from "@/lib/publisher";
+import { publishProductToStore } from "@/lib/storefront";
 import { listingToParsed, scrapeSupplierUrl } from "@/lib/scraper";
 import type { FeedProduct } from "@/lib/supplier-feed";
 import { eq } from "drizzle-orm";
@@ -334,65 +334,30 @@ export async function updateProductPricing(
 export async function publishProduct(productId: string) {
   const product = await getProduct(productId);
   if (!product) throw new Error("Product not found.");
-
-  let result;
-  try {
-    // Server guard: existing GID always updates — never create a duplicate.
-    const { shouldUpdateShopifyProduct } = await import("@/lib/pricing");
-    const existingId = shouldUpdateShopifyProduct(product.shopifyProductId)
-      ? product.shopifyProductId
-      : null;
-    result = await publishProductToShopify(
-      {
-        title: product.cleanTitle || product.rawTitle,
-        descriptionHtml: product.descriptionHtml || `<p>${product.cleanTitle}</p>`,
-        tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
-        variants: product.variants.map((v) => ({
-          sku: v.supplierSkuId,
-          cost: v.variantCost,
-          title: v.variantName,
-          price: v.variantPrice,
-        })),
-      },
-      existingId,
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Shopify publish failed";
-    // Keep draft on API failure.
-    revalidatePath(`/catalog/${productId}`);
-    throw new Error(msg);
-  }
-
-  const { productStatusAfterPublish } = await import("@/lib/publish-status");
-  const nextStatus = productStatusAfterPublish(result.mode);
+  const result = publishProductToStore({
+    id: product.id,
+    title: product.cleanTitle || product.rawTitle,
+  });
   const db = await ensureDb();
   await db
     .update(products)
-    .set({
-      status: nextStatus,
-      shopifyProductId: result.mode === "live" ? result.productId : product.shopifyProductId,
-    })
+    .set({ status: "published", shopifyProductId: result.productId })
     .where(eq(products.id, productId));
   await logActivity(db, {
     kind: "publish",
-    message:
-      result.mode === "local_only"
-        ? `${product.cleanTitle} saved as Local only (Shopify offline).`
-        : `${product.cleanTitle} pushed to Shopify as ${result.handle} (${result.productId}).`,
-    href: `/catalog/${productId}`,
+    message: `${product.cleanTitle} is live on your Seto store.`,
+    href: `/store/${product.id}`,
   });
   revalidatePath(`/catalog/${productId}`);
   revalidatePath("/catalog");
+  revalidatePath("/store");
+  revalidatePath(`/store/${product.id}`);
   revalidatePath("/");
-  const { shopifyProductUrl, shopifyStorefrontHomeUrl } = await import("@/lib/shopify-storefront");
-  const storefrontUrl =
-    result.mode === "live"
-      ? (await shopifyProductUrl(result.handle)) || (await shopifyStorefrontHomeUrl())
-      : "";
   return {
     ...result,
-    status: nextStatus,
-    storefrontUrl,
+    updated: Boolean(product.status === "published"),
+    status: "published" as const,
+    storefrontUrl: result.storeUrl,
   };
 }
 

@@ -66,30 +66,14 @@ export function ProductEditor({
 
   function runPublish() {
     startPublish(async () => {
-      const updating = Boolean(product.shopifyProductId);
-      setPublishMsg({ tone: "warn", text: updating ? "Updating in Shopify…" : "Publishing to Shopify…" });
+      setPublishMsg({ tone: "warn", text: "Publishing to your store…" });
       try {
         const res = await publishProduct(product.id);
-        if (res.mode === "local_only") {
-          setPublishMsg({
-            tone: "warn",
-            text: res.warning || "Saved as Local only — not published to Shopify.",
-          });
-        } else if (res.warning) {
-          setPublishMsg({
-            tone: "warn",
-            text: `${res.warning} Shopify id: ${res.productId}`,
-            href: res.adminUrl || res.storefrontUrl || undefined,
-          });
-        } else {
-          setPublishMsg({
-            tone: "profit",
-            text: res.updated
-              ? `Updated in Shopify as “${res.handle}” (${res.productId}).`
-              : `Published to Shopify as “${res.handle}” (${res.productId}).`,
-            href: res.adminUrl || res.storefrontUrl || undefined,
-          });
-        }
+        setPublishMsg({
+          tone: "profit",
+          text: "Live on your Seto store.",
+          href: res.storeUrl || res.storefrontUrl || `/store/${product.id}`,
+        });
         router.refresh();
       } catch (e) {
         setPublishMsg({
@@ -107,16 +91,9 @@ export function ProductEditor({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Product</p>
           <h1 className="mt-1 text-2xl font-semibold">{product.cleanTitle ?? product.rawTitle}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">{product.rawTitle}</p>
-          {storefrontHomeUrl ? (
-            <a
-              href={storefrontHomeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-xs text-accent"
-            >
-              Open your Shopify storefront →
-            </a>
-          ) : null}
+          <a href="/store" className="mt-2 inline-block text-xs text-accent">
+            Open your store →
+          </a>
         </div>
         <StatusPill value={product.status} />
       </div>
@@ -136,7 +113,7 @@ export function ProductEditor({
             <>
               {" "}
               <a href={publishMsg.href} target="_blank" rel="noreferrer" className="underline">
-                Open in Shopify
+                Open store page
               </a>
             </>
           ) : null}
@@ -326,9 +303,9 @@ export function ProductEditor({
                 ? product.shopifyProductId
                   ? "Updating…"
                   : "Publishing…"
-                : product.shopifyProductId
-                  ? "Update in Shopify"
-                  : "Publish to Shopify"}
+                : product.status === "published"
+                  ? "Update on your store"
+                  : "Publish to your store"}
             </Button>
           </Card>
           <Card className="p-5">

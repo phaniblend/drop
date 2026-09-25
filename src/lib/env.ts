@@ -26,6 +26,7 @@ export function integrationStatus() {
   const liveApis = { shopify, meta, tiktok, aliexpress, cj, serp, ai: aiConfigured };
 
   return {
+    store: true,
     shopify,
     meta,
     tiktok,

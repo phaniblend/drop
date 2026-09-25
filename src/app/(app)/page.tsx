@@ -6,7 +6,6 @@ import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
-import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 import { integrationStatus } from "@/lib/env";
 
 export default async function CommandPage() {
@@ -14,14 +13,8 @@ export default async function CommandPage() {
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
-  const [storefrontUrl, shopifyOAuthLive] = await Promise.all([
-    shopifyStorefrontHomeUrl(),
-    import("@/lib/shopify-oauth").then((m) => m.shopifyIsConnected()),
-  ]);
   const integrations = integrationStatus();
-  const shopifyLive = shopifyOAuthLive || integrations.shopify;
   const missing = [
-    !shopifyLive ? "Shopify" : null,
     !integrations.meta ? "Meta" : null,
     !integrations.tiktok ? "TikTok" : null,
   ].filter(Boolean) as string[];
@@ -36,30 +29,12 @@ export default async function CommandPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Net profit is sales minus what you paid for the products, ad spend, and card fees (2.9% + $0.30).
-            {missing.length
-              ? ` Still need to connect: ${missing.join(", ")}.`
-              : " Shopify and Meta are connected — the desk stays quiet until live orders land."}
+            Publish to your Seto store, then send traffic. Orders land here when a shopper pays with Stripe.
+            {missing.length ? ` Ads still need: ${missing.join(", ")}.` : ""}
           </p>
-          {storefrontUrl ? (
-            <a
-              href={storefrontUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-sm text-accent"
-            >
-              Open your Shopify storefront →
-            </a>
-          ) : shopifyLive ? null : (
-            <p className="mt-2 text-xs text-muted">
-              No storefront linked yet — connect Shopify in Settings to publish and receive orders.
-            </p>
-          )}
-          {storefrontUrl ? (
-            <p className="mt-1 text-xs text-muted">
-              If the store asks for a password, open Shopify Admin → Online Store → Preferences and turn password
-              protection off before customers can check out.
-            </p>
-          ) : null}
+          <DeskLink href="/store" className="mt-2 inline-block text-sm text-accent">
+            Open your store →
+          </DeskLink>
         </div>
         <div className="flex gap-2">
           <DeskLink href="/fulfillment">

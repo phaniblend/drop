@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyStripeSubscription, cancelStripeSubscription } from "@/lib/billing";
+import { fulfillStoreCheckout } from "@/lib/store-orders";
 import { verifyStripeSignature } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
@@ -12,13 +13,25 @@ export async function POST(req: NextRequest) {
     type?: string;
     data?: {
       object?: {
-        metadata?: { userId?: string; plan?: string };
+        metadata?: { userId?: string; plan?: string; kind?: string };
         customer?: string;
         subscription?: string;
         id?: string;
       };
     };
   };
+
+  if (event.type === "checkout.session.completed" && event.data?.object?.metadata?.kind === "store_order") {
+    const sessionId = event.data.object.id;
+    if (sessionId) {
+      try {
+        await fulfillStoreCheckout(sessionId);
+      } catch {
+        /* thanks page retries if webhook is first */
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
 
   if (event.type === "checkout.session.completed" || event.type === "customer.subscription.updated") {
     const session = event.data?.object;

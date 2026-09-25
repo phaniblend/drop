@@ -17,7 +17,6 @@ export function PwaInstallButton() {
 
   return (
     <Button
-      className="mt-4"
       tone="accent"
       onClick={async () => {
         const prompt = window.__dsInstallPrompt;

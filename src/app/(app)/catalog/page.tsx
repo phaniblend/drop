@@ -28,16 +28,20 @@ export default async function CatalogPage({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Catalog</p>
           <h1 className="mt-1 text-2xl font-semibold">Products you can actually sell</h1>
           <p className="mt-1 text-sm text-muted">
-            Drafts stay local. Publish pushes to Shopify when connected. Without a valid Shopify token the
-            product stays <span className="text-ink">Local only</span> — never marked Published.
+            Drafts stay on the desk. Publish puts the product on your Seto store for shoppers.
           </p>
           {upgraded ? (
             <p className="mt-2 text-sm text-profit">Starter is on. Monthly import quota has reset.</p>
           ) : null}
         </div>
-        <DeskLink href="/discover">
-          <Button tone="accent">What do you want to sell?</Button>
-        </DeskLink>
+        <div className="flex gap-2">
+          <DeskLink href="/store">
+            <Button tone="line">Open your store</Button>
+          </DeskLink>
+          <DeskLink href="/discover">
+            <Button tone="accent">What do you want to sell?</Button>
+          </DeskLink>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">

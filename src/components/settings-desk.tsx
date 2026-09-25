@@ -15,6 +15,7 @@ import { emitPaywall } from "@/lib/paywall";
 import type { BillingSummary } from "@/lib/paywall";
 
 type Status = {
+  store?: boolean;
   shopify: boolean;
   meta: boolean;
   metaStatus?: "connected" | "degraded" | "offline";
@@ -78,13 +79,20 @@ export function SettingsDesk({
 
   const connections = [
     {
+      name: "Your store",
+      ok: true,
+      why: "Included. Publish a product and it goes live at /store. Shoppers pay with Stripe — no Shopify bill.",
+      href: "/store",
+      hrefLabel: "Open store",
+    },
+    {
       name: "Shopify",
       ok: status.shopify,
       why: shopifyOAuth?.connected
-        ? `Connected as ${shopifyOAuth.domain}.myshopify.com — publish and order ingest use this store.`
-        : "Publishes products to your store and brings new checkouts into Orders. Connect with Shopify login (or keep env tokens on Railway).",
+        ? `Optional leftover: connected as ${shopifyOAuth.domain}.myshopify.com.`
+        : "Optional. You do not need Shopify — your Seto store is included.",
       href: storefrontUrl || undefined,
-      hrefLabel: storefrontUrl ? "Open storefront" : undefined,
+      hrefLabel: storefrontUrl ? "Open Shopify storefront" : undefined,
       shopifyConnect: true as const,
     },
     {
@@ -158,7 +166,12 @@ export function SettingsDesk({
           Connected means that account is live ({status.liveCount} live APIs in the sidebar). Listing import and
           Billing use Ready / Needs you and are not counted as live APIs.
         </p>
-        <PwaInstallButton />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href="/store" className="inline-flex min-h-11 items-center rounded-xl border border-line px-3.5 py-2 text-sm">
+            Open your store
+          </a>
+          <PwaInstallButton />
+        </div>
       </div>
 
       <Card className="p-5">

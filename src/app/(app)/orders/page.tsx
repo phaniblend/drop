@@ -68,7 +68,7 @@ export default async function OrdersPage({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted">
-                  No orders yet. When Shopify checkouts land, they show up here.
+                  No orders yet. When a shopper pays on your store, it shows up here.
                 </td>
               </tr>
             ) : null}
