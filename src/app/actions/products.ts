@@ -7,7 +7,7 @@ import { findProductBySupplierUrl, getProduct, insertImportedProduct, writeProdu
 import { products } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { suggestedRetail } from "@/lib/money";
-import { publishProductToStore } from "@/lib/storefront";
+import { publishLiveProduct } from "@/lib/storefront";
 import { listingToParsed, scrapeSupplierUrl } from "@/lib/scraper";
 import type { FeedProduct } from "@/lib/supplier-feed";
 import { eq } from "drizzle-orm";
@@ -332,30 +332,10 @@ export async function updateProductPricing(
 }
 
 export async function publishProduct(productId: string) {
-  const product = await getProduct(productId);
-  if (!product) throw new Error("Product not found.");
-  const result = publishProductToStore({
-    id: product.id,
-    title: product.cleanTitle || product.rawTitle,
-  });
-  const db = await ensureDb();
-  await db
-    .update(products)
-    .set({ status: "published", shopifyProductId: result.productId })
-    .where(eq(products.id, productId));
-  await logActivity(db, {
-    kind: "publish",
-    message: `${product.cleanTitle} is live on your Seto store.`,
-    href: `/store/${product.id}`,
-  });
-  revalidatePath(`/catalog/${productId}`);
-  revalidatePath("/catalog");
-  revalidatePath("/store");
-  revalidatePath(`/store/${product.id}`);
-  revalidatePath("/");
+  const result = await publishLiveProduct(productId);
   return {
     ...result,
-    updated: Boolean(product.status === "published"),
+    updated: !result.firstShop,
     status: "published" as const,
     storefrontUrl: result.storeUrl,
   };

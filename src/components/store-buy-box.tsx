@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addStoreCartLine } from "@/lib/store-cart";
-import { humanizeVariantLabel } from "@/lib/variant-label";
 import { Button } from "./ui";
 
 export function StoreBuyBox({
@@ -11,10 +10,12 @@ export function StoreBuyBox({
   variants,
 }: {
   productId: string;
-  variants: Array<{ id: string; variantName: string }>;
+  variants: Array<{ id: string; name: string; stock: number }>;
 }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState(variants[0]?.id ?? "default");
+  const selected = variants.find((variant) => variant.id === variantId) ?? variants[0];
+  const soldOut = !selected || selected.stock <= 0;
 
   return (
     <div className="space-y-3">
@@ -28,7 +29,8 @@ export function StoreBuyBox({
           >
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
-                {humanizeVariantLabel(variant.variantName)}
+                {variant.name}
+                {variant.stock <= 0 ? " (sold out)" : ""}
               </option>
             ))}
           </select>
@@ -37,12 +39,13 @@ export function StoreBuyBox({
       <Button
         tone="accent"
         className="w-full"
+        disabled={soldOut}
         onClick={() => {
           addStoreCartLine({ productId, variantId, qty: 1 });
           router.push("/store/cart");
         }}
       >
-        Add to bag
+        {soldOut ? "Sold out" : "Add to bag"}
       </Button>
     </div>
   );

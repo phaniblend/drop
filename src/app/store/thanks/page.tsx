@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fulfillStoreCheckout } from "@/lib/store-orders";
+import { StoreThanksClear } from "@/components/store-thanks-clear";
 
 export default async function StoreThanksPage({
   searchParams,
@@ -18,6 +19,7 @@ export default async function StoreThanksPage({
 
   return (
     <div className="space-y-4">
+      <StoreThanksClear paid={saved} />
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Paid</p>
       <h1 className="text-3xl font-semibold">You are on the list</h1>
       <p className="max-w-lg text-sm text-muted">

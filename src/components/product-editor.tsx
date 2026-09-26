@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   applyCopySuggestion,
-  publishProduct,
   rewriteProductCopy,
   setProductStatus,
 } from "@/app/actions/products";
@@ -68,10 +67,16 @@ export function ProductEditor({
     startPublish(async () => {
       setPublishMsg({ tone: "warn", text: "Publishing to your store…" });
       try {
-        const res = await publishProduct(product.id);
+        const res = await postJson<{
+          storeUrl?: string;
+          storefrontUrl?: string;
+          firstShop?: boolean;
+        }>("/api/catalog/publish", { productId: product.id });
         setPublishMsg({
           tone: "profit",
-          text: "Live on your Seto store.",
+          text: res.firstShop
+            ? "Your shop is open. This product is live."
+            : "Live on your Seto store.",
           href: res.storeUrl || res.storefrontUrl || `/store/${product.id}`,
         });
         router.refresh();

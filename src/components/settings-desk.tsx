@@ -261,6 +261,8 @@ export function SettingsDesk({
                   >
                     Disconnect Shopify
                   </Button>
+                ) : status.shopify ? (
+                  <p className="text-xs text-muted">Connected on the host. Optional — you do not need Shopify to sell.</p>
                 ) : shopifyOAuth?.appReady ? (
                   <form
                     className="flex flex-wrap items-end gap-2"

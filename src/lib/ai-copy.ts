@@ -5,6 +5,7 @@ import { formatGeminiFallback, localCleanTitle as cleanTitle } from "./copy-loca
 import { recordGeminiCall } from "./gemini-health";
 import { extractProductBeats, spokenProductName } from "./product-title";
 import { env } from "./env";
+import { sanitizeShopperHtml } from "./shopper-copy";
 
 export function localCleanTitle(raw: string, currentTitle?: string) {
   return cleanTitle(raw, currentTitle, spokenProductName);
@@ -28,7 +29,7 @@ export function localDescription(input: {
   const bullets = [
     beats[1],
     beats[2],
-    beats[3] ?? "Tracked shipping with a clear return path if it does not land",
+    beats[3] ?? "Tracked shipping and simple returns if you need them",
   ];
   return `<p>${lead}</p><ul>${bullets.map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`).join("")}</ul>`;
 }
@@ -79,8 +80,8 @@ export async function enrichCopy(input: {
     const result = await geminiGenerate({
       temperature: 0.55,
       system:
-        "You write conversion-focused dropshipping product copy. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus exactly 4 unique benefit bullets grounded in the product — the opening sentence MUST use the same final title you return. Never generic lines like 'you pay about' or 'positioned for shoppers'.",
-      user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nSupplier cost: $${(input.cost + input.shipping).toFixed(2)}\nKnown beats: ${beats.join("; ")}\nExisting description hint: ${(input.descriptionHint ?? "").slice(0, 500)}\nWrite descriptionHtml using your returned title as the product name.`,
+        "You write shopper-facing product copy only. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus 3 benefit bullets. Never mention cost, price, margin, ads, creative angles, or 'you pay about'. Never write for the seller.",
+      user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nKnown beats: ${beats.join("; ")}\nWrite descriptionHtml for a shopper using your returned title as the product name.`,
     });
     await recordGeminiCall(result);
 
@@ -104,7 +105,7 @@ export async function enrichCopy(input: {
       };
     }
     const title = (parsed.title || fallbackTitle).trim();
-    let descriptionHtml = parsed.descriptionHtml || fallbackHtml;
+    let descriptionHtml = sanitizeShopperHtml(parsed.descriptionHtml || fallbackHtml, title);
     // Keep body in sync with the final title (model often rewrites title only).
     const oldHints = [input.currentTitle, input.rawTitle, fallbackTitle]
       .map((t) => t?.trim())
@@ -126,6 +127,7 @@ export async function enrichCopy(input: {
     if (!descriptionHtml.toLowerCase().includes(title.toLowerCase().slice(0, Math.min(12, title.length)))) {
       descriptionHtml = lead;
     }
+    descriptionHtml = sanitizeShopperHtml(descriptionHtml, title);
     return {
       title,
       descriptionHtml,

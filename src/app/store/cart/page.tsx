@@ -1,20 +1,22 @@
 import { StoreCartDesk } from "@/components/store-cart-desk";
 import { listLiveStoreProducts } from "@/lib/storefront";
-import { humanizeVariantLabel } from "@/lib/variant-label";
 
-export default async function StoreCartPage() {
+export default async function StoreCartPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ canceled?: string }>;
+}) {
+  const { canceled } = await searchParams;
   const products = await listLiveStoreProducts();
-  const catalog = products.flatMap((product) => {
-    const variants = product.variants.length
-      ? product.variants
-      : [{ id: "default", variantName: "Default", variantPrice: product.retailPrice }];
-    return variants.map((variant) => ({
+  const catalog = products.flatMap((product) =>
+    product.variants.map((variant) => ({
       productId: product.id,
       variantId: variant.id,
-      title: `${product.cleanTitle ?? product.rawTitle} · ${humanizeVariantLabel(variant.variantName)}`,
+      title: `${product.title} · ${variant.name}`,
       qty: 1,
-      unitPrice: variant.variantPrice || product.retailPrice,
-    }));
-  });
-  return <StoreCartDesk catalog={catalog} />;
+      unitPrice: variant.price,
+      stock: variant.stock,
+    })),
+  );
+  return <StoreCartDesk catalog={catalog} canceled={canceled === "1"} />;
 }

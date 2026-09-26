@@ -159,7 +159,7 @@ export function Shell({
             {liveCount === 0 ? "No APIs connected" : `${liveCount} live API${liveCount === 1 ? "" : "s"}`}
           </p>
           <DeskLink href="/settings" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
-            Connect stores →
+            Integrations →
           </DeskLink>
         </div>
       </aside>

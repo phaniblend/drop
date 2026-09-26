@@ -11,30 +11,25 @@ export default async function StoreHomePage() {
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Store</p>
         <h1 className="mt-1 text-3xl font-semibold">{brand.name}</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted">
-          Ships from our suppliers. Card checkout is Stripe. No extra store subscription.
-        </p>
+        <p className="mt-2 max-w-xl text-sm text-muted">Ships with tracking. Pay by card.</p>
       </div>
       {products.length === 0 ? (
-        <p className="text-sm text-muted">Nothing for sale yet. Publish a product from the desk and it shows up here.</p>
+        <p className="text-sm text-muted">Nothing for sale yet.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => {
-            const price = product.variants[0]?.variantPrice || product.retailPrice;
-            return (
-              <Link
-                key={product.id}
-                href={`/store/${product.id}`}
-                className="overflow-hidden rounded-2xl border border-line bg-surface"
-              >
-                <Thumb src={product.imageUrl} alt="" className="h-52 w-full rounded-none" />
-                <div className="space-y-1 p-4">
-                  <p className="text-sm font-semibold">{product.cleanTitle ?? product.rawTitle}</p>
-                  <p className="font-mono text-sm">{money(price)}</p>
-                </div>
-              </Link>
-            );
-          })}
+          {products.map((product) => (
+            <Link
+              key={product.id}
+              href={`/store/${product.id}`}
+              className="overflow-hidden rounded-2xl border border-line bg-surface"
+            >
+              <Thumb src={product.imageUrl} alt="" className="h-52 w-full rounded-none" />
+              <div className="space-y-1 p-4">
+                <p className="text-sm font-semibold">{product.title}</p>
+                <p className="font-mono text-sm">{money(product.price)}</p>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
     </div>

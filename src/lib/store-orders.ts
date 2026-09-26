@@ -8,6 +8,7 @@ import { netProfit, processorFee } from "./money";
 import { nid, nowIso } from "./utils";
 import { logActivity } from "./db/seed";
 import { stripeGet } from "./stripe";
+import { validateStoreQty } from "./store-qty";
 
 export type PendingStoreLine = {
   productId: string;
@@ -45,13 +46,20 @@ export async function loadPendingStoreCart(cartId: string): Promise<PendingStore
   }
 }
 
+export class StoreCheckoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StoreCheckoutError";
+  }
+}
+
 export async function resolveStoreLines(
   input: Array<{ productId: string; variantId: string; qty: number }>,
 ): Promise<PendingStoreLine[]> {
   const db = await ensureDb();
+  const { shopperVariantLabel } = await import("./shopper-copy");
   const lines: PendingStoreLine[] = [];
   for (const item of input) {
-    const qty = Math.max(1, Math.min(20, Math.round(item.qty || 1)));
     const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
     if (!product || product.status !== "published") continue;
     const variants = await db
@@ -64,10 +72,17 @@ export async function resolveStoreLines(
       null;
     const unitPrice = variant?.variantPrice || product.retailPrice;
     if (unitPrice <= 0) continue;
+    const stock = variant?.inventoryCount ?? 0;
+    const qtyCheck = validateStoreQty(Number(item.qty), stock);
+    if (!qtyCheck.ok) throw new StoreCheckoutError(qtyCheck.error);
+    const qty = qtyCheck.qty;
+    const option = variant ? shopperVariantLabel(variant.variantName) : "";
     lines.push({
       productId: product.id,
       variantId: variant?.id ?? "default",
-      title: `${product.cleanTitle ?? product.rawTitle}${variant ? ` · ${variant.variantName}` : ""}`,
+      title: option
+        ? `${product.cleanTitle ?? product.rawTitle} · ${option}`
+        : (product.cleanTitle ?? product.rawTitle),
       sku: variant?.supplierSkuId ?? product.id,
       qty,
       unitPrice,
@@ -158,6 +173,19 @@ export async function fulfillStoreCheckout(sessionId: string) {
       unitCost: line.unitCost,
       supplierUrl: line.supplierUrl,
     });
+    if (line.variantId && line.variantId !== "default") {
+      const [current] = await db
+        .select({ inventoryCount: productVariants.inventoryCount })
+        .from(productVariants)
+        .where(eq(productVariants.id, line.variantId))
+        .limit(1);
+      if (current) {
+        await db
+          .update(productVariants)
+          .set({ inventoryCount: Math.max(0, current.inventoryCount - line.qty) })
+          .where(eq(productVariants.id, line.variantId));
+      }
+    }
   }
 
   await db.delete(settings).where(eq(settings.key, `store_cart_${cartId}`));

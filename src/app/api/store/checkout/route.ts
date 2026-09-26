@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { nid } from "@/lib/utils";
 import { env } from "@/lib/env";
 import { appOrigin, stripePost } from "@/lib/stripe";
-import { resolveStoreLines, savePendingStoreCart } from "@/lib/store-orders";
+import { resolveStoreLines, savePendingStoreCart, StoreCheckoutError } from "@/lib/store-orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid cart." }, { status: 400 });
   }
 
-  const lines = await resolveStoreLines(body.lines ?? []);
+  let lines;
+  try {
+    lines = await resolveStoreLines(body.lines ?? []);
+  } catch (error) {
+    if (error instanceof StoreCheckoutError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
   if (!lines.length) {
     return NextResponse.json({ error: "Your cart is empty or those items are no longer for sale." }, { status: 400 });
   }
@@ -35,7 +43,7 @@ export async function POST(req: NextRequest) {
     mode: "payment",
     "payment_method_types[0]": "card",
     success_url: `${origin}/store/thanks?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/store/cart`,
+    cancel_url: `${origin}/store/cart?canceled=1`,
     "shipping_address_collection[allowed_countries][0]": "US",
     "metadata[kind]": "store_order",
     "metadata[cartId]": cartId,
