@@ -54,6 +54,8 @@ describe("shopper copy", () => {
   it("drops ship-from country from shopper variant titles", () => {
     expect(shopperVariantLabel("black · United States")).toBe("black");
     expect(shopperVariantLabel("Red; Ships From")).toBe("Red");
+    expect(shopperVariantLabel("S · black · China Mainland")).toBe("S · black");
+    expect(shopperVariantLabel("L · grey · China Mainland")).toBe("L · grey");
   });
 
   it("public PDP HTML never includes cost or operator phrases", () => {

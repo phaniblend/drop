@@ -23,7 +23,7 @@ export default async function StoreHomePage() {
               href={`/store/${product.id}`}
               className="overflow-hidden rounded-2xl border border-line bg-surface"
             >
-              <Thumb src={product.imageUrl} alt="" className="h-52 w-full rounded-none" />
+              <Thumb src={product.imageUrl} alt={product.title} className="h-52 w-full rounded-none" />
               <div className="space-y-1 p-4">
                 <p className="text-sm font-semibold">{product.title}</p>
                 <p className="font-mono text-sm">{money(product.price)}</p>

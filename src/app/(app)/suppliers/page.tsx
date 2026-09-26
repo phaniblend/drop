@@ -1,6 +1,6 @@
 import { DeskLink } from "@/components/desk-link";
 import { listSuppliers } from "@/lib/db/queries";
-import { money, pct } from "@/lib/utils";
+import { money } from "@/lib/utils";
 import { LOW_STOCK_THRESHOLD, isLowStock } from "@/lib/stock-threshold";
 import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
@@ -44,7 +44,7 @@ export default async function SuppliersPage() {
               </div>
               <div>
                 <dt className="text-faint">Reliability</dt>
-                <dd>{pct(s.reliability)}</dd>
+                <dd className="text-muted">Not enough orders yet</dd>
               </div>
             </dl>
             {s.storeUrl ? (

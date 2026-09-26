@@ -377,12 +377,15 @@ export function DiscoverDesk({
           const minCost = variantCosts.length ? Math.min(...variantCosts) : p.cost;
           const maxCost = variantCosts.length ? Math.max(...variantCosts) : p.cost;
           const displayCost = minCost;
+          const shipKnown = p.shipping > 0;
           const costLabel =
-            variantCosts.length > 1 && maxCost - minCost > 0.01
-              ? `from ${money(minCost + p.shipping)}`
-              : displayCost > 0
-                ? money(displayCost + p.shipping)
-                : "On import";
+            displayCost <= 0
+              ? "On import"
+              : variantCosts.length > 1 && maxCost - minCost > 0.01
+                ? `from ${money(minCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : " + ship unknown"}`
+                : shipKnown
+                  ? `${money(displayCost)} + ~${money(p.shipping)} ship`
+                  : `${money(displayCost)} + ship unknown`;
           const retail = suggestedRetail(displayCost, p.shipping, 3);
           const econ = unitMargin(retail, displayCost, p.shipping);
           const score = winningScore({
@@ -405,7 +408,7 @@ export function DiscoverDesk({
                     <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
                     <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
                       {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
-                      {p.stockKnown === false ? " · est. feed price" : ""}
+                      {p.stockKnown === false ? " · confirm stock on import" : ""}
                     </p>
                   </div>
                   <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
@@ -420,7 +423,7 @@ export function DiscoverDesk({
                     <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
                   </div>
                   <span className="text-profit">
-                    {displayCost > 0 ? `${pct(econ.margin)} after fees` : "Margin after import"}
+                    {displayCost > 0 && shipKnown ? `${pct(econ.margin)} after fees` : "Margin unknown"}
                   </span>
                   <span className="text-right text-muted">
                     {p.orders30d

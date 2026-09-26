@@ -68,7 +68,7 @@ export async function extendMetaAccessToken() {
       ? days
         ? `Meta token extended (~${days} days). Guard will use the desk copy.`
         : "Meta token extended and saved on this desk."
-      : "Token exchanged but no operator row to save — paste the new token into META_ACCESS_TOKEN on Railway.",
+      : "Token exchanged but no operator row to save. Sign in again, then retry Extend Meta token.",
   };
 }
 

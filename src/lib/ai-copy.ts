@@ -80,7 +80,7 @@ export async function enrichCopy(input: {
     const result = await geminiGenerate({
       temperature: 0.55,
       system:
-        "You write shopper-facing product copy only. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus 3 benefit bullets. Never mention cost, price, margin, ads, creative angles, or 'you pay about'. Never write for the seller.",
+        "You write shopper-facing product copy only. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus 3 benefit bullets. Never mention cost, price, margin, ads, creative angles, or 'you pay about'. Never write medical or health claims (cure, treat, pain relief, alleviate, FDA). Never write for the seller.",
       user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nKnown beats: ${beats.join("; ")}\nWrite descriptionHtml for a shopper using your returned title as the product name.`,
     });
     await recordGeminiCall(result);

@@ -118,21 +118,21 @@ export function SettingsDesk({
       ok: status.aliexpress,
       why: status.aliexpress
         ? "Live Discover search + Open API catalog enrich when you import."
-        : "Needs ALIEXPRESS_APP_KEY + SECRET on Railway for Open API enrich. Public HTML Discover still works without them.",
+        : "Public search works. Host still needs AliExpress app keys for official catalog enrich.",
     },
     {
       name: "CJ Dropshipping",
       ok: Boolean(status.cj),
       why: status.cj
         ? "Second live supplier catalog + paste-URL import."
-        : "Optional. Add CJ_API_KEY on Railway to search CJ and import CJ product URLs.",
+        : "Optional. Host can add a CJ key to search that catalog and import CJ URLs.",
     },
     {
       name: "SerpApi (visual match)",
       ok: status.serp,
       why: status.serp
         ? "Google Lens reverse image search is live on Discover."
-        : "Used on Discover for competitor creative reverse search. Add SERPAPI_KEY on Railway.",
+        : "Used on Discover for competitor creative reverse search. Host can add a visual-search key.",
     },
     {
       name: "Listing copy",
@@ -141,7 +141,7 @@ export function SettingsDesk({
         ? `Title and ad-angle rewrite is live${status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""}.`
         : status.aiConfigured
           ? `Key is set but the copy service failed a health check${status.aiError ? ` (${status.aiError})` : ""}. Offline benefit copy still runs.`
-          : "Offline benefit-based copy runs today. Add the copy API key on Railway to turn on live rewrites.",
+          : "Offline benefit-based copy runs today. Host can add a copy key to turn on live rewrites.",
     },
     {
       name: "Listing import",
@@ -294,9 +294,7 @@ export function SettingsDesk({
                   </form>
                 ) : (
                   <p className="text-xs text-muted">
-                    Connect needs SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET on Railway (Dev Dashboard app), with
-                    redirect URI{" "}
-                    <span className="font-mono text-[10px]">/api/shopify/callback</span> on that app.
+                    Shopify Connect is optional and needs the Shopify app credentials on the host.
                   </p>
                 )}
               </div>
@@ -323,8 +321,7 @@ export function SettingsDesk({
                 </Button>
               ) : (
                 <p className="mt-3 text-xs text-muted">
-                  Extend Meta token is hidden until META_APP_ID and META_APP_SECRET are set on Railway (App
-                  settings → Basic).
+                  Extend Meta token is hidden until the Meta app credentials are set on the host.
                 </p>
               )
             ) : null}

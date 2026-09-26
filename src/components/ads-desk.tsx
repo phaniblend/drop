@@ -205,9 +205,12 @@ export function AdsDesk({
           Net profit = sales from the ad − what you paid for the products − ad spend − card fees (2.9% + $0.30)
         </p>
         <p className="mt-2 text-xs text-muted">
-          Ads are checked automatically every hour (Railway cron → /api/cron/hourly). Quiet hours (1:00–6:00
-          store time) pause spend while shoppers are asleep. Use Preview pause to see why an ad would stop
-          before it actually stops — Preview never calls Meta or TikTok pause APIs.
+          Ads are checked automatically every hour.
+          {daypartingEnabled
+            ? " Quiet hours (1:00–6:00 store time) pause spend while shoppers are asleep."
+            : " Quiet hours are off in Settings."}{" "}
+          Use Preview pause to see why an ad would stop before it actually stops — Preview never calls Meta
+          or TikTok pause APIs.
         </p>
       </Card>
 
@@ -215,15 +218,9 @@ export function AdsDesk({
         <Card className="p-5">
           <p className="text-sm font-semibold text-ink">Finish Meta setup</p>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
-            <li>
-              Set <span className="font-mono text-xs">META_AD_ACCOUNT_ID</span> on Railway (
-              <span className="font-mono text-xs">act_…</span> from Ads Manager).
-            </li>
-            <li>
-              Set <span className="font-mono text-xs">META_APP_ID</span> +{" "}
-              <span className="font-mono text-xs">META_APP_SECRET</span>, then Settings → Extend Meta token (~60d).
-            </li>
-            <li>Confirm the token has <span className="font-mono text-xs">ads_read</span> (and ads_management to pause).</li>
+            <li>Add the Meta ad account id from Ads Manager in host settings.</li>
+            <li>Add the Meta app id and secret, then Settings → Extend Meta token.</li>
+            <li>Confirm the token can read ads and pause them.</li>
           </ol>
           {metaError ? <p className="mt-3 text-xs text-loss">{metaError}</p> : null}
         </Card>
@@ -238,10 +235,8 @@ export function AdsDesk({
       {metaFullyConnected && campaigns.length === 0 ? (
         <Card className="p-5">
           <p className="text-sm text-muted">
-            Meta connected — 0 active campaigns found in ad account{" "}
-            <span className="font-mono text-ink">{metaAccountId || "unknown"}</span>
-            {metaFetchedCount === 0 ? " (API returned no ad sets)." : "."} Register an ad set in Meta Ads
-            Manager, or confirm META_AD_ACCOUNT_ID and token permissions (ads_read).
+            Meta connected — no active campaigns yet.
+            {metaFetchedCount === 0 ? " Create an ad set in Ads Manager, then check again." : ""}
           </p>
         </Card>
       ) : null}

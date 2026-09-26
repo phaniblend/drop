@@ -19,13 +19,14 @@ export function StoreBuyBox({
 
   return (
     <div className="space-y-3">
-      {variants.length > 1 ? (
+      {variants.length ? (
         <label className="block text-sm">
           <span className="text-xs uppercase tracking-wider text-faint">Option</span>
           <select
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2"
             value={variantId}
             onChange={(e) => setVariantId(e.target.value)}
+            disabled={variants.length === 1}
           >
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>

@@ -1,7 +1,15 @@
 const OPERATOR_LINE =
   /you pay about|room for ads|creative angle|doesn['’]t land|impulse-friendly|positioned for shoppers|supplier cost|markup|cogs|wholesale/i;
 
-const SHIP_FROM = /^(united states|ship\s*from|ships from|ship to|us)$/i;
+const SHIP_FROM =
+  /^(united states|china(\s+mainland)?|mainland china|ships?\s*from.*|ship to|warehouse|us|cn|uk|spain|france|russia|brazil|korea|japan)$/i;
+
+function isShipFromPart(part: string) {
+  const text = part.trim();
+  if (!text) return true;
+  if (SHIP_FROM.test(text)) return true;
+  return /china|mainland|warehouse|ships?\s*from|ship\s*from/i.test(text) && text.split(/\s+/).length <= 4;
+}
 
 export function isOperatorShopperLine(text: string) {
   return OPERATOR_LINE.test(text);
@@ -43,7 +51,7 @@ export function shopperVariantLabel(raw: string) {
   const parts = String(raw ?? "")
     .split(/\s*·\s*|\s*;\s*/)
     .map((part) => part.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim())
-    .filter((part) => part && !SHIP_FROM.test(part) && !/^option$/i.test(part));
+    .filter((part) => part && !isShipFromPart(part) && !/^option$/i.test(part));
   return parts.length ? [...new Set(parts)].join(" · ") : "Option";
 }
 

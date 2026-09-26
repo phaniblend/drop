@@ -13,6 +13,7 @@ export default async function StoreCartPage({
       productId: product.id,
       variantId: variant.id,
       title: `${product.title} · ${variant.name}`,
+      imageUrl: product.imageUrl,
       qty: 1,
       unitPrice: variant.price,
       stock: variant.stock,

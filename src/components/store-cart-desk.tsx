@@ -6,11 +6,13 @@ import { readStoreCart, writeStoreCart, type StoreCartLine } from "@/lib/store-c
 import { postJson } from "@/lib/retry-fetch";
 import { money } from "@/lib/utils";
 import { Button } from "./ui";
+import { Thumb } from "./thumb";
 
 type CatalogLine = {
   productId: string;
   variantId: string;
   title: string;
+  imageUrl?: string | null;
   qty: number;
   unitPrice: number;
   stock: number;
@@ -74,12 +76,15 @@ export function StoreCartDesk({
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {priced.map((line) => (
             <li key={`${line.productId}-${line.variantId}`} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">{line.title}</p>
-                <p className="text-xs text-muted">
-                  {money(line.unitPrice)} each
-                  {line.stock ? ` · ${line.stock} left` : " · sold out"}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <Thumb src={line.imageUrl} alt={line.title} className="h-14 w-14 shrink-0" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{line.title}</p>
+                  <p className="text-xs text-muted">
+                    {money(line.unitPrice)} each
+                    {line.stock ? ` · ${line.stock} left` : " · sold out"}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -98,6 +103,13 @@ export function StoreCartDesk({
                 >
                   +
                 </button>
+                <button
+                  type="button"
+                  className="text-xs text-muted underline"
+                  onClick={() => updateQty(line.productId, line.variantId, 0, line.stock)}
+                >
+                  Remove
+                </button>
               </div>
             </li>
           ))}
@@ -107,6 +119,9 @@ export function StoreCartDesk({
         <div className="space-y-1 text-sm">
           <p className="font-medium">Items {money(total)}</p>
           <p className="text-xs text-muted">Shipping and tax are collected on the card page when they apply.</p>
+          <Link href="/store" className="inline-block text-xs text-accent">
+            Continue shopping
+          </Link>
         </div>
       ) : null}
       {error ? <p className="text-sm text-loss">{error}</p> : null}

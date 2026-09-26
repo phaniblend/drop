@@ -2,6 +2,7 @@ import "server-only";
 
 import { integrationStatus } from "./env";
 import type { FeedProduct } from "./supplier-feed";
+import { extractAliExpressProductId } from "./aliexpress-url";
 
 export type DiscoverSearchResult = {
   mode: "live";
@@ -47,9 +48,12 @@ export async function searchLiveSuppliers(
   const items: FeedProduct[] = [];
   for (const batch of batches) {
     for (const item of batch) {
-      const key = item.url.split("?")[0] || item.id;
-      if (seen.has(key)) continue;
+      const id = extractAliExpressProductId(item.url);
+      const key = id || item.url.split("?")[0] || item.id;
+      const titleKey = `${item.source}:${item.cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
+      if (seen.has(key) || (titleKey.length > 16 && seen.has(titleKey))) continue;
       seen.add(key);
+      if (titleKey.length > 16) seen.add(titleKey);
       items.push(item);
     }
   }
@@ -67,7 +71,7 @@ export async function searchLiveSuppliers(
           ? `No ${niche} listings matched. Try All, or a more specific product name.`
           : status.cj
             ? "No live AliExpress or CJ listings matched. Try two or three simple words."
-            : "No live AliExpress listings matched. Try two or three simple words — or add CJ_API_KEY for a second supplier catalog.",
+            : "No live AliExpress listings matched. Try two or three simple words.",
     };
   }
 

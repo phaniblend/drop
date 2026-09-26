@@ -7,6 +7,7 @@ import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
 import { env } from "./env";
 import { publicHtmlLeaksOperatorCopy, toPublicProduct, type PublicStoreProduct } from "./shopper-copy";
+import { MIN_PUBLISH_PRICE, screenListing } from "./product-screen";
 
 export function storePath(productId: string) {
   return `/store/${productId}`;
@@ -79,9 +80,24 @@ export type PublishStoreResult = {
   firstShop: boolean;
 };
 
-export async function publishLiveProduct(productId: string): Promise<PublishStoreResult> {
+export async function publishLiveProduct(
+  productId: string,
+  opts: { allowUnknownShipping?: boolean; allowRestricted?: boolean } = {},
+): Promise<PublishStoreResult> {
   const product = await getProduct(productId);
   if (!product) throw new Error("Product not found.");
+  const screen = screenListing({
+    title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+    description: product.descriptionHtml ?? "",
+  });
+  if (!screen.ok && screen.level === "block") throw new Error(screen.reason);
+  if (!screen.ok && screen.level === "review" && !opts.allowRestricted) throw new Error(screen.reason);
+  if (product.shippingCost <= 0 && !opts.allowUnknownShipping) {
+    throw new Error("Enter supplier shipping before publishing, or confirm you want to publish without it.");
+  }
+  if (product.retailPrice > 0 && product.retailPrice < MIN_PUBLISH_PRICE) {
+    throw new Error(`Selling under $${MIN_PUBLISH_PRICE.toFixed(2)} rarely covers ads. Raise the price or keep it as a draft.`);
+  }
   const db = await ensureDb();
   const live = await db.select({ id: products.id }).from(products).where(eq(products.status, "published"));
   const firstShop = live.length === 0;

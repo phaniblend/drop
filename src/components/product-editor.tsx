@@ -9,6 +9,9 @@ import {
 } from "@/app/actions/products";
 import { postJson } from "@/lib/retry-fetch";
 import { money, pct } from "@/lib/utils";
+import { unitMargin } from "@/lib/money";
+import { deliveryWindow } from "@/lib/delivery";
+import { MIN_PUBLISH_PRICE, screenListing } from "@/lib/product-screen";
 import { humanizeVariantLabel, labeledVariantName } from "@/lib/variant-label";
 import { Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
@@ -62,16 +65,52 @@ export function ProductEditor({
   const [priceMsg, setPriceMsg] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
   const [showSupplier, setShowSupplier] = useState(false);
+  const [allowUnknownShipping, setAllowUnknownShipping] = useState(false);
+  const [allowRestricted, setAllowRestricted] = useState(false);
+  const shipNum = Number(shipping) || 0;
+  const retailNum = Number(retail) || 0;
+  const liveEcon = unitMargin(retailNum, baseCost, shipNum);
+  const shipUnknown = shipNum <= 0;
 
   function runPublish() {
     startPublish(async () => {
+      const screen = screenListing({
+        title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+        description: product.descriptionHtml ?? "",
+      });
+      if (!screen.ok && screen.level === "block") {
+        setPublishMsg({ tone: "loss", text: screen.reason });
+        return;
+      }
+      if (!screen.ok && screen.level === "review" && !allowRestricted) {
+        setPublishMsg({ tone: "warn", text: `${screen.reason} Check the box to publish anyway.` });
+        return;
+      }
+      if (shipUnknown && !allowUnknownShipping) {
+        setPublishMsg({
+          tone: "warn",
+          text: "Enter ship cost, or check the box to publish with shipping unknown.",
+        });
+        return;
+      }
+      if (retailNum > 0 && retailNum < MIN_PUBLISH_PRICE) {
+        setPublishMsg({
+          tone: "warn",
+          text: `Price under $${MIN_PUBLISH_PRICE.toFixed(2)} rarely covers ads. Raise it before publishing.`,
+        });
+        return;
+      }
       setPublishMsg({ tone: "warn", text: "Publishing to your store…" });
       try {
         const res = await postJson<{
           storeUrl?: string;
           storefrontUrl?: string;
           firstShop?: boolean;
-        }>("/api/catalog/publish", { productId: product.id });
+        }>("/api/catalog/publish", {
+          productId: product.id,
+          allowUnknownShipping,
+          allowRestricted,
+        });
         setPublishMsg({
           tone: "profit",
           text: res.firstShop
@@ -229,24 +268,28 @@ export function ProductEditor({
             <dl className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm">
               <div>
                 <dt className="text-faint">Your cost</dt>
-                <dd>{money(product.economics.cogs)}</dd>
+                <dd>{money(liveEcon.cogs)}</dd>
               </div>
               <div>
                 <dt className="text-faint">Card fee</dt>
-                <dd>{money(product.economics.fee)}</dd>
+                <dd>{money(liveEcon.fee)}</dd>
               </div>
               <div>
                 <dt className="text-faint">Profit / unit</dt>
-                <dd className="text-profit">{money(product.economics.profit)}</dd>
+                <dd className="text-profit">{money(liveEcon.profit)}</dd>
               </div>
               <div>
                 <dt className="text-faint">Margin</dt>
                 <dd>
-                  {pct(product.economics.margin)}
-                  {product.shippingCost <= 0 ? (
+                  {pct(liveEcon.margin)}
+                  {shipUnknown ? (
                     <span className="ml-1 text-[10px] text-warn">est., shipping unknown</span>
                   ) : null}
                 </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-faint">Break-even ad cost / sale</dt>
+                <dd>{liveEcon.profit > 0 ? money(liveEcon.profit) : "Price does not cover cost + fees"}</dd>
               </div>
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-2">
@@ -260,11 +303,37 @@ export function ProductEditor({
                 <input className={inputClass} value={shipping} onChange={(e) => setShipping(e.target.value)} />
               </Field>
             </div>
-            {product.shippingCost <= 0 ? (
+            {shipUnknown ? (
               <p className="mt-2 text-xs text-warn">
                 Supplier freight was not available — margin is estimated until you enter ship cost.
               </p>
             ) : null}
+            {shipUnknown ? (
+              <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={allowUnknownShipping}
+                  onChange={(e) => setAllowUnknownShipping(e.target.checked)}
+                />
+                Publish without a ship cost
+              </label>
+            ) : null}
+            {(() => {
+              const screen = screenListing({
+                title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+                description: product.descriptionHtml ?? "",
+              });
+              return !screen.ok && screen.level === "review" ? (
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={allowRestricted}
+                    onChange={(e) => setAllowRestricted(e.target.checked)}
+                  />
+                  I checked this listing is allowed
+                </label>
+              ) : null;
+            })()}
             <Button
               className="mt-3"
               tone="line"
@@ -319,7 +388,7 @@ export function ProductEditor({
             <a href={product.supplierUrl} className="mt-1 block truncate text-xs text-accent" target="_blank">
               {product.supplierUrl}
             </a>
-            <p className="mt-2 text-xs text-muted">{product.shippingDays} day typical transit</p>
+            <p className="mt-2 text-xs text-muted">{deliveryWindow(product.shippingDays).text}</p>
             <div className="mt-4 flex gap-2">
               <Button
                 tone="line"

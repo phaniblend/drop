@@ -12,6 +12,10 @@ export const proxy = auth((req) => {
   const loggedIn = Boolean(req.auth);
   const publicPath =
     pathname === "/login" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
     pathname.startsWith("/store") ||
     pathname.startsWith("/api/store") ||
     pathname.startsWith("/api/auth") ||
@@ -38,6 +42,6 @@ export const proxy = auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons|api/health|store|api/store|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icons|api/health|store|api/store|privacy|terms|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)",
   ],
 };

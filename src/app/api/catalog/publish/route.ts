@@ -8,9 +8,17 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   let productId = "";
+  let allowUnknownShipping = false;
+  let allowRestricted = false;
   try {
-    const body = (await req.json()) as { productId?: string };
+    const body = (await req.json()) as {
+      productId?: string;
+      allowUnknownShipping?: boolean;
+      allowRestricted?: boolean;
+    };
     productId = String(body.productId ?? "").trim();
+    allowUnknownShipping = Boolean(body.allowUnknownShipping);
+    allowRestricted = Boolean(body.allowRestricted);
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -19,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await publishLiveProduct(productId);
+    const result = await publishLiveProduct(productId, { allowUnknownShipping, allowRestricted });
     const db = await ensureDb();
     await logActivity(db, {
       kind: "publish",

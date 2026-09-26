@@ -63,6 +63,12 @@ describe("localCleanTitle", () => {
       ),
     ).toBe("Pet Hair Remover Roller");
   });
+
+  it("strips year-spam and capacity codes from titles", () => {
+    expect(localCleanTitle("2026 New Portable Waist Fan", "2026 New Portable Waist Fan", spokenProductName)).not.toMatch(
+      /2026/i,
+    );
+  });
 });
 
 describe("meta pause safety", () => {

@@ -52,6 +52,7 @@ export function Shell({
   children,
   storeName,
   liveCount,
+  stripeMode = "off",
   billing,
   operatorName,
   operatorImage,
@@ -59,6 +60,7 @@ export function Shell({
   children: React.ReactNode;
   storeName: string;
   liveCount: number;
+  stripeMode?: "off" | "test" | "live";
   billing: BillingSummary;
   operatorName?: string;
   operatorImage?: string | null;
@@ -157,6 +159,7 @@ export function Shell({
           <p className="text-[11px] uppercase tracking-wider text-faint">Connections</p>
           <p className="mt-1 text-sm text-ink">
             {liveCount === 0 ? "No APIs connected" : `${liveCount} live API${liveCount === 1 ? "" : "s"}`}
+            {stripeMode === "test" ? " · Checkout test" : stripeMode === "live" ? " · Checkout live" : ""}
           </p>
           <DeskLink href="/settings" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
             Integrations →

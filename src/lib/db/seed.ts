@@ -4,6 +4,7 @@ import { isSuperuser } from "../superuser";
 import { LOW_STOCK_THRESHOLD } from "../stock-threshold";
 import { nowIso, todayKey } from "../utils";
 import { extractAliExpressProductId } from "../aliexpress-url";
+import { deliveryWindow } from "../delivery";
 import * as schema from "./schema";
 
 type DB = LibSQLDatabase<typeof schema>;
@@ -148,13 +149,26 @@ export async function provisionOperator(
 
 async function seedOperatorWorkspace(db: DB) {
   const macros = await db.select({ id: schema.csMacros.id }).from(schema.csMacros).limit(1);
+  const ship = deliveryWindow().short;
+  await db
+    .update(schema.csMacros)
+    .set({
+      body: `Hi {{name}}, thanks for reaching out — your order {{order}} is in fulfillment. Tracking is {{tracking}}. Typical delivery is ${ship} from the ship date. I'll send an update the moment the carrier scans it again.`,
+    })
+    .where(eq(schema.csMacros.id, "mac_wismo"));
+  await db
+    .update(schema.csMacros)
+    .set({
+      body: `Hi! We ship within 1 business day. Delivery is typically ${ship} to the US with full tracking. If it exceeds the window we reship or refund — no hoop-jumping.`,
+    })
+    .where(eq(schema.csMacros.id, "mac_pre"));
   if (macros.length === 0) {
     await db.insert(schema.csMacros).values([
       {
         id: "mac_wismo",
         category: "shipping",
         title: "Where is my order?",
-        body: "Hi {{name}}, thanks for reaching out — your order {{order}} is in fulfillment. Tracking is {{tracking}}. Typical delivery is 8–16 days from the ship date. I'll send an update the moment the carrier scans it again.",
+        body: `Hi {{name}}, thanks for reaching out — your order {{order}} is in fulfillment. Tracking is {{tracking}}. Typical delivery is ${deliveryWindow().short} from the ship date. I'll send an update the moment the carrier scans it again.`,
       },
       {
         id: "mac_delay",
@@ -184,7 +198,7 @@ async function seedOperatorWorkspace(db: DB) {
         id: "mac_pre",
         category: "pre-sale",
         title: "Shipping time (pre-sale)",
-        body: "Hi! We ship within 1 business day. Delivery is typically 8–16 days to the US with full tracking. If it exceeds the window we reship or refund — no hoop-jumping.",
+        body: `Hi! We ship within 1 business day. Delivery is typically ${deliveryWindow().short} to the US with full tracking. If it exceeds the window we reship or refund — no hoop-jumping.`,
       },
     ]);
   }

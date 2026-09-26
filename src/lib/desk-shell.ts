@@ -5,12 +5,15 @@ import { ensureDb } from "./db";
 import { getOperator } from "./db/queries";
 import { provisionOperator } from "./db/seed";
 import { getBillingSummary, type BillingSummary } from "./billing";
+import { stripeCheckoutMode } from "./stripe-mode";
+import { env } from "./env";
 
 export type DeskShell = {
   storeName: string;
   displayName: string;
   billing: BillingSummary;
   liveCount: number;
+  stripeMode: "off" | "test" | "live";
 };
 
 const globalForDesk = globalThis as unknown as {
@@ -45,7 +48,11 @@ export async function loadDeskShell(input: {
   }
 
   if (hit && hit.email === email && Date.now() - hit.at < TTL_MS) {
-    return { ...hit.shell, liveCount: await liveApiCount() };
+    return {
+      ...hit.shell,
+      liveCount: await liveApiCount(),
+      stripeMode: hit.shell.stripeMode ?? stripeCheckoutMode(env.stripeSecretKey),
+    };
   }
 
   const db = await ensureDb();
@@ -63,6 +70,7 @@ export async function loadDeskShell(input: {
     displayName: user.displayName,
     billing,
     liveCount: await liveApiCount(),
+    stripeMode: stripeCheckoutMode(env.stripeSecretKey),
   };
   globalForDesk.setoDesk = { email, at: Date.now(), shell };
   return shell;
