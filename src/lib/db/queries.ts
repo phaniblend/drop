@@ -39,6 +39,16 @@ export async function getOperator() {
   return null;
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await ensureDb();
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.trim().toLowerCase()))
+    .limit(1);
+  return user ?? null;
+}
+
 export async function getUserById(id: string) {
   const db = await ensureDb();
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);

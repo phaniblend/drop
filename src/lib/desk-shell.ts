@@ -2,7 +2,7 @@ import "server-only";
 
 import { integrationStatus } from "./env";
 import { ensureDb } from "./db";
-import { getOperator } from "./db/queries";
+import { getOperator, getUserByEmail } from "./db/queries";
 import { provisionOperator } from "./db/seed";
 import { getBillingSummary, type BillingSummary } from "./billing";
 import { stripeCheckoutMode } from "./stripe-mode";
@@ -56,13 +56,17 @@ export async function loadDeskShell(input: {
   }
 
   const db = await ensureDb();
-  const claimed = await provisionOperator(db, {
-    email,
-    displayName: input.displayName,
-  });
-  if (!claimed.ok) return { denied: true };
+  try {
+    await provisionOperator(db, {
+      email,
+      displayName: input.displayName,
+    });
+  } catch {
+    /* Existing row or a later lookup is enough. */
+  }
 
-  const [user, billing] = await Promise.all([getOperator(), getBillingSummary()]);
+  const [sessionUser, billing] = await Promise.all([getOperator(), getBillingSummary()]);
+  const user = sessionUser ?? (await getUserByEmail(email));
   if (!user) return { denied: true };
 
   const shell: DeskShell = {

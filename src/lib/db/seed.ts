@@ -130,10 +130,15 @@ export async function clearWorkspaceKeepOperator(db: DB, userId?: string) {
 export async function provisionOperator(
   db: DB,
   input: { email: string; displayName: string },
-): Promise<{ ok: true; id: string } | { ok: false; reason: "desk_claimed" }> {
+): Promise<{ ok: true; id: string }> {
   const email = input.email.trim().toLowerCase();
   const displayName = input.displayName.trim() || "Operator";
-  const [mine] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+  const existingUser = async () => {
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+    return row ?? null;
+  };
+
+  const mine = await existingUser();
   if (mine) {
     if (displayName && displayName !== mine.displayName) {
       await db.update(schema.users).set({ displayName }).where(eq(schema.users.id, mine.id));
@@ -169,16 +174,22 @@ export async function provisionOperator(
   }
 
   const id = `usr_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
-  await db.insert(schema.users).values({
-    id,
-    email,
-    displayName,
-    storeName: first ? displayName : "SetoStore",
-    storeSlug: slug,
-    createdAt: nowIso(),
-  });
-  await seedOperatorWorkspace(db);
-  return { ok: true, id };
+  try {
+    await db.insert(schema.users).values({
+      id,
+      email,
+      displayName,
+      storeName: first ? displayName : "SetoStore",
+      storeSlug: slug,
+      createdAt: nowIso(),
+    });
+    await seedOperatorWorkspace(db);
+    return { ok: true, id };
+  } catch {
+    const raced = await existingUser();
+    if (raced) return { ok: true, id: raced.id };
+    throw new Error("Could not open a desk for this Google account.");
+  }
 }
 
 async function seedOperatorWorkspace(db: DB) {

@@ -18,14 +18,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
-      const { ensureDb } = await import("@/lib/db");
-      const { provisionOperator } = await import("@/lib/db/seed");
-      const db = await ensureDb();
-      const result = await provisionOperator(db, {
-        email: user.email,
-        displayName: user.name || "Operator",
-      });
-      if (!result.ok) return "/login?error=AccessDenied";
+      try {
+        const { ensureDb } = await import("@/lib/db");
+        const { provisionOperator } = await import("@/lib/db/seed");
+        const db = await ensureDb();
+        await provisionOperator(db, {
+          email: user.email,
+          displayName: user.name || "Operator",
+        });
+      } catch {
+        /* Desk load provisions again. Never lock a Google account out. */
+      }
       return true;
     },
   },
