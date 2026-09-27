@@ -264,9 +264,8 @@ export function DiscoverDesk({
 
       <div className="rounded-2xl border-2 border-accent/45 bg-accent/[0.05] p-4 shadow-[0_10px_28px_rgba(37,99,235,0.08)]">
         <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Start here</p>
-        <div className="flex flex-wrap items-center gap-2">
         <input
-          className={`${inputClass} max-w-xl flex-1 border-accent/40`}
+          className={`${inputClass} border-accent/40`}
           placeholder="Search for products to sell"
           value={query}
           onChange={(e) => {
@@ -274,6 +273,7 @@ export function DiscoverDesk({
             setQuery(e.target.value);
           }}
         />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
         {NICHES.map((n) => (
           <button
             key={n}
@@ -296,20 +296,6 @@ export function DiscoverDesk({
         >
           Saved{savedRows.length ? ` (${savedRows.length})` : ""}
         </button>
-        <label className="ml-auto flex items-center gap-2 text-xs text-muted">
-          <span className="uppercase tracking-wider text-faint">Sort</span>
-          <select
-            className={`${inputClass} h-9 w-[11.5rem] py-1 text-xs`}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as DiscoverSortId)}
-          >
-            {DISCOVER_SORTS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
         </div>
       </div>
 
@@ -334,6 +320,27 @@ export function DiscoverDesk({
       ) : null}
 
       {rows.length > 0 ? (
+      <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted">
+          {rows.length} listing{rows.length === 1 ? "" : "s"}
+          {showSaved ? " saved" : ""}
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <span className="font-medium">Sort by</span>
+          <select
+            className={`${inputClass} h-10 w-[14rem] border-accent/40 py-1 text-sm font-medium`}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as DiscoverSortId)}
+          >
+            {DISCOVER_SORTS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((p) => {
           const variantCosts = (p.variants ?? [])
@@ -432,6 +439,7 @@ export function DiscoverDesk({
             </Card>
           );
         })}
+      </div>
       </div>
       ) : null}
 
