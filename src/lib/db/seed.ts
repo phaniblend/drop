@@ -323,13 +323,33 @@ function taskRows(forDate: string) {
 
 export async function logActivity(
   db: DB,
-  input: { kind: string; message: string; href?: string },
+  input: { kind: string; message: string; href?: string; userId?: string },
 ) {
+  let userId = input.userId ?? null;
+  if (!userId) {
+    try {
+      const { getOperator } = await import("./queries");
+      userId = (await getOperator())?.id ?? null;
+    } catch {
+      userId = null;
+    }
+  }
+  const { sanitizeActivityMessage, operatorHasShopifyOAuth } = await import("../activity-copy");
+  let shopifyOAuth = false;
+  if (userId) {
+    try {
+      const { getUserById } = await import("./queries");
+      shopifyOAuth = operatorHasShopifyOAuth(await getUserById(userId));
+    } catch {
+      shopifyOAuth = false;
+    }
+  }
   await db.insert(schema.activityLog).values({
     id: `act_${crypto.randomUUID().slice(0, 10)}`,
     kind: input.kind,
-    message: input.message,
+    message: sanitizeActivityMessage(input.message, shopifyOAuth),
     href: input.href ?? null,
+    userId,
     createdAt: nowIso(),
   });
 }

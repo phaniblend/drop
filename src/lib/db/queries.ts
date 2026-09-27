@@ -79,11 +79,29 @@ export async function listProducts() {
   const operator = await getOperator();
   if (!operator) return [];
   const db = await ensureDb();
-  const rows = await db
+  let rows = await db
     .select()
     .from(products)
     .where(and(ne(products.status, "archived"), eq(products.userId, operator.id)))
     .orderBy(desc(products.createdAt));
+  if (rows.length === 0) {
+    const defaultUser = await getDefaultStoreUser();
+    if (defaultUser?.id === operator.id) {
+      const all = await db.select().from(products).where(ne(products.status, "archived"));
+      const known = new Set((await db.select({ id: users.id }).from(users)).map((row) => row.id));
+      const orphans = all.filter((row) => !row.userId || !known.has(row.userId));
+      for (const row of orphans) {
+        await db.update(products).set({ userId: operator.id }).where(eq(products.id, row.id));
+      }
+      if (orphans.length) {
+        rows = await db
+          .select()
+          .from(products)
+          .where(and(ne(products.status, "archived"), eq(products.userId, operator.id)))
+          .orderBy(desc(products.createdAt));
+      }
+    }
+  }
   const variants = await db.select().from(productVariants);
   const byProduct = new Map<string, typeof variants>();
   for (const v of variants) {
@@ -319,8 +337,27 @@ export async function listRefunds() {
 }
 
 export async function listActivity(limit = 12) {
+  const operator = await getOperator();
   const db = await ensureDb();
-  return db.select().from(activityLog).orderBy(desc(activityLog.createdAt)).limit(limit);
+  const rows = await db.select().from(activityLog).orderBy(desc(activityLog.createdAt)).limit(48);
+  const { sanitizeActivityMessage, operatorHasShopifyOAuth } = await import("../activity-copy");
+  const shopifyOAuth = operatorHasShopifyOAuth(operator);
+  const mineIds = new Set(
+    operator
+      ? (await db.select({ id: products.id }).from(products).where(eq(products.userId, operator.id))).map((row) => row.id)
+      : [],
+  );
+  const mine = rows.filter((row) => {
+    if (!operator) return true;
+    if (row.userId && row.userId !== operator.id) return false;
+    const productId = (row.href || "").match(/^\/(?:catalog|store)\/([^/?#]+)/)?.[1];
+    if (productId) return mineIds.has(productId);
+    return !row.userId || row.userId === operator.id;
+  });
+  return mine.slice(0, limit).map((row) => ({
+    ...row,
+    message: sanitizeActivityMessage(row.message, shopifyOAuth),
+  }));
 }
 
 export function agingHours(order: Pick<Order, "createdAt">) {
@@ -393,7 +430,7 @@ export async function getDashboard() {
         .reduce((s, item) => s + item.quantity, 0);
       return { ...p, sold, profit: round2(p.economics.profit * sold) };
     })
-    .sort((a, b) => b.profit - a.profit)
+    .sort((a, b) => b.profit - a.profit || b.createdAt.localeCompare(a.createdAt))
     .slice(0, 5);
 
   return {
@@ -463,7 +500,7 @@ export async function getDashboard() {
     activity,
     campaignRows,
     catalog,
-    organicQueue: catalog.filter((p) => p.organicStatus === "pending"),
+    organicQueue: catalog.filter((p) => (p.organicStatus || "pending") === "pending"),
     refunds: refundRows,
     staleOrders,
     orders: orderRows,

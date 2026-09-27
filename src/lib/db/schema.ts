@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -186,6 +186,7 @@ export const activityLog = sqliteTable("activity_log", {
   kind: text("kind").notNull(),
   message: text("message").notNull(),
   href: text("href"),
+  userId: text("user_id"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -193,6 +194,23 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const savedListings = sqliteTable(
+  "saved_listings",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    listingKey: text("listing_key").notNull(),
+    snapshotJson: text("snapshot_json").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_saved_listings_user").on(t.userId),
+    uniqueIndex("idx_saved_listings_user_key").on(t.userId, t.listingKey),
+  ],
+);
 
 export type User = typeof users.$inferSelect;
 export type Product = typeof products.$inferSelect;
@@ -205,3 +223,4 @@ export type CsMacro = typeof csMacros.$inferSelect;
 export type DailyTask = typeof dailyTasks.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
 export type Activity = typeof activityLog.$inferSelect;
+export type SavedListing = typeof savedListings.$inferSelect;

@@ -31,9 +31,7 @@ export async function POST(req: NextRequest) {
     const db = await ensureDb();
     await logActivity(db, {
       kind: "publish",
-      message: result.firstShop
-        ? `${result.title} opened your shop and is live.`
-        : `${result.title} is live on your Seto store.`,
+      message: `Published ${result.title} to your Seto Storefront`,
       href: `/store/${result.handle}`,
     });
     return NextResponse.json({

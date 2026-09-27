@@ -6,7 +6,9 @@ import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
-import { integrationStatus } from "@/lib/env";
+import { env, integrationStatus } from "@/lib/env";
+import { stripeCheckoutMode } from "@/lib/stripe-mode";
+import { storeHomePath } from "@/lib/store-slug";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -14,10 +16,10 @@ export default async function CommandPage() {
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
   const integrations = integrationStatus();
-  const missing = [
-    !integrations.meta ? "Meta" : null,
-    !integrations.tiktok ? "TikTok" : null,
-  ].filter(Boolean) as string[];
+  const storeHref = storeHomePath(data.user?.storeSlug);
+  const stripeLabel = stripeCheckoutMode(env.stripeSecretKey) === "off" ? "Pending" : "Connected";
+  const adsLabel = integrations.meta || integrations.tiktok ? "Ready" : "Pending";
+  const findFirst = data.pendingCount === 0;
 
   return (
     <div className="space-y-6">
@@ -27,21 +29,28 @@ export default async function CommandPage() {
           <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
             {data.user?.displayName ?? "Operator"}, here is today
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted">
-            Net profit is sales minus what you paid for the products, ad spend, and card fees (2.9% + $0.30).
-            Publish to your Seto store, then send traffic. Orders land here when a shopper pays with Stripe.
-            {missing.length ? ` Ads still need: ${missing.join(", ")}.` : ""}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+            <span>
+              Store:{" "}
+              <DeskLink href={storeHref} className="text-accent">
+                Live
+              </DeskLink>
+            </span>
+            <span className="text-faint">|</span>
+            <span>Stripe: {stripeLabel}</span>
+            <span className="text-faint">|</span>
+            <span>Ad Tracking: {adsLabel}</span>
+          </div>
+          <p className="mt-2 max-w-2xl text-sm text-muted">
+            Select a product from your catalog and launch your first creative test.
           </p>
-          <DeskLink href="/store" className="mt-2 inline-block text-sm text-accent">
-            Open your store →
-          </DeskLink>
         </div>
         <div className="flex gap-2">
-          <DeskLink href="/fulfillment">
-            <Button tone="accent">Ship {data.pendingCount} waiting orders</Button>
-          </DeskLink>
           <DeskLink href="/discover">
-            <Button tone="line">What do you want to sell?</Button>
+            <Button tone={findFirst ? "accent" : "line"}>Find a winning product</Button>
+          </DeskLink>
+          <DeskLink href="/fulfillment">
+            <Button tone={findFirst ? "line" : "accent"}>Ship {data.pendingCount} waiting orders</Button>
           </DeskLink>
         </div>
       </div>
@@ -159,7 +168,9 @@ export default async function CommandPage() {
           <div className="divide-y divide-line">
             {data.topProducts.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">
-                Nothing in the catalog yet. Start with what you want to sell.
+                {data.catalog.length
+                  ? "Imported drafts are in Catalog. Open one to set a price and publish."
+                  : "Nothing in the catalog yet. Find a product to import."}
               </p>
             ) : (
               data.topProducts.map((p) => (

@@ -196,17 +196,27 @@ CREATE TABLE IF NOT EXISTS activity_log (
   kind TEXT NOT NULL,
   message TEXT NOT NULL,
   href TEXT,
+  user_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS saved_listings (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_key TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_products_user ON products(user_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_trackers_adset ON campaign_trackers(ad_set_id);
 CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(fulfillment_status);
 CREATE INDEX IF NOT EXISTS idx_users_subscription ON users(id, subscription_tier, products_imported_count);
+CREATE INDEX IF NOT EXISTS idx_saved_listings_user ON saved_listings(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_listings_user_key ON saved_listings(user_id, listing_key);
 `;
 
 async function addMissingColumns(
@@ -246,6 +256,7 @@ async function migrateUsersBilling(client: Client) {
     ["dayparting_enabled", "INTEGER NOT NULL DEFAULT 0"],
     ["store_slug", "TEXT"],
   ]);
+  await addMissingColumns(client, "activity_log", [["user_id", "TEXT"]]);
 }
 
 async function migrateAdProtection(client: Client) {
