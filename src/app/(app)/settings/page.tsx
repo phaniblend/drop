@@ -3,6 +3,7 @@ import { getOperator } from "@/lib/db/queries";
 import { getBillingSummary } from "@/lib/billing";
 import { SettingsDesk } from "@/components/settings-desk";
 import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
+import { storeHomePath } from "@/lib/store-slug";
 import { shopifyAppCredentialsReady, shopifyIsConnected } from "@/lib/shopify-oauth";
 
 export default async function SettingsPage({
@@ -54,6 +55,7 @@ export default async function SettingsPage({
       }}
       billing={billing}
       storefrontUrl={storefrontUrl}
+      storeHref={storeHomePath(user.storeSlug)}
       shopifyOAuth={{
         connected: oauthConnected,
         domain: user.shopifyDomain?.trim() || "",

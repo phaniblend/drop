@@ -37,8 +37,9 @@ export async function saveOperatorSettings(input: {
 }
 
 export async function resetDemoData() {
+  const operator = await requireOperator();
   const db = await ensureDb();
-  await clearWorkspaceKeepOperator(db);
+  await clearWorkspaceKeepOperator(db, operator.id);
   resetReadyCache();
   revalidatePath("/", "layout");
 }

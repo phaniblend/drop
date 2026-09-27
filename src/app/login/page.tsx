@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 
 function errorCopy(code?: string) {
   if (code === "AccessDenied" || code === "desk_claimed") {
-    return "This desk already belongs to another Google account.";
+    return "Google rejected this sign-in. Try another account.";
   }
   if (code === "Configuration") {
     return "Google Sign-In is not set up yet. Ask whoever hosts this desk to connect Google.";
@@ -32,8 +32,7 @@ export default async function LoginPage({
         <BrandLogo />
         <h1 className="mt-6 text-xl font-semibold tracking-tight">Sign in to your desk</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
-          One Google account claims this operator desk. There is no separate signup or password — the first
-          successful Google sign-in becomes the owner.
+          Sign in with Google. A new account gets its own shop and a 5-product free trial. No password.
         </p>
         {message ? (
           <p className="mt-4 rounded-xl border border-loss/30 bg-loss/5 px-3 py-2 text-sm text-loss">{message}</p>

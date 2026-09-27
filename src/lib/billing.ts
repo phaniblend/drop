@@ -44,7 +44,11 @@ function cycleEnd(from = new Date()) {
 
 async function loadUser() {
   const db = await ensureDb();
-  const [user] = await db.select().from(users).limit(1);
+  const { auth } = await import("@/auth");
+  const session = await auth();
+  const email = session?.user?.email?.trim().toLowerCase();
+  if (!email) throw new Error("Sign in with Google first.");
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) throw new Error("Sign in with Google first.");
   return { db, user };
 }

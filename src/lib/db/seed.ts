@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import { isSuperuser } from "../superuser";
 import { LOW_STOCK_THRESHOLD } from "../stock-threshold";
 import { nowIso, todayKey } from "../utils";
 import { extractAliExpressProductId } from "../aliexpress-url";
@@ -98,7 +97,24 @@ export async function wipeOperationalData(db: DB) {
   await db.delete(schema.users);
 }
 
-export async function clearWorkspaceKeepOperator(db: DB) {
+export async function clearWorkspaceKeepOperator(db: DB, userId?: string) {
+  if (userId) {
+    const mine = await db.select({ id: schema.products.id }).from(schema.products).where(eq(schema.products.userId, userId));
+    const productIds = mine.map((row) => row.id);
+    const mineOrders = await db.select({ id: schema.orders.id }).from(schema.orders).where(eq(schema.orders.userId, userId));
+    const orderIds = mineOrders.map((row) => row.id);
+    for (const orderId of orderIds) {
+      await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, orderId));
+      await db.delete(schema.refunds).where(eq(schema.refunds.orderId, orderId));
+    }
+    await db.delete(schema.orders).where(eq(schema.orders.userId, userId));
+    for (const productId of productIds) {
+      await db.delete(schema.campaignTrackers).where(eq(schema.campaignTrackers.productId, productId));
+      await db.delete(schema.productVariants).where(eq(schema.productVariants.productId, productId));
+    }
+    await db.delete(schema.products).where(eq(schema.products.userId, userId));
+    return;
+  }
   await db.delete(schema.activityLog);
   await db.delete(schema.refunds);
   await db.delete(schema.orderItems);
@@ -117,34 +133,52 @@ export async function provisionOperator(
 ): Promise<{ ok: true; id: string } | { ok: false; reason: "desk_claimed" }> {
   const email = input.email.trim().toLowerCase();
   const displayName = input.displayName.trim() || "Operator";
-  const existing = await db.select().from(schema.users).limit(1);
-  const op = existing[0];
-  if (!op) {
-    const id = `usr_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
-    await db.insert(schema.users).values({
-      id,
-      email,
-      displayName,
-      storeName: "SetoStore",
-      createdAt: nowIso(),
-    });
-    await seedOperatorWorkspace(db);
-    return { ok: true, id };
+  const [mine] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+  if (mine) {
+    if (displayName && displayName !== mine.displayName) {
+      await db.update(schema.users).set({ displayName }).where(eq(schema.users.id, mine.id));
+    }
+    if (!mine.storeSlug) {
+      await db.update(schema.users).set({ storeSlug: "seto" }).where(eq(schema.users.id, mine.id));
+    }
+    return { ok: true, id: mine.id };
   }
-  if (op.email.toLowerCase() !== email) {
-    const claimable =
-      op.email === PLACEHOLDER_EMAIL || op.email === DEMO_EMAIL || isSuperuser(email);
-    if (!claimable) return { ok: false, reason: "desk_claimed" };
+
+  const existing = await db.select().from(schema.users).limit(1);
+  const first = existing[0];
+  if (first && (first.email === PLACEHOLDER_EMAIL || first.email === DEMO_EMAIL)) {
     await db
       .update(schema.users)
-      .set({ email, displayName })
-      .where(eq(schema.users.id, op.id));
-    return { ok: true, id: op.id };
+      .set({ email, displayName, storeSlug: first.storeSlug || "seto" })
+      .where(eq(schema.users.id, first.id));
+    return { ok: true, id: first.id };
   }
-  if (displayName && displayName !== op.displayName) {
-    await db.update(schema.users).set({ displayName }).where(eq(schema.users.id, op.id));
+
+  const { suggestStoreSlug } = await import("../store-slug");
+  const taken = new Set(
+    (await db.select({ storeSlug: schema.users.storeSlug }).from(schema.users))
+      .map((row) => row.storeSlug)
+      .filter((value): value is string => Boolean(value)),
+  );
+  if (!first) taken.add("seto");
+  let slug = first ? suggestStoreSlug(displayName, email) : "seto";
+  if (taken.has(slug)) {
+    let n = 2;
+    while (taken.has(`${slug}-${n}`)) n += 1;
+    slug = `${slug}-${n}`;
   }
-  return { ok: true, id: op.id };
+
+  const id = `usr_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+  await db.insert(schema.users).values({
+    id,
+    email,
+    displayName,
+    storeName: first ? displayName : "SetoStore",
+    storeSlug: slug,
+    createdAt: nowIso(),
+  });
+  await seedOperatorWorkspace(db);
+  return { ok: true, id };
 }
 
 async function seedOperatorWorkspace(db: DB) {

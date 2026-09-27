@@ -244,6 +244,7 @@ async function migrateUsersBilling(client: Client) {
       `TEXT NOT NULL DEFAULT '{"enabled":true,"hookSpend":5,"minCtr":1.5,"maxCpc":1.8,"intentSpend":15}'`,
     ],
     ["dayparting_enabled", "INTEGER NOT NULL DEFAULT 0"],
+    ["store_slug", "TEXT"],
   ]);
 }
 

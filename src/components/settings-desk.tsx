@@ -47,6 +47,7 @@ export function SettingsDesk({
   user,
   billing,
   storefrontUrl = "",
+  storeHref = "/store",
   shopifyOAuth,
   metaLongLived = false,
   canExtendMeta = false,
@@ -55,6 +56,7 @@ export function SettingsDesk({
   status: Status;
   billing: BillingSummary;
   storefrontUrl?: string;
+  storeHref?: string;
   shopifyOAuth?: ShopifyOAuthProps;
   metaLongLived?: boolean;
   canExtendMeta?: boolean;
@@ -81,8 +83,8 @@ export function SettingsDesk({
     {
       name: "Your store",
       ok: true,
-      why: "Included. Publish a product and it goes live at /store. Shoppers pay with Stripe — no Shopify bill.",
-      href: "/store",
+      why: `Included. Publish a product and it goes live at ${storeHref}. Shoppers pay with Stripe — no Shopify bill.`,
+      href: storeHref,
       hrefLabel: "Open store",
     },
     {

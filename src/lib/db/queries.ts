@@ -1,4 +1,4 @@
-import { desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { integrationStatus } from "../env";
 import { netProfit, unitMargin, winningScore } from "../money";
 import { round2, todayKey } from "../utils";
@@ -25,8 +25,38 @@ import { canonicalListingUrl, extractAliExpressProductId } from "../aliexpress-u
 
 export async function getOperator() {
   const db = await ensureDb();
-  const [user] = await db.select().from(users).limit(1);
+  try {
+    const { auth } = await import("@/auth");
+    const session = await auth();
+    const email = session?.user?.email?.trim().toLowerCase();
+    if (email) {
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (user) return user;
+    }
+  } catch {
+    /* public request or auth not ready */
+  }
+  return null;
+}
+
+export async function getUserById(id: string) {
+  const db = await ensureDb();
+  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return user ?? null;
+}
+
+export async function getUserBySlug(slug: string) {
+  const db = await ensureDb();
+  const [user] = await db.select().from(users).where(eq(users.storeSlug, slug.trim().toLowerCase())).limit(1);
+  return user ?? null;
+}
+
+export async function getDefaultStoreUser() {
+  const db = await ensureDb();
+  const [named] = await db.select().from(users).where(eq(users.storeSlug, "seto")).limit(1);
+  if (named) return named;
+  const [first] = await db.select().from(users).orderBy(users.createdAt).limit(1);
+  return first ?? null;
 }
 
 export async function requireOperator() {
@@ -36,11 +66,13 @@ export async function requireOperator() {
 }
 
 export async function listProducts() {
+  const operator = await getOperator();
+  if (!operator) return [];
   const db = await ensureDb();
   const rows = await db
     .select()
     .from(products)
-    .where(ne(products.status, "archived"))
+    .where(and(ne(products.status, "archived"), eq(products.userId, operator.id)))
     .orderBy(desc(products.createdAt));
   const variants = await db.select().from(productVariants);
   const byProduct = new Map<string, typeof variants>();
@@ -74,6 +106,8 @@ export async function getProduct(id: string) {
   const db = await ensureDb();
   const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!product) return null;
+  const operator = await getOperator();
+  if (operator && product.userId !== operator.id) return null;
   const variants = await db.select().from(productVariants).where(eq(productVariants.productId, id));
   const campaigns = await db
     .select()
@@ -83,14 +117,16 @@ export async function getProduct(id: string) {
 }
 
 export async function listOrders(status?: string) {
+  const operator = await getOperator();
+  if (!operator) return [];
   const db = await ensureDb();
   const rows = status
     ? await db
         .select()
         .from(orders)
-        .where(eq(orders.fulfillmentStatus, status))
+        .where(and(eq(orders.userId, operator.id), eq(orders.fulfillmentStatus, status)))
         .orderBy(desc(orders.createdAt))
-    : await db.select().from(orders).orderBy(desc(orders.createdAt));
+    : await db.select().from(orders).where(eq(orders.userId, operator.id)).orderBy(desc(orders.createdAt));
   const items = await db.select().from(orderItems);
   const byOrder = new Map<string, typeof items>();
   for (const item of items) {
@@ -110,9 +146,12 @@ export async function getOrder(id: string) {
 }
 
 export async function listCampaigns() {
+  const operator = await getOperator();
   const db = await ensureDb();
   const rows = await db.select().from(campaignTrackers);
-  const catalog = await db.select().from(products);
+  const catalog = operator
+    ? await db.select().from(products).where(eq(products.userId, operator.id))
+    : [];
   const byId = new Map(catalog.map((p) => [p.id, p]));
   const mapped = rows.map((c) => {
     const product = c.productId ? byId.get(c.productId) : undefined;
@@ -134,12 +173,15 @@ export async function listCampaigns() {
     return { ...c, isPaused: paused, product, cogsToday, profit, roas, ctr, cpc, atRisk, sample: false as const };
   });
 
-  if (mapped.length > 0) return mapped;
+  const mine = operator
+    ? mapped.filter((row) => !row.productId || row.product?.userId === operator.id)
+    : mapped;
+  if (mine.length > 0) return mine;
 
   // Empty desk + no ad accounts yet → show sample rows so Guard UX is visible.
   const { integrationStatus } = await import("../env");
   const live = integrationStatus();
-  if (live.meta || live.tiktok) return mapped;
+  if (live.meta || live.tiktok) return mine;
 
   const { sampleCampaignRows } = await import("../sample-campaigns");
   const productId = catalog[0]?.id;
@@ -254,11 +296,16 @@ export async function listTasks() {
 }
 
 export async function listRefunds() {
+  const operator = await getOperator();
   const db = await ensureDb();
   const rows = await db.select().from(refunds).orderBy(desc(refunds.createdAt));
-  const allOrders = await db.select().from(orders);
+  const allOrders = operator
+    ? await db.select().from(orders).where(eq(orders.userId, operator.id))
+    : [];
   const byId = new Map(allOrders.map((o) => [o.id, o]));
-  return rows.map((r) => ({ ...r, order: r.orderId ? byId.get(r.orderId) : undefined }));
+  return rows
+    .map((r) => ({ ...r, order: r.orderId ? byId.get(r.orderId) : undefined }))
+    .filter((r) => r.order);
 }
 
 export async function listActivity(limit = 12) {
@@ -427,8 +474,11 @@ export function productScore(p: Product & { stock?: number }) {
 export async function findProductBySupplierUrl(url: string) {
   const listingId = extractAliExpressProductId(url);
   if (!listingId) return null;
+  const operator = await getOperator();
   const db = await ensureDb();
-  const rows = await db.select().from(products);
+  const rows = operator
+    ? await db.select().from(products).where(eq(products.userId, operator.id))
+    : await db.select().from(products);
   const matches = rows.filter(
     (row) =>
       extractAliExpressProductId(row.supplierUrl) === listingId || row.supplierUrl.includes(listingId),

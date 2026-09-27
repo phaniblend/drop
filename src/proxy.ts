@@ -17,6 +17,7 @@ export const proxy = auth((req) => {
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/store") ||
+    pathname.startsWith("/s/") ||
     pathname.startsWith("/api/store") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
@@ -42,6 +43,6 @@ export const proxy = auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons|api/health|store|api/store|privacy|terms|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icons|api/health|store|s/|api/store|privacy|terms|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)",
   ],
 };

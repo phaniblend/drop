@@ -13,6 +13,7 @@ import { validateStoreQty } from "./store-qty";
 export type PendingStoreLine = {
   productId: string;
   variantId: string;
+  merchantId: string;
   title: string;
   sku: string;
   qty: number;
@@ -77,9 +78,13 @@ export async function resolveStoreLines(
     if (!qtyCheck.ok) throw new StoreCheckoutError(qtyCheck.error);
     const qty = qtyCheck.qty;
     const option = variant ? shopperVariantLabel(variant.variantName) : "";
+    if (lines.length && lines[0].merchantId !== product.userId) {
+      throw new StoreCheckoutError("Pay for one shop at a time.");
+    }
     lines.push({
       productId: product.id,
       variantId: variant?.id ?? "default",
+      merchantId: product.userId,
       title: option
         ? `${product.cleanTitle ?? product.rawTitle} · ${option}`
         : (product.cleanTitle ?? product.rawTitle),
@@ -124,7 +129,10 @@ export async function fulfillStoreCheckout(sessionId: string) {
   const lines = await loadPendingStoreCart(cartId);
   if (!lines.length) return null;
 
-  const operator = await getOperator();
+  const merchantId = lines[0]?.merchantId;
+  const operator = merchantId
+    ? await (await import("./db/queries")).getUserById(merchantId)
+    : await getOperator();
   if (!operator) throw new Error("Store is not claimed yet.");
 
   const revenue = lines.reduce((sum, line) => sum + line.unitPrice * line.qty, 0);

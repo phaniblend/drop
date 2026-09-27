@@ -1,13 +1,14 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ensureDb } from "./db";
-import { getOperator, getProduct } from "./db/queries";
+import { getDefaultStoreUser, getProduct, getUserById } from "./db/queries";
 import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
 import { env } from "./env";
 import { publicHtmlLeaksOperatorCopy, toPublicProduct, type PublicStoreProduct } from "./shopper-copy";
 import { MIN_PUBLISH_PRICE, screenListing } from "./product-screen";
+import { storeHomePath } from "./store-slug";
 
 export function storePath(productId: string) {
   return `/store/${productId}`;
@@ -17,14 +18,16 @@ export function storeProductUrl(productId: string) {
   return `${appOrigin()}${storePath(productId)}`;
 }
 
-export function storeHomeUrl() {
-  return `${appOrigin()}/store`;
+export function storeHomeUrl(slug?: string | null) {
+  return `${appOrigin()}${storeHomePath(slug)}`;
 }
 
-export async function getStorefrontBrand() {
-  const user = await getOperator();
+export async function getStorefrontBrand(userId?: string) {
+  const user = userId ? await getUserById(userId) : await getDefaultStoreUser();
   return {
     name: user?.storeName || "SetoStore",
+    slug: user?.storeSlug || "seto",
+    userId: user?.id ?? "",
     stripeReady: Boolean(env.stripeSecretKey),
   };
 }
@@ -35,9 +38,14 @@ async function persistCleanCopy(id: string, nextHtml: string, prevHtml: string |
   await db.update(products).set({ descriptionHtml: nextHtml }).where(eq(products.id, id));
 }
 
-export async function listLiveStoreProducts(): Promise<PublicStoreProduct[]> {
+export async function listLiveStoreProducts(userId?: string): Promise<PublicStoreProduct[]> {
   const db = await ensureDb();
-  const rows = await db.select().from(products).where(eq(products.status, "published"));
+  const rows = userId
+    ? await db
+        .select()
+        .from(products)
+        .where(and(eq(products.status, "published"), eq(products.userId, userId)))
+    : await db.select().from(products).where(eq(products.status, "published"));
   const variants = await db.select().from(productVariants);
   const byProduct = new Map<string, typeof variants>();
   for (const variant of variants) {
@@ -50,11 +58,7 @@ export async function listLiveStoreProducts(): Promise<PublicStoreProduct[]> {
   for (const product of rows) {
     const vars = byProduct.get(product.id) ?? [];
     if (!(product.retailPrice > 0 || vars.some((v) => v.variantPrice > 0))) continue;
-    const pub = toPublicProduct({ ...product, variants: vars });
-    if (publicHtmlLeaksOperatorCopy(product.descriptionHtml ?? "", product.baseCost)) {
-      await persistCleanCopy(product.id, pub.descriptionHtml, product.descriptionHtml);
-    }
-    published.push(pub);
+    published.push(toPublicProduct({ ...product, variants: vars }));
   }
   return published;
 }
@@ -64,11 +68,7 @@ export async function getLiveStoreProduct(id: string): Promise<PublicStoreProduc
   const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!product || product.status !== "published") return null;
   const variants = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-  const pub = toPublicProduct({ ...product, variants });
-  if (publicHtmlLeaksOperatorCopy(product.descriptionHtml ?? "", product.baseCost)) {
-    await persistCleanCopy(product.id, pub.descriptionHtml, product.descriptionHtml);
-  }
-  return pub;
+  return toPublicProduct({ ...product, variants });
 }
 
 export type PublishStoreResult = {
@@ -99,11 +99,16 @@ export async function publishLiveProduct(
     throw new Error(`Selling under $${MIN_PUBLISH_PRICE.toFixed(2)} rarely covers ads. Raise the price or keep it as a draft.`);
   }
   const db = await ensureDb();
-  const live = await db.select({ id: products.id }).from(products).where(eq(products.status, "published"));
+  const live = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.status, "published"), eq(products.userId, product.userId)));
   const firstShop = live.length === 0;
   const storeId = `seto_${product.id}`;
   const pub = toPublicProduct({ ...product, variants: product.variants });
-  await persistCleanCopy(product.id, pub.descriptionHtml, product.descriptionHtml);
+  if (publicHtmlLeaksOperatorCopy(product.descriptionHtml ?? "", product.baseCost)) {
+    await persistCleanCopy(product.id, pub.descriptionHtml, product.descriptionHtml);
+  }
   await db
     .update(products)
     .set({ status: "published", shopifyProductId: storeId })

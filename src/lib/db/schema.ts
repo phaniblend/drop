@@ -5,6 +5,7 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull().default("Operator"),
   storeName: text("store_name").notNull().default("SetoStore"),
+  storeSlug: text("store_slug"),
   shopifyDomain: text("shopify_domain"),
   shopifyAccessToken: text("shopify_access_token"),
   metaAccessToken: text("meta_access_token"),
