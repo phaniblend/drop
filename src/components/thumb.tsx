@@ -28,7 +28,7 @@ export function Thumb({
   const show = Boolean(url) && !failed;
 
   return (
-    <div className={cn("relative overflow-hidden bg-surface-2", className)}>
+    <div className={cn("relative overflow-hidden bg-surface-2 [&_img]:object-cover", className)}>
       {show ? (
         useNextImage(url) ? (
           <Image

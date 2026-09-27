@@ -360,7 +360,7 @@ export function DiscoverDesk({
           const isSaved = savedKeys.has(listingKey);
           return (
             <Card key={`${listingKey}-${p.id}`} className="overflow-hidden">
-              <Thumb src={p.image} alt={p.cleanTitle} className="h-40 w-full rounded-none" />
+              <Thumb src={p.image} alt={p.cleanTitle} className="aspect-square w-full rounded-none" />
               <div className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -435,14 +435,12 @@ export function DiscoverDesk({
       </div>
       ) : null}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <div className="lg:pt-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint">Other ways in</p>
-          <h2 className="mt-1 text-sm font-semibold leading-6 text-ink">
-            You can also bring a listing in by URL, CSV, or a photo.
-          </h2>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+      <details className="rounded-2xl border border-line bg-surface open:shadow-[0_8px_24px_rgba(15,18,34,0.05)]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
+          <span>Or import via direct link / CSV</span>
+          <span className="text-xs font-normal text-muted">URL, spreadsheet, or photo</span>
+        </summary>
+        <div className="grid gap-4 border-t border-line p-5 lg:grid-cols-3">
         <Card className="p-5">
           <Field
             label="Supplier URL"
@@ -556,7 +554,7 @@ export function DiscoverDesk({
           <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
         </Card>
         </div>
-      </div>
+      </details>
 
       {error ? (
         <p
