@@ -14,6 +14,8 @@ export type FeedProduct = {
   stockKnown?: boolean;
   demand: number;
   orders30d?: number;
+  /** 0–5 when the supplier sends a score. Missing is fine. */
+  rating?: number;
   live?: boolean;
   image: string;
   tags: string[];

@@ -10,7 +10,9 @@ import {
 } from "@/app/actions/products";
 import { postJson } from "@/lib/retry-fetch";
 import { visualSearch } from "@/app/actions/ops";
-import { winningScore, unitMargin, suggestedRetail } from "@/lib/money";
+import { unitMargin, suggestedRetail } from "@/lib/money";
+import { DISCOVER_SORTS, sortDiscoverItems, type DiscoverSortId, discoverMetrics } from "@/lib/discover-sort";
+import { savedListingKey } from "@/lib/saved-listing";
 import { money, pct } from "@/lib/utils";
 import type { FeedProduct } from "@/lib/supplier-feed";
 import { isAliExpressItemUrl } from "@/lib/aliexpress-url";
@@ -54,8 +56,33 @@ export function DiscoverDesk({
   const [pending, start] = useTransition();
   const [searching, setSearching] = useState(false);
   const [scraping, setScraping] = useState(false);
+  const [sort, setSort] = useState<DiscoverSortId>("best");
+  const [showSaved, setShowSaved] = useState(false);
+  const [savedRows, setSavedRows] = useState<FeedProduct[]>([]);
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
+  const [savingKey, setSavingKey] = useState("");
+  const [statusHint, setStatusHint] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    fetch("/api/discover/saved", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { items?: FeedProduct[]; keys?: string[] }) => {
+        if (cancelled) return;
+        setSavedRows(data.items ?? []);
+        setSavedKeys(new Set(data.keys ?? []));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showSaved) {
+      setSearching(false);
+      return;
+    }
     if (query.trim().length < 2 && niche === "all") {
       setLiveRows([]);
       setSearchError("");
@@ -86,9 +113,24 @@ export function DiscoverDesk({
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [query, niche]);
+  }, [query, niche, showSaved]);
 
-  const rows = liveRows ?? [];
+  const rows = sortDiscoverItems(showSaved ? savedRows : (liveRows ?? []), sort);
+
+  async function toggleSave(item: FeedProduct) {
+    const key = savedListingKey(item);
+    setSavingKey(key);
+    setError("");
+    try {
+      const res = await postJson<{ items: FeedProduct[]; keys: string[] }>("/api/discover/saved", { item });
+      setSavedRows(res.items);
+      setSavedKeys(new Set(res.keys));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save listing.");
+    } finally {
+      setSavingKey("");
+    }
+  }
 
   async function runImportUrl(target: string) {
     setError("");
@@ -172,14 +214,235 @@ export function DiscoverDesk({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs">
-        <Badge tone="profit">Live supplier search</Badge>
-        {cjLive ? <Badge tone="profit">CJ on</Badge> : <Badge tone="line">CJ optional</Badge>}
-        <Badge tone="profit">Clean titles</Badge>
-        {serpLive ? <Badge tone="profit">Visual match on</Badge> : null}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <StatusHint
+            label="Live supplier search"
+            tone="profit"
+            detail="Each search pulls a fresh AliExpress set. Save a card if you want that listing back later."
+            active={statusHint}
+            onToggle={setStatusHint}
+          />
+          <StatusHint
+            label={cjLive ? "CJ on" : "CJ optional"}
+            tone={cjLive ? "profit" : "line"}
+            detail={
+              cjLive
+                ? "Search mixes AliExpress with CJ Dropshipping. Pick whichever cost and ship time looks better."
+                : "AliExpress is the default. Connect a CJ key in Settings if you want their catalog mixed in — you can import without it."
+            }
+            active={statusHint}
+            onToggle={setStatusHint}
+          />
+          <StatusHint
+            label="Clean titles"
+            tone="profit"
+            detail="Supplier junk (ships-from, warehouse labels) is stripped so the catalog title is shopper-ready."
+            active={statusHint}
+            onToggle={setStatusHint}
+          />
+          {serpLive ? (
+            <StatusHint
+              label="Visual match on"
+              tone="profit"
+              detail="Paste a competitor ad photo to hunt a matching supplier listing."
+              active={statusHint}
+              onToggle={setStatusHint}
+            />
+          ) : (
+            <StatusHint
+              label="Visual match soon"
+              tone="line"
+              detail="Reverse image search is not connected on this desk yet. Use the search bar or a supplier URL."
+              active={statusHint}
+              onToggle={setStatusHint}
+            />
+          )}
+        </div>
+        {statusHint ? <p className="text-xs leading-5 text-muted">{statusHint}</p> : null}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="rounded-2xl border-2 border-accent/45 bg-accent/[0.05] p-4 shadow-[0_10px_28px_rgba(37,99,235,0.08)]">
+        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Start here</p>
+        <div className="flex flex-wrap items-center gap-2">
+        <input
+          className={`${inputClass} max-w-xl flex-1 border-accent/40`}
+          placeholder="Search for products to sell"
+          value={query}
+          onChange={(e) => {
+            setShowSaved(false);
+            setQuery(e.target.value);
+          }}
+        />
+        {NICHES.map((n) => (
+          <button
+            key={n}
+            onClick={() => {
+              setShowSaved(false);
+              setNiche(n);
+            }}
+            className={`rounded-full border px-3 py-1 text-xs capitalize ${
+              !showSaved && niche === n ? "border-accent bg-accent/10 text-ink" : "border-line text-muted"
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+        <button
+          onClick={() => setShowSaved((open) => !open)}
+          className={`rounded-full border px-3 py-1 text-xs ${
+            showSaved ? "border-accent bg-accent/10 text-ink" : "border-line text-muted"
+          }`}
+        >
+          Saved{savedRows.length ? ` (${savedRows.length})` : ""}
+        </button>
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted">
+          <span className="uppercase tracking-wider text-faint">Sort</span>
+          <select
+            className={`${inputClass} h-9 w-[11.5rem] py-1 text-xs`}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as DiscoverSortId)}
+          >
+            {DISCOVER_SORTS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        </div>
+      </div>
+
+      {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
+
+      {showSaved ? (
+        <p className="text-sm text-muted">
+          Saved listings stay here even when search returns a new set. Import from this list anytime.
+        </p>
+      ) : query.trim().length < 2 && niche === "all" ? (
+        <p className="text-sm text-muted">Type a product name, or pick a niche to browse live suppliers.</p>
+      ) : null}
+
+      {searching ? <p className="text-sm text-muted">Searching live listings…</p> : null}
+
+      {showSaved && rows.length === 0 ? (
+        <p className="text-sm text-muted">Nothing saved yet. Hit Save on a listing so the next search does not lose it.</p>
+      ) : null}
+
+      {!showSaved && (query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
+        <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
+      ) : null}
+
+      {rows.length > 0 ? (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {rows.map((p) => {
+          const variantCosts = (p.variants ?? [])
+            .map((v) => v.cost)
+            .filter((c) => Number.isFinite(c) && c > 0);
+          const minCost = variantCosts.length ? Math.min(...variantCosts) : p.cost;
+          const maxCost = variantCosts.length ? Math.max(...variantCosts) : p.cost;
+          const displayCost = minCost;
+          const shipKnown = p.shipping > 0;
+          const costLabel =
+            displayCost <= 0
+              ? "On import"
+              : variantCosts.length > 1 && maxCost - minCost > 0.01
+                ? `from ${money(minCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : " + ship unknown"}`
+                : shipKnown
+                  ? `${money(displayCost)} + ~${money(p.shipping)} ship`
+                  : `${money(displayCost)} + ship unknown`;
+          const retail = suggestedRetail(displayCost, p.shipping, 3);
+          const econ = unitMargin(retail, displayCost, p.shipping);
+          const score = discoverMetrics(p).score;
+          const shipLabel =
+            p.shippingDays > 0 ? `${p.shippingDays}d ship` : "— ship";
+          const listingKey = savedListingKey(p);
+          const isSaved = savedKeys.has(listingKey);
+          return (
+            <Card key={`${listingKey}-${p.id}`} className="overflow-hidden">
+              <Thumb src={p.image} alt={p.cleanTitle} className="h-40 w-full rounded-none" />
+              <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">{p.cleanTitle}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
+                      {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
+                      {p.rating ? ` · ${p.rating.toFixed(1)} rating` : ""}
+                      {p.stockKnown === false ? " · confirm stock on import" : ""}
+                    </p>
+                  </div>
+                  <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Your cost</p>
+                    <p className="mt-0.5 text-muted">{costLabel}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (3×)</p>
+                    <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
+                  </div>
+                  <span className="text-profit">
+                    {displayCost > 0 && shipKnown ? `${pct(econ.margin)} after fees` : "Margin unknown"}
+                  </span>
+                  <span className="text-right text-muted">
+                    {p.orders30d
+                      ? `${p.orders30d.toLocaleString()} sold / 30d`
+                      : `${shipLabel} · ${
+                          p.stockKnown === false || p.stock <= 0 ? "— pcs" : `${p.stock} pcs`
+                        }`}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        setError("");
+                        try {
+                          const res = await importLiveListing(p);
+                          if (hasPaywall(res)) {
+                            emitPaywall(res.paywall);
+                            return;
+                          }
+                          if ("reused" in res && res.reused) {
+                            setError("Already in your catalog — opening the existing draft.");
+                          }
+                          router.push(`/catalog/${res.id}`);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Import failed");
+                        }
+                      })
+                    }
+                  >
+                    Import & clean
+                  </Button>
+                  <Button
+                    tone={isSaved ? "accent" : "line"}
+                    className="w-[5.5rem] shrink-0"
+                    disabled={savingKey === listingKey}
+                    onClick={() => toggleSave(p)}
+                  >
+                    {savingKey === listingKey ? "…" : isSaved ? "Saved" : "Save"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+      ) : null}
+
+      <div className="grid items-start gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
+        <div className="lg:pt-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint">Other ways in</p>
+          <h2 className="mt-1 text-sm font-semibold leading-6 text-ink">
+            You can also bring a listing in by URL, CSV, or a photo.
+          </h2>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5">
           <Field
             label="Supplier URL"
@@ -249,26 +512,27 @@ export function DiscoverDesk({
             Import CSV
           </Button>
         </Card>
-        <Card className="p-5">
-          <Field
-            label="Visual match (competitor ad)"
-            hint={
-              serpLive
-                ? "Paste a competitor ad photo to find a matching supplier listing."
-                : "Visual match is not connected yet. You can still import by name or URL."
-            }
-          >
-            <input
-              className={inputClass}
-              placeholder="https://image-url-from-ad.jpg"
-              value={lensUrl}
-              onChange={(e) => setLensUrl(e.target.value)}
-            />
-          </Field>
+        <Card className={`p-5 ${serpLive ? "" : "border-dashed bg-surface-2/60"}`}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-muted">Visual match (competitor ad)</span>
+            <Badge tone={serpLive ? "profit" : "warn"}>{serpLive ? "Beta" : "Coming soon"}</Badge>
+          </div>
+          <input
+            className={inputClass}
+            placeholder={serpLive ? "https://image-url-from-ad.jpg" : "Connect visual match in Settings"}
+            value={lensUrl}
+            disabled={!serpLive}
+            onChange={(e) => setLensUrl(e.target.value)}
+          />
+          <p className="mt-1.5 text-[11px] text-faint">
+            {serpLive
+              ? "Paste a competitor ad photo to find a matching supplier listing."
+              : "Not connected yet. Search by name or paste a supplier URL instead."}
+          </p>
           <Button
             className="mt-3 w-full"
             tone="line"
-            disabled={pending || !lensUrl}
+            disabled={!serpLive || pending || !lensUrl}
             onClick={() =>
               start(async () => {
                 setError("");
@@ -287,10 +551,11 @@ export function DiscoverDesk({
               })
             }
           >
-            Reverse search
+            {serpLive ? "Reverse search" : "Reverse search (soon)"}
           </Button>
           <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
         </Card>
+        </div>
       </div>
 
       {error ? (
@@ -336,132 +601,33 @@ export function DiscoverDesk({
           </div>
         </Card>
       ) : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          className={`${inputClass} max-w-xs`}
-          placeholder="Search for products to sell"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {NICHES.map((n) => (
-          <button
-            key={n}
-            onClick={() => setNiche(n)}
-            className={`rounded-full border px-3 py-1 text-xs capitalize ${
-              niche === n ? "border-accent bg-accent/10 text-ink" : "border-line text-muted"
-            }`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-
-      {searchError ? <p className="text-sm text-loss">{searchError}</p> : null}
-
-      {query.trim().length < 2 && niche === "all" ? (
-        <p className="text-sm text-muted">Type a product name, or pick a niche to browse live suppliers.</p>
-      ) : null}
-
-      {searching ? <p className="text-sm text-muted">Searching live listings…</p> : null}
-
-      {(query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
-        <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {rows.map((p) => {
-          const variantCosts = (p.variants ?? [])
-            .map((v) => v.cost)
-            .filter((c) => Number.isFinite(c) && c > 0);
-          const minCost = variantCosts.length ? Math.min(...variantCosts) : p.cost;
-          const maxCost = variantCosts.length ? Math.max(...variantCosts) : p.cost;
-          const displayCost = minCost;
-          const shipKnown = p.shipping > 0;
-          const costLabel =
-            displayCost <= 0
-              ? "On import"
-              : variantCosts.length > 1 && maxCost - minCost > 0.01
-                ? `from ${money(minCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : " + ship unknown"}`
-                : shipKnown
-                  ? `${money(displayCost)} + ~${money(p.shipping)} ship`
-                  : `${money(displayCost)} + ship unknown`;
-          const retail = suggestedRetail(displayCost, p.shipping, 3);
-          const econ = unitMargin(retail, displayCost, p.shipping);
-          const score = winningScore({
-            retail,
-            cost: displayCost,
-            shipping: p.shipping,
-            stock: p.stock,
-            shippingDays: p.shippingDays,
-            demand: p.demand,
-          });
-          const shipLabel =
-            p.shippingDays > 0 ? `${p.shippingDays}d ship` : "— ship";
-          return (
-            <Card key={p.id} className="overflow-hidden">
-              <Thumb src={p.image} alt={p.cleanTitle} className="h-40 w-full rounded-none" />
-              <div className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold">{p.cleanTitle}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
-                      {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
-                      {p.stockKnown === false ? " · confirm stock on import" : ""}
-                    </p>
-                  </div>
-                  <Badge tone={score >= 75 ? "profit" : score >= 60 ? "warn" : "line"}>{score}</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-faint">Your cost</p>
-                    <p className="mt-0.5 text-muted">{costLabel}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (3×)</p>
-                    <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
-                  </div>
-                  <span className="text-profit">
-                    {displayCost > 0 && shipKnown ? `${pct(econ.margin)} after fees` : "Margin unknown"}
-                  </span>
-                  <span className="text-right text-muted">
-                    {p.orders30d
-                      ? `${p.orders30d.toLocaleString()} sold / 30d`
-                      : `${shipLabel} · ${
-                          p.stockKnown === false || p.stock <= 0 ? "— pcs" : `${p.stock} pcs`
-                        }`}
-                  </span>
-                </div>
-                <Button
-                  className="w-full"
-                  disabled={pending}
-                  onClick={() =>
-                    start(async () => {
-                      setError("");
-                      try {
-                        const res = await importLiveListing(p);
-                        if (hasPaywall(res)) {
-                          emitPaywall(res.paywall);
-                          return;
-                        }
-                        if ("reused" in res && res.reused) {
-                          setError("Already in your catalog — opening the existing draft.");
-                        }
-                        router.push(`/catalog/${res.id}`);
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : "Import failed");
-                      }
-                    })
-                  }
-                >
-                  Import & clean
-                </Button>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
     </div>
+  );
+}
+
+function StatusHint({
+  label,
+  tone,
+  detail,
+  active,
+  onToggle,
+}: {
+  label: string;
+  tone: "line" | "profit";
+  detail: string;
+  active: string;
+  onToggle: (next: string) => void;
+}) {
+  const open = active === detail;
+  return (
+    <button
+      type="button"
+      title={detail}
+      aria-expanded={open}
+      onClick={() => onToggle(open ? "" : detail)}
+      className={`rounded-full ${open ? "ring-2 ring-accent/40" : ""}`}
+    >
+      <Badge tone={tone}>{label}</Badge>
+    </button>
   );
 }
