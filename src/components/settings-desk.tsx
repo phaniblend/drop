@@ -13,6 +13,8 @@ import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
 import { emitPaywall } from "@/lib/paywall";
 import type { BillingSummary } from "@/lib/paywall";
+import { friendlyMetaError } from "@/lib/meta-status";
+import { StripeKeysForm } from "./stripe-keys-form";
 
 type Status = {
   store?: boolean;
@@ -52,6 +54,7 @@ export function SettingsDesk({
   metaLongLived = false,
   canExtendMeta = false,
   metaAppReady = false,
+  stripeKeys,
 }: {
   status: Status;
   billing: BillingSummary;
@@ -61,6 +64,7 @@ export function SettingsDesk({
   metaLongLived?: boolean;
   canExtendMeta?: boolean;
   metaAppReady?: boolean;
+  stripeKeys?: { publishableMasked: string; secretMasked: string; mode: "off" | "test" | "live" };
   user: {
     displayName: string;
     storeName: string;
@@ -105,10 +109,11 @@ export function SettingsDesk({
         status.metaStatus === "connected"
           ? `Live ad account check passed${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`
           : status.metaStatus === "degraded"
-            ? status.metaError ||
+            ? friendlyMetaError(status.metaError) ||
               "Token present but Guard cannot protect spend yet — finish Meta setup (account ID + long-lived token)."
             : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
       metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded"),
+      reconnectMeta: status.metaStatus !== "connected",
     },
     {
       name: "TikTok ads",
@@ -217,7 +222,7 @@ export function SettingsDesk({
 
       <div className="grid gap-3 md:grid-cols-2">
         {connections.map((c) => (
-          <Card key={c.name} className="p-5">
+          <Card key={c.name} id={c.name === "Meta ads" ? "meta" : undefined} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-semibold">{c.name}</h2>
               <Badge
@@ -301,11 +306,16 @@ export function SettingsDesk({
                 )}
               </div>
             ) : null}
+            {"reconnectMeta" in c && c.reconnectMeta ? (
+              <p className="mt-3 text-xs font-medium text-loss">
+                {friendlyMetaError(status.metaError)}
+              </p>
+            ) : null}
             {"metaExtend" in c && c.metaExtend ? (
               metaAppReady ? (
                 <Button
                   className="mt-3 h-8 px-3 text-xs"
-                  tone="line"
+                  tone="accent"
                   disabled={pending || !canExtendMeta}
                   onClick={() =>
                     start(async () => {
@@ -319,7 +329,7 @@ export function SettingsDesk({
                     })
                   }
                 >
-                  Extend Meta token (~60d)
+                  {status.metaStatus === "connected" ? "Extend Meta token (~60d)" : "Reconnect Meta"}
                 </Button>
               ) : (
                 <p className="mt-3 text-xs text-muted">
@@ -335,6 +345,14 @@ export function SettingsDesk({
           </Card>
         ))}
       </div>
+
+      {stripeKeys ? (
+        <StripeKeysForm
+          publishableMasked={stripeKeys.publishableMasked}
+          secretMasked={stripeKeys.secretMasked}
+          mode={stripeKeys.mode}
+        />
+      ) : null}
 
       <Card>
         <CardHeader title="Operator defaults" eyebrow="This store" />

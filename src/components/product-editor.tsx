@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import {
   applyCopySuggestion,
   rewriteProductCopy,
@@ -192,6 +193,7 @@ export function ProductEditor({
             <Button
               tone="line"
               disabled={rewriting}
+              aria-busy={rewriting}
               onClick={() =>
                 startRewrite(async () => {
                   setCopyMsg("");
@@ -217,8 +219,15 @@ export function ProductEditor({
                 })
               }
             >
+              {rewriting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {rewriting ? "Rewriting…" : "Rewrite title & bullets"}
             </Button>
+            {rewriting ? (
+              <div className="space-y-2" aria-hidden>
+                <div className="h-8 animate-pulse rounded-lg bg-surface-2" />
+                <div className="h-16 animate-pulse rounded-lg bg-surface-2" />
+              </div>
+            ) : null}
             {copyReason ? <p className="text-xs text-warn">{copyReason}</p> : null}
             {suggestion ? (
               <div className="rounded-xl border border-warn/30 bg-warn/5 p-3 space-y-2">

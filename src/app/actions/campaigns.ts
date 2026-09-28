@@ -171,7 +171,7 @@ export async function togglePause(campaignId: string, paused: boolean) {
       if (product && !isPaidLaunchUnlocked(product)) {
         return {
           error:
-            "Paid launch is locked until the 3-video organic test passes (1,000+ views each) or you override it in Daily ops.",
+            "Paid launch is locked until the 3-video organic test passes (1,000+ views each) or you override it on Command.",
         };
       }
     }

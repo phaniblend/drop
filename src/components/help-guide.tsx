@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CircleHelp, GripVertical, X } from "lucide-react";
-import { HELP_STEPS } from "@/lib/help-steps";
+import { HELP_TOURS, type HelpTour } from "@/lib/help-steps";
 import { Button } from "./ui";
 import { cn } from "@/lib/utils";
 
-const STEP_KEY = "dropshipos-help-step-v2";
+const TOUR_KEY = "dropshipos-help-tour-v4";
+const STEP_KEY = "dropshipos-help-step-v4";
 const OPEN_KEY = "dropshipos-help-open";
 const POS_KEY = "dropshipos-help-pos-v3";
 const CARD_MAX = 300;
@@ -45,16 +46,18 @@ export function HelpGuide({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [tourId, setTourId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [ready, setReady] = useState(false);
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+  const tour = HELP_TOURS.find((item) => item.id === tourId) ?? null;
 
   useEffect(() => {
+    const savedTour = window.sessionStorage.getItem(TOUR_KEY);
+    if (savedTour && HELP_TOURS.some((item) => item.id === savedTour)) setTourId(savedTour);
     const saved = Number(window.sessionStorage.getItem(STEP_KEY) ?? "0");
-    if (Number.isFinite(saved) && saved >= 0 && saved < HELP_STEPS.length) {
-      setIndex(saved);
-    }
+    if (Number.isFinite(saved) && saved >= 0) setIndex(saved);
     const rawPos = window.sessionStorage.getItem(POS_KEY);
     if (rawPos) {
       try {
@@ -76,6 +79,11 @@ export function HelpGuide({
   }, []);
 
   useEffect(() => {
+    if (tourId) window.sessionStorage.setItem(TOUR_KEY, tourId);
+    else window.sessionStorage.removeItem(TOUR_KEY);
+  }, [tourId]);
+
+  useEffect(() => {
     window.sessionStorage.setItem(STEP_KEY, String(index));
   }, [index]);
 
@@ -87,6 +95,11 @@ export function HelpGuide({
     if (!ready || !pos) return;
     window.sessionStorage.setItem(POS_KEY, JSON.stringify(pos));
   }, [pos, ready]);
+
+  function pickTour(next: HelpTour) {
+    setTourId(next.id);
+    setIndex(0);
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -112,8 +125,8 @@ export function HelpGuide({
 
   if (!open) return null;
 
-  const step = HELP_STEPS[index];
-  const last = index === HELP_STEPS.length - 1;
+  const step = tour?.steps[index];
+  const last = Boolean(tour && index === tour.steps.length - 1);
   const first = index === 0;
 
   return (
@@ -121,7 +134,7 @@ export function HelpGuide({
       className="fixed top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))] right-3 z-[100] w-[min(18.75rem,calc(100vw-1rem))] rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(15,18,34,0.12)] md:right-6"
       style={pos ? { left: pos.x, top: pos.y, right: "auto" } : undefined}
       role="dialog"
-      aria-label="Daily workflow help"
+      aria-label="Help tours"
       aria-modal="false"
     >
       <div
@@ -146,33 +159,71 @@ export function HelpGuide({
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="px-3 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
-          Step {index + 1} of {HELP_STEPS.length}
-        </p>
-        <h2 className="mt-1 text-sm font-semibold text-ink">{step.label}</h2>
-        <p className="mt-2 text-xs leading-5 text-muted">{step.desc}</p>
-      </div>
-      <div className="flex items-center gap-2 border-t border-line px-3 py-2">
-        <Button
-          tone="line"
-          className="h-8 flex-1 px-2 text-xs"
-          disabled={first}
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Prev
-        </Button>
-        <Button
-          tone="accent"
-          className="h-8 flex-1 px-2 text-xs"
-          disabled={last}
-          onClick={() => setIndex((i) => Math.min(HELP_STEPS.length - 1, i + 1))}
-        >
-          Next
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      {!tour || !step ? (
+        <div className="space-y-2 px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">Pick a tour</p>
+          <p className="text-xs text-muted">Short walkthroughs — not a 40-step overlay.</p>
+          <ul className="space-y-2">
+            {HELP_TOURS.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="w-full rounded-xl border border-line px-3 py-2 text-left hover:border-line-strong"
+                  onClick={() => pickTour(item)}
+                >
+                  <p className="text-sm font-semibold text-ink">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-muted">{item.blurb}</p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <>
+          <div className="px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+              {tour.title} · Step {index + 1} of {tour.steps.length}
+            </p>
+            <h2 className="mt-1 text-sm font-semibold text-ink">{step.label}</h2>
+            <p className="mt-2 text-xs leading-5 text-muted">{step.desc}</p>
+            {step.href ? (
+              <a href={step.href} className="mt-2 inline-block text-xs text-accent">
+                Open this screen →
+              </a>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+            <Button
+              tone="line"
+              className="h-8 flex-1 px-2 text-xs"
+              disabled={first}
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Prev
+            </Button>
+            <Button
+              tone="accent"
+              className="h-8 flex-1 px-2 text-xs"
+              disabled={last}
+              onClick={() => setIndex((i) => Math.min(tour.steps.length - 1, i + 1))}
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <button
+            type="button"
+            className="w-full border-t border-line px-3 py-2 text-left text-xs text-accent"
+            onClick={() => {
+              setTourId(null);
+              setIndex(0);
+            }}
+          >
+            All tours
+          </button>
+        </>
+      )}
     </aside>
   );
 }

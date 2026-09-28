@@ -9,6 +9,9 @@ import { OrganicLaunchCard } from "@/components/organic-launch-card";
 import { env, integrationStatus } from "@/lib/env";
 import { stripeCheckoutMode } from "@/lib/stripe-mode";
 import { storeHomePath } from "@/lib/store-slug";
+import { stripeKeyMode } from "@/lib/stripe-keys";
+import { StripeOnboardingGate } from "@/components/stripe-keys-form";
+import { maskStripeKey } from "@/lib/stripe-keys";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -17,7 +20,9 @@ export default async function CommandPage() {
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
   const integrations = integrationStatus();
   const storeHref = storeHomePath(data.user?.storeSlug);
-  const stripeLabel = stripeCheckoutMode(env.stripeSecretKey) === "off" ? "Pending" : "Connected";
+  const merchantStripe = stripeKeyMode(data.user?.storeStripeSk);
+  const stripeLabel =
+    merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Sandbox" : stripeCheckoutMode(env.stripeSecretKey) === "off" ? "Pending" : "Sandbox";
   const adsLabel = integrations.meta || integrations.tiktok ? "Ready" : "Pending";
   const findFirst = data.pendingCount === 0;
 
@@ -54,6 +59,13 @@ export default async function CommandPage() {
           </DeskLink>
         </div>
       </div>
+
+      <StripeOnboardingGate
+        live={merchantStripe === "live"}
+        publishableMasked={maskStripeKey(data.user?.storeStripePk)}
+        secretMasked={maskStripeKey(data.user?.storeStripeSk)}
+        mode={merchantStripe}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Revenue (24h)" value={money(kpis.revenue)} hint={`${kpis.orders} orders`} />

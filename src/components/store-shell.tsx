@@ -17,7 +17,7 @@ export function StoreShell({
             <BrandLogo />
             <p className="truncate text-xs text-muted">{storeName}</p>
           </Link>
-          <StoreCartLink />
+          <StoreCartLink homeHref="/store" />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>

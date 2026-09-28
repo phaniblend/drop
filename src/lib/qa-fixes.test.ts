@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatScript, normalizeHookScript } from "./format-script";
-import { classifyMetaStatus } from "./meta-status";
+import { classifyMetaStatus, friendlyMetaError } from "./meta-status";
 import { applyExplicitRetailPrice, shouldUpdateShopifyProduct } from "./pricing";
 
 describe("explicit selling price", () => {
@@ -74,6 +74,14 @@ describe("Meta status", () => {
         canExtend: false,
       }),
     ).toBe("degraded");
+  });
+
+  it("hides raw Graph token dumps behind a reconnect banner", () => {
+    expect(
+      friendlyMetaError(
+        "Error validating access token: Session has expired on Wednesday, 23-Sep-26 12:00:00 PDT",
+      ),
+    ).toBe("Meta Account Disconnected — Token Expired");
   });
 });
 

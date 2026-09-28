@@ -14,6 +14,7 @@ export function StoreBuyBox({
 }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState(variants[0]?.id ?? "default");
+  const [adding, setAdding] = useState(false);
   const selected = variants.find((variant) => variant.id === variantId) ?? variants[0];
   const soldOut = !selected || selected.stock <= 0;
 
@@ -40,13 +41,14 @@ export function StoreBuyBox({
       <Button
         tone="accent"
         className="w-full"
-        disabled={soldOut}
+        disabled={soldOut || adding}
         onClick={() => {
           addStoreCartLine({ productId, variantId, qty: 1 });
-          router.push("/store/cart");
+          setAdding(true);
+          router.push("/store/cart?added=1");
         }}
       >
-        {soldOut ? "Sold out" : "Add to bag"}
+        {soldOut ? "Sold out" : adding ? "Added to bag…" : "Add to bag"}
       </Button>
     </div>
   );

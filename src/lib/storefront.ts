@@ -6,6 +6,7 @@ import { getDefaultStoreUser, getProduct, getUserById } from "./db/queries";
 import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
 import { env } from "./env";
+import { stripeCheckoutMode } from "./stripe-mode";
 import { publicHtmlLeaksOperatorCopy, toPublicProduct, type PublicStoreProduct } from "./shopper-copy";
 import { MIN_PUBLISH_PRICE, screenListing } from "./product-screen";
 import { storeHomePath } from "./store-slug";
@@ -28,7 +29,8 @@ export async function getStorefrontBrand(userId?: string) {
     name: user?.storeName || "SetoStore",
     slug: user?.storeSlug || "seto",
     userId: user?.id ?? "",
-    stripeReady: Boolean(env.stripeSecretKey),
+    stripeReady: Boolean(user?.storeStripeSk || env.stripeSecretKey),
+    stripeMode: stripeCheckoutMode(user?.storeStripeSk || env.stripeSecretKey),
   };
 }
 

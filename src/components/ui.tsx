@@ -4,12 +4,15 @@ import { cn } from "@/lib/utils";
 export function Card({
   className,
   children,
+  id,
 }: {
   className?: string;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       className={cn(
         "rounded-2xl border border-line bg-surface shadow-[0_10px_30px_rgba(15,18,34,0.06)]",
         className,

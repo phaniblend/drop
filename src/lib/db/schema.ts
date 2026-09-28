@@ -24,6 +24,8 @@ export const users = sqliteTable("users", {
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  storeStripePk: text("store_stripe_pk"),
+  storeStripeSk: text("store_stripe_sk"),
   productsImportedCount: integer("products_imported_count").notNull().default(0),
   lensSearchesCount: integer("lens_searches_count").notNull().default(0),
   billingCycleStart: text("billing_cycle_start"),

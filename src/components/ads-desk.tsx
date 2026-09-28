@@ -12,6 +12,8 @@ import { money } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { emitPaywall, hasPaywall } from "@/lib/paywall";
 import { isPaidLaunchUnlocked, parseSentinelSettings, type SentinelSettings } from "@/lib/ad-protection";
+import { friendlyMetaError } from "@/lib/meta-status";
+import { DeskLink } from "./desk-link";
 
 type CampaignRow = {
   id: string;
@@ -222,14 +224,22 @@ export function AdsDesk({
             <li>Add the Meta app id and secret, then Settings → Extend Meta token.</li>
             <li>Confirm the token can read ads and pause them.</li>
           </ol>
-          {metaError ? <p className="mt-3 text-xs text-loss">{metaError}</p> : null}
+          {metaError ? (
+            <p className="mt-3 text-sm text-loss">{friendlyMetaError(metaError)}</p>
+          ) : null}
+          <DeskLink href="/settings#meta" className="mt-3 inline-block">
+            <Button tone="accent">Reconnect Meta</Button>
+          </DeskLink>
         </Card>
       ) : null}
 
       {metaError && !metaDegraded ? (
-        <p className="rounded-xl border border-loss/30 bg-[rgba(255,107,122,0.08)] px-4 py-3 text-sm text-loss">
-          Meta sync: {metaError}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-loss/30 bg-[rgba(255,107,122,0.08)] px-4 py-3">
+          <p className="text-sm text-loss">{friendlyMetaError(metaError)}</p>
+          <DeskLink href="/settings#meta">
+            <Button tone="line">Reconnect Meta</Button>
+          </DeskLink>
+        </div>
       ) : null}
 
       {metaFullyConnected && campaigns.length === 0 ? (
@@ -276,7 +286,7 @@ export function AdsDesk({
               </div>
               {locked ? (
                 <p className="mt-3 rounded-lg border border-warn/30 bg-[rgba(232,168,56,0.08)] px-3 py-2 text-xs text-warn">
-                  Paid launch locked — finish the 3-video organic test in Daily ops.
+                  Paid launch locked — finish the 3-video organic test on Command.
                 </p>
               ) : null}
               <dl className="mt-4 grid grid-cols-2 gap-3 font-mono text-sm">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
 import { formatScript } from "@/lib/format-script";
@@ -96,7 +97,8 @@ export function AdHooksPanel({
         eyebrow="Ad creatives & hooks"
         title="Short-form angles"
         action={
-          <Button tone="accent" disabled={pending} onClick={generate}>
+          <Button tone="accent" disabled={pending} aria-busy={pending} onClick={generate}>
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {pending ? "Writing…" : "Write ad angles"}
           </Button>
         }
@@ -108,6 +110,12 @@ export function AdHooksPanel({
           Manager — paste it into primary text, upload your clip, set budget.
         </p>
         {reason ? <p className="text-xs text-warn">{reason}</p> : null}
+        {pending ? (
+          <div className="space-y-2" aria-hidden>
+            <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
+            <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
+          </div>
+        ) : null}
         {error ? <p className="text-sm text-loss">{error}</p> : null}
         {posted ? <p className="text-xs text-profit">{posted}</p> : null}
         {open && hooks.length > 0

@@ -9,6 +9,29 @@ import { nid, nowIso } from "./utils";
 import { logActivity } from "./db/seed";
 import { stripeGet } from "./stripe";
 import { validateStoreQty } from "./store-qty";
+import { deliveryWindow } from "./delivery";
+import { mailingLabel } from "./fulfillment-copy";
+import { loadCheckoutMerchant, resolveMerchantStripeSecret } from "./merchant-stripe";
+
+export type StoreReceipt = {
+  id: string;
+  orderNumber: string;
+  items: Array<{ title: string; qty: number; unitPrice: number }>;
+  deliveryText: string;
+};
+
+async function loadStoreReceipt(orderId: string): Promise<StoreReceipt | null> {
+  const db = await ensureDb();
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) return null;
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    items: items.map((item) => ({ title: item.title, qty: item.quantity, unitPrice: item.unitPrice })),
+    deliveryText: deliveryWindow().text,
+  };
+}
 
 export type PendingStoreLine = {
   productId: string;
@@ -98,12 +121,14 @@ export async function resolveStoreLines(
   return lines;
 }
 
-export async function fulfillStoreCheckout(sessionId: string) {
+export async function fulfillStoreCheckout(sessionId: string): Promise<StoreReceipt | null> {
   if (!sessionId) return null;
   const db = await ensureDb();
   const [existing] = await db.select({ id: orders.id }).from(orders).where(eq(orders.shopifyOrderId, sessionId)).limit(1);
-  if (existing) return existing.id;
+  if (existing) return loadStoreReceipt(existing.id);
 
+  const mappedMerchantId = await loadCheckoutMerchant(sessionId);
+  const secret = await resolveMerchantStripeSecret(mappedMerchantId);
   const session = await stripeGet<{
     id?: string;
     payment_status?: string;
@@ -120,7 +145,7 @@ export async function fulfillStoreCheckout(sessionId: string) {
         country?: string;
       };
     };
-  }>(`checkout/sessions/${sessionId}`);
+  }>(`checkout/sessions/${sessionId}`, secret);
 
   if (session.metadata?.kind !== "store_order") return null;
   if (session.payment_status && session.payment_status !== "paid") return null;
@@ -129,7 +154,7 @@ export async function fulfillStoreCheckout(sessionId: string) {
   const lines = await loadPendingStoreCart(cartId);
   if (!lines.length) return null;
 
-  const merchantId = lines[0]?.merchantId;
+  const merchantId = lines[0]?.merchantId || mappedMerchantId;
   const operator = merchantId
     ? await (await import("./db/queries")).getUserById(merchantId)
     : await getOperator();
@@ -149,6 +174,8 @@ export async function fulfillStoreCheckout(sessionId: string) {
         .filter(Boolean)
         .join(", ")
     : "Address pending";
+  const customerName = session.shipping_details?.name || session.customer_details?.name || "Customer";
+  const shippingAddress = mailingLabel(customerName, address).split("\n").slice(-1)[0] || address;
 
   const id = nid("ord");
   try {
@@ -157,9 +184,9 @@ export async function fulfillStoreCheckout(sessionId: string) {
     userId: operator.id,
     shopifyOrderId: session.id || sessionId,
     orderNumber: `S-${sessionId.slice(-6).toUpperCase()}`,
-    customerName: session.shipping_details?.name || session.customer_details?.name || "Customer",
+    customerName,
     customerEmail: session.customer_details?.email || "unknown@store",
-    shippingAddress: address,
+    shippingAddress,
     totalRevenue: revenue,
     totalCogs: cogs,
     paymentFee: fee,
@@ -202,13 +229,13 @@ export async function fulfillStoreCheckout(sessionId: string) {
     message: `Store checkout ${session.customer_details?.email || "a customer"} paid ${revenue.toFixed(2)}.`,
     href: "/orders",
   });
-  return id;
+  return loadStoreReceipt(id);
   } catch {
     const [again] = await db
       .select({ id: orders.id })
       .from(orders)
       .where(eq(orders.shopifyOrderId, sessionId))
       .limit(1);
-    return again?.id ?? null;
+    return again ? loadStoreReceipt(again.id) : null;
   }
 }

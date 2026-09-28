@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { env } from "./env";
 import { ensureDb } from "./db";
 import { settings } from "./db/schema";
-import { classifyMetaStatus, type MetaHealthStatus } from "./meta-status";
+import { classifyMetaStatus, friendlyMetaError, type MetaHealthStatus } from "./meta-status";
 
 export type { MetaHealthStatus };
 export { classifyMetaStatus };
@@ -234,5 +234,6 @@ export async function pingMeta(force = false): Promise<MetaHealth> {
 }
 
 export async function getMetaHealth(force = false): Promise<MetaHealth> {
-  return pingMeta(force);
+  const health = await pingMeta(force);
+  return { ...health, error: health.error ? friendlyMetaError(health.error) : null };
 }

@@ -5,7 +5,6 @@ import { resolveRefund } from "@/app/actions/ops";
 import { Badge, Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
 import { TaskToggle } from "./task-toggle";
-import { OrganicLaunchCard } from "./organic-launch-card";
 import { money } from "@/lib/utils";
 import type { CsMacro, DailyTask, Order, Product, Refund } from "@/lib/db/schema";
 
@@ -22,13 +21,12 @@ export function OpsDesk({
   macros,
   refunds,
   stale,
-  products,
 }: {
   tasks: DailyTask[];
   macros: CsMacro[];
   refunds: Array<Refund & { order?: Order }>;
   stale: Order[];
-  products: Product[];
+  products?: Product[];
 }) {
   const [orderPick, setOrderPick] = useState(stale[0]?.id ?? "");
   const selected = stale.find((o) => o.id === orderPick) ?? stale[0];
@@ -78,10 +76,6 @@ export function OpsDesk({
             )}
           </div>
         </Card>
-      </div>
-
-      <div id="organic">
-        <OrganicLaunchCard products={products} catalogCount={products.length} />
       </div>
 
       <Card>

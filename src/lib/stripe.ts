@@ -7,14 +7,20 @@ function stripeForm(body: Record<string, string>) {
   return new URLSearchParams(body);
 }
 
-export async function stripePost<T>(path: string, body: Record<string, string>) {
-  if (!env.stripeSecretKey) {
+function stripeSecret(override?: string) {
+  const key = (override ?? env.stripeSecretKey ?? "").trim();
+  if (!key) {
     throw new Error("STRIPE_SECRET_KEY is not set.");
   }
+  return key;
+}
+
+export async function stripePost<T>(path: string, body: Record<string, string>, secretKey?: string) {
+  const secret = stripeSecret(secretKey);
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.stripeSecretKey}`,
+      Authorization: `Bearer ${secret}`,
       "Content-Type": "application/x-www-form-urlencoded",
       "Stripe-Version": "2024-06-20",
     },
@@ -27,13 +33,11 @@ export async function stripePost<T>(path: string, body: Record<string, string>) 
   return json;
 }
 
-export async function stripeGet<T>(path: string) {
-  if (!env.stripeSecretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not set.");
-  }
+export async function stripeGet<T>(path: string, secretKey?: string) {
+  const secret = stripeSecret(secretKey);
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     headers: {
-      Authorization: `Bearer ${env.stripeSecretKey}`,
+      Authorization: `Bearer ${secret}`,
       "Stripe-Version": "2024-06-20",
     },
   });

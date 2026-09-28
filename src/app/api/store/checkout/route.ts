@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nid } from "@/lib/utils";
-import { env } from "@/lib/env";
 import { appOrigin, stripePost } from "@/lib/stripe";
 import { resolveStoreLines, savePendingStoreCart, StoreCheckoutError } from "@/lib/store-orders";
+import { rememberCheckoutMerchant, resolveMerchantStripeSecret } from "@/lib/merchant-stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!env.stripeSecretKey) {
-    return NextResponse.json(
-      { error: "Checkout is not connected yet. Ask whoever hosts this desk to turn on Stripe." },
-      { status: 503 },
-    );
-  }
-
   let body: { lines?: Array<{ productId: string; variantId: string; qty: number }> };
   try {
     body = (await req.json()) as typeof body;
@@ -33,6 +26,14 @@ export async function POST(req: NextRequest) {
   }
   if (!lines.length) {
     return NextResponse.json({ error: "Your cart is empty or those items are no longer for sale." }, { status: 400 });
+  }
+
+  const secret = await resolveMerchantStripeSecret(lines[0]?.merchantId);
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Checkout is not connected yet. Add live Stripe keys in Settings." },
+      { status: 503 },
+    );
   }
 
   const cartId = nid("cart");
@@ -57,9 +58,12 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const session = await stripePost<{ url?: string }>("checkout/sessions", payload);
+    const session = await stripePost<{ url?: string; id?: string }>("checkout/sessions", payload, secret);
     if (!session.url) {
       return NextResponse.json({ error: "Stripe did not return a checkout link." }, { status: 502 });
+    }
+    if (session.id && lines[0]?.merchantId) {
+      await rememberCheckoutMerchant(session.id, lines[0].merchantId);
     }
     return NextResponse.json({ url: session.url });
   } catch (error) {

@@ -6,6 +6,7 @@ import { getOperator, getUserByEmail } from "./db/queries";
 import { provisionOperator } from "./db/seed";
 import { getBillingSummary, type BillingSummary } from "./billing";
 import { stripeCheckoutMode } from "./stripe-mode";
+import { stripeKeyMode } from "./stripe-keys";
 import { env } from "./env";
 
 export type DeskShell = {
@@ -74,7 +75,10 @@ export async function loadDeskShell(input: {
     displayName: user.displayName,
     billing,
     liveCount: await liveApiCount(),
-    stripeMode: stripeCheckoutMode(env.stripeSecretKey),
+    stripeMode:
+      stripeKeyMode(user.storeStripeSk) === "live"
+        ? "live"
+        : stripeCheckoutMode(user.storeStripeSk || env.stripeSecretKey),
   };
   globalForDesk.setoDesk = { email, at: Date.now(), shell };
   return shell;

@@ -1,49 +1,72 @@
 export type HelpStep = {
-  id: number;
+  id: string;
   label: string;
   desc: string;
   href?: string;
 };
 
-export const HELP_STEPS: HelpStep[] = [
-  { id: 1, label: "Check profit", desc: "Look at the Command summary to check today's profit and ad spend vs sales.", href: "/" },
-  { id: 2, label: "Safety Alerts", desc: "Check the triage alerts to see if any bleeding ad sets were auto-paused overnight.", href: "/" },
-  { id: 3, label: "Fulfillment Tab", desc: "Click Fulfill in the left menu.", href: "/fulfillment" },
-  { id: 4, label: "Review Orders", desc: "Review the list of new orders that still need to be bought from the supplier.", href: "/fulfillment" },
-  { id: 5, label: "Supplier Checkout", desc: "Use Copy address and Open supplier on each order, or download the batch CSV.", href: "/fulfillment" },
-  { id: 6, label: "Verify Addresses", desc: "When the supplier checkout opens, verify that customer shipping addresses match the cards.", href: "/fulfillment" },
-  { id: 7, label: "Pay Supplier", desc: "Pay on the supplier portal (AliExpress / CJ) to authorize the batch." },
-  { id: 8, label: "Return to Tool", desc: "Close the supplier tab and return to this desk.", href: "/fulfillment" },
-  { id: 9, label: "Mark Paid", desc: "Enter the supplier order id and click Mark placed to update statuses.", href: "/fulfillment" },
-  { id: 10, label: "Discovery Tab", desc: "Click Discover in the left menu.", href: "/discover" },
-  { id: 11, label: "Search Bar", desc: "Click inside Search the feed.", href: "/discover" },
-  { id: 12, label: "Enter Query", desc: "Type your product query (for example: ultrasonic teeth plaque remover).", href: "/discover" },
-  { id: 13, label: "Select Market", desc: "Pick a niche chip (home, car, pet, beauty, health, outdoors).", href: "/discover" },
-  { id: 14, label: "Find Products", desc: "The scored cards update as you search. Scroll the grid.", href: "/discover" },
-  { id: 15, label: "Browse Cards", desc: "Scroll through the generated list of product cards.", href: "/discover" },
-  { id: 16, label: "Review Margins", desc: "Check what you pay (item + shipping), the selling price, and profit % after fees on each card.", href: "/discover" },
-  { id: 17, label: "Import & Enrich", desc: "Pick a winner and click Import & clean.", href: "/discover" },
-  { id: 18, label: "Wait for Scrape", desc: "Wait a few seconds while the product is imported and copy is cleaned.", href: "/discover" },
-  { id: 19, label: "Draft Listings", desc: "Click Catalog in the left menu. New imports land as drafts.", href: "/catalog" },
-  { id: 20, label: "Open Editor", desc: "Click the newly imported product title to open the editor.", href: "/catalog" },
-  { id: 21, label: "Clean Images", desc: "Look at the gallery photo. Confirm it looks storefront-ready.", href: "/catalog" },
-  { id: 22, label: "Review Copy", desc: "Review the cleaned product title and benefit bullets.", href: "/catalog" },
-  { id: 23, label: "Tweak Copy", desc: "Click Rewrite title & bullets, or edit pricing fields if you want custom tweaks.", href: "/catalog" },
-  { id: 24, label: "Pricing Matrix", desc: "Scroll to Sizes & colors — that is your options and price list.", href: "/catalog" },
-  { id: 25, label: "Check Markups", desc: "Check retail prices so markup is at least 3× base cost.", href: "/catalog" },
-  { id: 26, label: "Publish Draft", desc: "Click Publish to your store. The product goes live on /store for shoppers.", href: "/catalog" },
-  { id: 27, label: "Confirm live link", desc: "Open the store link on that screen and confirm the product page loads.", href: "/store" },
-  { id: 28, label: "Ad Hooks", desc: "Use the cleaned title as your hook. Film 2–3 short clips from the product angle." },
-  { id: 29, label: "Copy Hooks", desc: "Copy a short hook to your clipboard — one sentence, problem then payoff." },
-  { id: 30, label: "Copy UTM URL", desc: "Copy your storefront product URL and add UTM tags before you spend." },
-  { id: 31, label: "Film Creatives", desc: "Step away and film or edit 2 to 3 short clips using a sample and those hooks." },
-  { id: 32, label: "Open Ad Manager", desc: "Open TikTok Ads Manager or Meta Ads Manager in a new browser tab." },
-  { id: 33, label: "Launch Campaign", desc: "Create a campaign, upload the video, paste the tracking URL, set a daily budget (e.g. $20/day)." },
-  { id: 34, label: "Copy Ad Set ID", desc: "Copy the new Ad Set ID from Meta or TikTok." },
-  { id: 35, label: "Margin Guard", desc: "Come back here and click Ads & Guard.", href: "/ads" },
-  { id: 36, label: "Register Ad Set", desc: "Use Check ads on the matching campaign card (or pause locally in demo).", href: "/ads" },
-  { id: 37, label: "Link Product", desc: "Confirm the card is tied to the right product name.", href: "/ads" },
-  { id: 38, label: "Configure Rules", desc: "Spend cap and min sales-per-ad-dollar live on each card (defaults $50 spend and $1.20 back per $1).", href: "/ads" },
-  { id: 39, label: "Activate Guard", desc: "Click Check ads (or Check all ads now). Hosted desks re-check on a timer.", href: "/ads" },
-  { id: 40, label: "Keep it open", desc: "Return to Command and leave the desk open so today's profit and alerts stay in view.", href: "/" },
+export type HelpTour = {
+  id: string;
+  title: string;
+  blurb: string;
+  steps: HelpStep[];
+};
+
+export const HELP_TOURS: HelpTour[] = [
+  {
+    id: "source",
+    title: "Source your first product",
+    blurb: "5 steps — search the live feed and import a winner.",
+    steps: [
+      { id: "s1", label: "Open Discover", desc: "Use Discover in the header or left menu to search live supplier catalogs.", href: "/discover" },
+      { id: "s2", label: "Search the feed", desc: "Type a product (for example: ultrasonic plaque remover) and pick a niche chip.", href: "/discover" },
+      { id: "s3", label: "Read the margin", desc: "Check what you pay, the selling price, and profit after fees on each card.", href: "/discover" },
+      { id: "s4", label: "Import & clean", desc: "Pick a winner and click Import & clean. Wait a few seconds for copy to land.", href: "/discover" },
+      { id: "s5", label: "Open the draft", desc: "New imports land in Catalog as drafts. Click the title to edit.", href: "/catalog" },
+    ],
+  },
+  {
+    id: "publish",
+    title: "Clean and publish",
+    blurb: "4 steps — photos, price, and a live store link.",
+    steps: [
+      { id: "p1", label: "Review the listing", desc: "Confirm the photo looks store-ready and the title is shopper language.", href: "/catalog" },
+      { id: "p2", label: "Rewrite if needed", desc: "Use Rewrite title & bullets, then set retail so markup is at least 3× cost.", href: "/catalog" },
+      { id: "p3", label: "Publish", desc: "Click Publish to your store. The product goes live for shoppers.", href: "/catalog" },
+      { id: "p4", label: "Confirm the link", desc: "Open the store link and make sure the product page loads.", href: "/store" },
+    ],
+  },
+  {
+    id: "orders",
+    title: "Process orders",
+    blurb: "4 steps — copy a clean address and buy from the supplier.",
+    steps: [
+      { id: "o1", label: "Open Fulfill", desc: "New paid orders wait in Fulfill until you buy them from AliExpress or CJ.", href: "/fulfillment" },
+      { id: "o2", label: "Copy the address", desc: "Use Copy address — it pastes one normalized mailing label, not mixed street lines.", href: "/fulfillment" },
+      { id: "o3", label: "Pay the supplier", desc: "Open the supplier tab, paste the address, and pay. Then come back here.", href: "/fulfillment" },
+      { id: "o4", label: "Mark placed", desc: "Enter the supplier order id and click Mark placed so tracking can be pasted later.", href: "/fulfillment" },
+    ],
+  },
+  {
+    id: "ops",
+    title: "Daily ops",
+    blurb: "3 steps — aging shipments and customer replies.",
+    steps: [
+      { id: "d1", label: "Aging shipments", desc: "Daily ops lists orders that still need a reply or tracking update.", href: "/ops" },
+      { id: "d2", label: "Saved replies", desc: "Select an aging order, then copy a filled “where is my order?” reply.", href: "/ops" },
+      { id: "d3", label: "Refunds", desc: "Resolve open refund requests from the same screen so they do not pile up.", href: "/ops" },
+    ],
+  },
+  {
+    id: "guard",
+    title: "Configure Margin Guard",
+    blurb: "3 steps — pause ads that are losing money.",
+    steps: [
+      { id: "g1", label: "Open Ads & Guard", desc: "Connect Meta in Settings first, then open Ads & Guard.", href: "/ads" },
+      { id: "g2", label: "Set the rules", desc: "Spend cap and min sales-per-ad-dollar live on each campaign card.", href: "/ads" },
+      { id: "g3", label: "Check ads", desc: "Click Check ads. Hosted desks re-check on a timer — leave Command open.", href: "/ads" },
+    ],
+  },
 ];
+
+export const HELP_STEPS: HelpStep[] = HELP_TOURS.flatMap((tour) => tour.steps);

@@ -73,6 +73,49 @@ export async function extendMetaAccessToken() {
   };
 }
 
+export async function saveStoreStripeKeys(input: { publishableKey: string; secretKey: string }) {
+  const operator = await requireOperator();
+  const { classifyStripeKeyPair } = await import("@/lib/stripe-keys");
+  const classified = classifyStripeKeyPair(input.publishableKey, input.secretKey);
+  if (!classified.ok) {
+    return { ok: false as const, error: classified.error };
+  }
+  if (classified.mode === "live") {
+    try {
+      const { verifyStripeSecret } = await import("@/lib/merchant-stripe");
+      const account = await verifyStripeSecret(input.secretKey.trim());
+      if (!account.livemode) {
+        return { ok: false as const, error: "Those keys are not live. Use pk_live_… and sk_live_… from Stripe." };
+      }
+    } catch (error) {
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : "Stripe rejected those keys.",
+      };
+    }
+  }
+  const db = await ensureDb();
+  await db
+    .update(users)
+    .set({
+      storeStripePk: input.publishableKey.trim(),
+      storeStripeSk: input.secretKey.trim(),
+    })
+    .where(eq(users.id, operator.id));
+  const { invalidateDeskShell } = await import("@/lib/desk-shell");
+  invalidateDeskShell();
+  revalidatePath("/settings");
+  revalidatePath("/");
+  return {
+    ok: true as const,
+    mode: classified.mode,
+    message:
+      classified.mode === "live"
+        ? "Live Stripe keys saved. Store checkout now takes real cards."
+        : "Test keys saved. Store checkout stays in Stripe sandbox until you add live keys.",
+  };
+}
+
 export async function disconnectShopify() {
   const { clearShopifyOAuthConnection } = await import("@/lib/shopify-oauth");
   const { invalidateDeskShell } = await import("@/lib/desk-shell");

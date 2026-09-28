@@ -5,6 +5,7 @@ import { attachTracking, markOrdersPlaced } from "@/app/actions/orders";
 import { money } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { CopyButton } from "./copy-button";
+import { fulfillmentCardTitle, mailingLabel } from "@/lib/fulfillment-copy";
 import type { Order, OrderItem } from "@/lib/db/schema";
 
 type Row = Order & { items: OrderItem[] };
@@ -63,9 +64,11 @@ export function FulfillmentBoard({
               />
               <div>
                 <p className="text-sm font-semibold">
-                  {order.orderNumber} · {order.customerName}
+                  {fulfillmentCardTitle(order.orderNumber, order.customerName)}
                 </p>
-                <p className="mt-1 text-sm text-ink">{order.shippingAddress}</p>
+                <p className="mt-1 text-sm text-ink">
+                  {mailingLabel(order.customerName, order.shippingAddress).replace("\n", " · ")}
+                </p>
                 <p className="mt-2 text-xs text-muted">
                   {order.items.map((i) => `${i.quantity}× ${i.title} (${i.sku})`).join(" · ")}
                 </p>
@@ -74,7 +77,7 @@ export function FulfillmentBoard({
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <CopyButton text={`${order.customerName}\n${order.shippingAddress}`} label="Copy address" />
+                <CopyButton text={mailingLabel(order.customerName, order.shippingAddress)} label="Copy address" />
                 {order.items[0]?.supplierUrl ? (
                   <a href={order.items[0].supplierUrl} target="_blank" className="text-xs text-accent">
                     Open supplier

@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { StoreShell } from "@/components/store-shell";
 import { StoreFooter } from "@/components/store-footer";
 import { getStorefrontBrand } from "@/lib/storefront";
-import { stripeCheckoutMode } from "@/lib/stripe-mode";
-import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +18,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   return (
     <StoreShell storeName={brand.name}>
       {children}
-      <StoreFooter storeName={brand.name} stripeMode={stripeCheckoutMode(env.stripeSecretKey)} />
+      <StoreFooter storeName={brand.name} stripeMode={brand.stripeMode} />
     </StoreShell>
   );
 }

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { DeskLink } from "./desk-link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Boxes,
   LayoutDashboard,
   Megaphone,
   Menu,
+  Search,
   Settings,
   ShoppingCart,
   Sparkles,
@@ -66,6 +67,7 @@ export function Shell({
   operatorImage?: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [helpOpen, setHelpOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [desktop, setDesktop] = useState(true);
@@ -81,6 +83,18 @@ export function Shell({
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable=true]")) return;
+      e.preventDefault();
+      router.push("/discover");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   useEffect(() => {
     document.body.style.overflow = navOpen ? "hidden" : "";
@@ -185,6 +199,14 @@ export function Shell({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <DeskLink
+              href="/discover"
+              aria-label="Discover products"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-xs text-muted hover:border-line-strong hover:text-ink"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Discover</span>
+            </DeskLink>
             {operatorImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

@@ -56,7 +56,7 @@ export default async function SuppliersPage() {
         ))}
       </div>
       {vendors.map((s) => (
-        <Card key={`${s.id}-skus`}>
+        <Card key={`${s.id}-skus`} className="overflow-hidden">
           <CardHeader
             title={s.name}
             eyebrow="Products you sell"
@@ -68,14 +68,14 @@ export default async function SuppliersPage() {
               )
             }
           />
-          <div className="divide-y divide-line">
+          <div className="overflow-hidden divide-y divide-line">
             {s.skus.map((p) => (
               <DeskLink
                 key={p.id}
                 href={`/catalog/${p.id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-black/[0.02]"
+                className="flex items-center gap-3 overflow-hidden px-5 py-3 hover:bg-black/[0.02]"
               >
-                <Thumb src={p.imageUrl} alt="" className="h-10 w-10" />
+                <Thumb src={p.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
                   <p className="text-xs text-muted">

@@ -21,9 +21,11 @@ type CatalogLine = {
 export function StoreCartDesk({
   catalog,
   canceled = false,
+  added = false,
 }: {
   catalog: CatalogLine[];
   canceled?: boolean;
+  added?: boolean;
 }) {
   const [lines, setLines] = useState<StoreCartLine[]>([]);
   const [error, setError] = useState("");
@@ -63,6 +65,14 @@ export function StoreCartDesk({
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Bag</p>
         <h1 className="mt-1 text-2xl font-semibold">Your order</h1>
       </div>
+      {added ? (
+        <p
+          role="status"
+          className="rounded-xl border border-profit/30 bg-[rgba(46,184,138,0.08)] px-4 py-3 text-sm text-profit"
+        >
+          Added to bag
+        </p>
+      ) : null}
       {canceled ? <p className="text-sm text-muted">Checkout canceled — your bag is saved.</p> : null}
       {priced.length === 0 ? (
         <p className="text-sm text-muted">

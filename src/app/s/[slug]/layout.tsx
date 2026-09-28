@@ -35,7 +35,10 @@ export default async function SlugStoreLayout({
   return (
     <StoreShell storeName={user.storeName}>
       {children}
-      <StoreFooter storeName={user.storeName} stripeMode={stripeCheckoutMode(env.stripeSecretKey)} />
+      <StoreFooter
+        storeName={user.storeName}
+        stripeMode={stripeCheckoutMode(user.storeStripeSk || env.stripeSecretKey)}
+      />
     </StoreShell>
   );
 }

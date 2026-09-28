@@ -5,6 +5,7 @@ import { SettingsDesk } from "@/components/settings-desk";
 import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 import { storeHomePath } from "@/lib/store-slug";
 import { shopifyAppCredentialsReady, shopifyIsConnected } from "@/lib/shopify-oauth";
+import { maskStripeKey, stripeKeyMode } from "@/lib/stripe-keys";
 
 export default async function SettingsPage({
   searchParams,
@@ -82,6 +83,11 @@ export default async function SettingsPage({
         minRoasThreshold: user.minRoasThreshold,
         timezone: user.timezone,
         daypartingEnabled: Boolean(user.daypartingEnabled),
+      }}
+      stripeKeys={{
+        publishableMasked: maskStripeKey(user.storeStripePk),
+        secretMasked: maskStripeKey(user.storeStripeSk),
+        mode: stripeKeyMode(user.storeStripeSk),
       }}
     />
   );

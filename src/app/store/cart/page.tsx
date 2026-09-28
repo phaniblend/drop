@@ -4,9 +4,9 @@ import { listLiveStoreProducts } from "@/lib/storefront";
 export default async function StoreCartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ canceled?: string }>;
+  searchParams: Promise<{ canceled?: string; added?: string }>;
 }) {
-  const { canceled } = await searchParams;
+  const { canceled, added } = await searchParams;
   const products = await listLiveStoreProducts();
   const catalog = products.flatMap((product) =>
     product.variants.map((variant) => ({
@@ -19,5 +19,5 @@ export default async function StoreCartPage({
       stock: variant.stock,
     })),
   );
-  return <StoreCartDesk catalog={catalog} canceled={canceled === "1"} />;
+  return <StoreCartDesk catalog={catalog} canceled={canceled === "1"} added={added === "1"} />;
 }

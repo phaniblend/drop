@@ -255,6 +255,8 @@ async function migrateUsersBilling(client: Client) {
     ],
     ["dayparting_enabled", "INTEGER NOT NULL DEFAULT 0"],
     ["store_slug", "TEXT"],
+    ["store_stripe_pk", "TEXT"],
+    ["store_stripe_sk", "TEXT"],
   ]);
   await addMissingColumns(client, "activity_log", [["user_id", "TEXT"]]);
 }
