@@ -1,5 +1,7 @@
 import { suggestedRetail, winningScore } from "./money";
 import type { FeedProduct } from "./supplier-feed";
+import { discoverShipping, plausibleDiscoverCost } from "./discover-cost";
+import { licensedBrandWarning } from "./product-screen";
 
 export const DISCOVER_SORTS = [
   { id: "best", label: "Best to sell" },
@@ -25,12 +27,14 @@ export function discoverMetrics(product: FeedProduct) {
   const variantCosts = (product.variants ?? [])
     .map((v) => v.cost)
     .filter((c) => Number.isFinite(c) && c > 0);
-  const cost = variantCosts.length ? Math.min(...variantCosts) : product.cost;
-  const retail = suggestedRetail(cost, product.shipping, 3);
+  const raw = variantCosts.length ? Math.min(...variantCosts) : product.cost;
+  const cost = plausibleDiscoverCost(raw);
+  const shipping = discoverShipping(product.shipping);
+  const retail = cost > 0 ? suggestedRetail(cost, shipping, 3) : 0;
   const score = winningScore({
     retail,
     cost,
-    shipping: product.shipping,
+    shipping,
     stock: product.stock,
     shippingDays: product.shippingDays,
     demand: product.demand,
@@ -49,7 +53,11 @@ export function sortDiscoverItems(items: FeedProduct[], sort: DiscoverSortId): F
   const ranked = items.map((item, index) => ({ item, index, m: discoverMetrics(item) }));
   ranked.sort((a, b) => {
     let cmp = 0;
-    if (sort === "best") cmp = b.m.score - a.m.score;
+    if (sort === "best") {
+      const aFlag = licensedBrandWarning(a.item.title) ? 1 : 0;
+      const bFlag = licensedBrandWarning(b.item.title) ? 1 : 0;
+      cmp = aFlag - bFlag || b.m.score - a.m.score;
+    }
     else if (sort === "cost") cmp = a.m.cost - b.m.cost;
     else if (sort === "sell") cmp = b.m.retail - a.m.retail;
     else if (sort === "sold") cmp = b.m.orders - a.m.orders;

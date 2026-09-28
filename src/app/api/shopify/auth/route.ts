@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
   if (!shopifyAppCredentialsReady()) {
     return NextResponse.redirect(
-      new URL("/settings?shopify=error&shopify_error=" + encodeURIComponent("Shopify app credentials are missing on the host."), req.url),
+      new URL("/settings?shopify=error&shopify_error=" + encodeURIComponent("Shopify Connect is not enabled yet. You can sell on your Seto store without it."), req.url),
     );
   }
 

@@ -4,7 +4,20 @@ const STREET_RE = /\b(st|street|ave|avenue|rd|road|blvd|ln|lane|dr|drive|ct|cour
 
 export function looksLikeStreetLine(value: string) {
   const text = value.trim();
-  return Boolean(text) && /\d/.test(text) && STREET_RE.test(text);
+  if (!text) return false;
+  if (/^\d/.test(text) && STREET_RE.test(text)) return true;
+  return /\d/.test(text) && STREET_RE.test(text) && text.split(/\s+/).length <= 6;
+}
+
+/** Stripe sometimes puts the street in the name field. Never show that as the buyer. */
+export function customerDisplayName(name: string, email?: string | null) {
+  const trimmed = (name || "").trim();
+  if (trimmed && !looksLikeStreetLine(trimmed) && !/^\d+\s/.test(trimmed)) return trimmed;
+  const local = (email || "").split("@")[0]?.replace(/[._+-]/g, " ").trim();
+  if (local && local !== "unknown") {
+    return local.replace(/\b\w/g, (ch) => ch.toUpperCase());
+  }
+  return "Customer";
 }
 
 export function fulfillmentCardTitle(orderNumber: string, customerName: string) {

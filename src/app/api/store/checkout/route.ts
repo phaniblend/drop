@@ -3,6 +3,7 @@ import { nid } from "@/lib/utils";
 import { appOrigin, stripePost } from "@/lib/stripe";
 import { resolveStoreLines, savePendingStoreCart, StoreCheckoutError } from "@/lib/store-orders";
 import { rememberCheckoutMerchant, resolveMerchantStripeSecret } from "@/lib/merchant-stripe";
+import { getUserById } from "@/lib/db/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,15 +41,23 @@ export async function POST(req: NextRequest) {
   await savePendingStoreCart(cartId, lines);
   const origin = appOrigin();
 
+  const merchant = lines[0]?.merchantId ? await getUserById(lines[0].merchantId) : null;
+  const statement = (merchant?.storeName || "SetoStore").replace(/[^a-zA-Z0-9 ]/g, "").slice(0, 22);
   const payload: Record<string, string> = {
     mode: "payment",
     "payment_method_types[0]": "card",
     success_url: `${origin}/store/thanks?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/store/cart?canceled=1`,
     "shipping_address_collection[allowed_countries][0]": "US",
+    "billing_address_collection": "auto",
+    "name_collection[individual][enabled]": "true",
     "metadata[kind]": "store_order",
     "metadata[cartId]": cartId,
   };
+  if (statement.length >= 5) {
+    payload["payment_intent_data[statement_descriptor]"] = statement;
+    payload["payment_intent_data[description]"] = `${merchant?.storeName || "SetoStore"} order`;
+  }
 
   lines.forEach((line, index) => {
     payload[`line_items[${index}][quantity]`] = String(line.qty);

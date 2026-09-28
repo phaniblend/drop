@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fulfillmentCardTitle, mailingLabel, normalizeAddressLines } from "./fulfillment-copy";
+import {
+  customerDisplayName,
+  fulfillmentCardTitle,
+  mailingLabel,
+  normalizeAddressLines,
+} from "./fulfillment-copy";
 
 describe("fulfillment address copy", () => {
   it("titles the card with order number and customer name, never a street fragment", () => {
@@ -22,5 +27,10 @@ describe("fulfillment address copy", () => {
     expect(mailingLabel("132 main street", "123 main st, Dallas, TX, 75252, US")).toBe(
       "123 main st, Dallas, TX, 75252, US",
     );
+  });
+
+  it("never uses a street line as the customer name", () => {
+    expect(customerDisplayName("132 main street", "ada@example.com")).toBe("Ada");
+    expect(customerDisplayName("Ada Lovelace", "ada@example.com")).toBe("Ada Lovelace");
   });
 });

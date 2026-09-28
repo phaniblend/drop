@@ -3,6 +3,7 @@ import { listOrders } from "@/lib/db/queries";
 import { money, shortDate } from "@/lib/utils";
 import { Button, Card } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
+import { customerDisplayName } from "@/lib/fulfillment-copy";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -75,12 +76,16 @@ export default async function OrdersPage({
             {rows.map((o) => (
               <tr key={o.id} className="hover:bg-black/[0.02]">
                 <td className="px-4 py-3">
-                  <p className="font-medium">{o.orderNumber}</p>
+                  <DeskLink href={`/orders/${o.id}`} className="font-medium text-ink hover:text-accent">
+                    {o.orderNumber}
+                  </DeskLink>
                   <p className="text-[11px] text-faint">{shortDate(o.createdAt)}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <p>{o.customerName}</p>
-                  <p className="text-xs text-muted">{o.shippingAddress}</p>
+                  <DeskLink href={`/orders/${o.id}`} className="block">
+                    <p>{customerDisplayName(o.customerName, o.customerEmail)}</p>
+                    <p className="text-xs text-muted">{o.customerEmail}</p>
+                  </DeskLink>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted">
                   {o.items.map((i) => `${i.quantity}× ${i.title}`).join(", ")}

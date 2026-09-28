@@ -10,7 +10,7 @@ import { logActivity } from "./db/seed";
 import { stripeGet } from "./stripe";
 import { validateStoreQty } from "./store-qty";
 import { deliveryWindow } from "./delivery";
-import { mailingLabel } from "./fulfillment-copy";
+import { customerDisplayName, mailingLabel } from "./fulfillment-copy";
 import { loadCheckoutMerchant, resolveMerchantStripeSecret } from "./merchant-stripe";
 
 export type StoreReceipt = {
@@ -174,7 +174,10 @@ export async function fulfillStoreCheckout(sessionId: string): Promise<StoreRece
         .filter(Boolean)
         .join(", ")
     : "Address pending";
-  const customerName = session.shipping_details?.name || session.customer_details?.name || "Customer";
+  const customerName = customerDisplayName(
+    session.shipping_details?.name || session.customer_details?.name || "",
+    session.customer_details?.email,
+  );
   const shippingAddress = mailingLabel(customerName, address).split("\n").slice(-1)[0] || address;
 
   const id = nid("ord");

@@ -166,8 +166,14 @@ export async function listOrders(status?: string) {
 }
 
 export async function getOrder(id: string) {
+  const operator = await getOperator();
+  if (!operator) return null;
   const db = await ensureDb();
-  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+  const [order] = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, id), eq(orders.userId, operator.id)))
+    .limit(1);
   if (!order) return null;
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
   return { ...order, items };

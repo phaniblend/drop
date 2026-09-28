@@ -10,8 +10,8 @@ import * as schema from "./schema";
 type DB = LibSQLDatabase<typeof schema>;
 
 /**
- * One-shot / on-demand repair for catalog rows imported before label/stock/price fixes.
- * Caps fake inventory, humanizes "Option" variant names, aligns sell prices to markup.
+ * Caps fake inventory and humanizes "Option" variant names.
+ * Never overwrites a sell price the operator already set.
  */
 export async function repairCatalogData(db: DB): Promise<{
   variantsFixed: number;
@@ -47,31 +47,16 @@ export async function repairCatalogData(db: DB): Promise<{
               cost: row.variantCost,
             })
           : row.variantName;
-      const nextPrice = Number((row.variantCost * product.markupMultiplier).toFixed(2));
-      const changed =
-        stock !== row.inventoryCount || nextName !== row.variantName || nextPrice !== row.variantPrice;
+      const changed = stock !== row.inventoryCount || nextName !== row.variantName;
       if (!changed) continue;
       await db
         .update(schema.productVariants)
         .set({
           inventoryCount: stock,
           variantName: nextName,
-          variantPrice: nextPrice,
         })
         .where(eq(schema.productVariants.id, row.id));
       variantsFixed += 1;
-    }
-
-    const first = capped[0];
-    const alignedRetail = first
-      ? Number((rows[0]!.variantCost * product.markupMultiplier).toFixed(2))
-      : product.retailPrice;
-    if (Math.abs(alignedRetail - product.retailPrice) > 0.009) {
-      await db
-        .update(schema.products)
-        .set({ retailPrice: alignedRetail })
-        .where(eq(schema.products.id, productId));
-      productsPriced += 1;
     }
   }
 
@@ -94,7 +79,7 @@ export async function repairCatalogData(db: DB): Promise<{
       storeUrl: p.supplierUrl,
       avgShippingDays: p.shippingDays || 14,
       reliability: 0.9,
-      notes: "Linked from catalog repair",
+      notes: "Added from your catalog",
     });
     suppliersLinked += 1;
   }

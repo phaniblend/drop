@@ -40,12 +40,13 @@ describe("shopper copy", () => {
     });
     expect(pub).toEqual({
       id: "prod_1",
+      userId: undefined,
       title: "Gravity Car Phone Holder",
       descriptionHtml: pub.descriptionHtml,
       imageUrl: "https://example.com/p.jpg",
       shippingDays: 14,
       price: 22.41,
-      variants: [{ id: "v1", name: "black", price: 22.41, stock: 15 }],
+      variants: [{ id: "v1", name: "black", price: 22.41, stock: 15, imageUrl: null }],
     });
     expect(JSON.stringify(pub)).not.toContain("7.47");
     expect(JSON.stringify(pub)).not.toMatch(/baseCost|supplierUrl|markup|adAngles/i);

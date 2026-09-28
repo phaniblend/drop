@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { absoluteImageUrl } from "@/lib/image-url";
+import { proxiedImageUrl } from "@/lib/image-proxy";
 
 function useNextImage(src: string) {
   try {
@@ -23,7 +24,7 @@ export function Thumb({
   alt: string;
   className?: string;
 }) {
-  const url = absoluteImageUrl(src);
+  const url = proxiedImageUrl(absoluteImageUrl(src));
   const [failed, setFailed] = useState(false);
   const show = Boolean(url) && !failed;
 

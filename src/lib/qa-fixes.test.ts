@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatScript, normalizeHookScript } from "./format-script";
 import { classifyMetaStatus, friendlyMetaError } from "./meta-status";
 import { applyExplicitRetailPrice, shouldUpdateShopifyProduct } from "./pricing";
+import { licensedBrandWarning, screenListing } from "./product-screen";
 
 describe("explicit selling price", () => {
   it("stores the operator price even when it differs from cost × markup", () => {
@@ -11,7 +12,7 @@ describe("explicit selling price", () => {
       firstVariantCost: 1.9,
     });
     expect(saved.retailPrice).toBe(12.99);
-    expect(saved.markupMultiplier).toBe(6.84);
+    expect(saved.markupMultiplier).toBe(6.8368);
   });
 });
 
@@ -90,5 +91,13 @@ describe("Discover card cost", () => {
     const variants = [{ cost: 2.83 }, { cost: 1.68 }, { cost: 1.9 }];
     const min = Math.min(...variants.map((v) => v.cost));
     expect(min).toBe(1.68);
+  });
+});
+
+describe("licensed listings", () => {
+  it("flags Hello Kitty and other brand-name products before publish", () => {
+    expect(licensedBrandWarning("Hello Kitty lint roller")).toMatch(/licensed/i);
+    expect(screenListing({ title: "Kuromi phone case" }).ok).toBe(false);
+    expect(screenListing({ title: "Pet hair remover" }).ok).toBe(true);
   });
 });

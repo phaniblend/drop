@@ -5,12 +5,20 @@ import { useRouter } from "next/navigation";
 import { addStoreCartLine } from "@/lib/store-cart";
 import { Button } from "./ui";
 
+function shopperStockLabel(stock: number) {
+  if (stock <= 0) return "Sold out";
+  if (stock <= 8) return "Low stock";
+  return "In stock";
+}
+
 export function StoreBuyBox({
   productId,
   variants,
+  cartHref = "/store/cart",
 }: {
   productId: string;
-  variants: Array<{ id: string; name: string; stock: number }>;
+  variants: Array<{ id: string; name: string; stock: number; imageUrl?: string | null }>;
+  cartHref?: string;
 }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState(variants[0]?.id ?? "default");
@@ -32,12 +40,13 @@ export function StoreBuyBox({
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
                 {variant.name}
-                {variant.stock <= 0 ? " (sold out)" : ""}
+                {variant.stock <= 0 ? " — sold out" : ""}
               </option>
             ))}
           </select>
         </label>
       ) : null}
+      <p className="text-xs text-muted">{selected ? shopperStockLabel(selected.stock) : "Sold out"}</p>
       <Button
         tone="accent"
         className="w-full"
@@ -45,7 +54,7 @@ export function StoreBuyBox({
         onClick={() => {
           addStoreCartLine({ productId, variantId, qty: 1 });
           setAdding(true);
-          router.push("/store/cart?added=1");
+          router.push(`${cartHref}?added=1`);
         }}
       >
         {soldOut ? "Sold out" : adding ? "Added to bag…" : "Add to bag"}

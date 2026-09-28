@@ -44,7 +44,7 @@ export function sanitizeShopperHtml(html: string, title: string) {
 
 export function shopperFallbackHtml(title: string) {
   const name = title.trim() || "This product";
-  return `<p>${name} is designed for daily use — simple setup, a clean look, and tracked shipping.</p><ul><li>Easy to install</li><li>Tracked shipping</li><li>Simple returns if you need them</li></ul>`;
+  return `<p>${name} ships with tracking. What you see is what we send.</p><ul><li>Tracked shipping</li><li>Packed as shown</li><li>Refund or replacement if it arrives wrong or damaged</li></ul>`;
 }
 
 export function shopperVariantLabel(raw: string) {
@@ -60,10 +60,12 @@ export type PublicStoreVariant = {
   name: string;
   price: number;
   stock: number;
+  imageUrl?: string | null;
 };
 
 export type PublicStoreProduct = {
   id: string;
+  userId?: string;
   title: string;
   descriptionHtml: string;
   imageUrl: string | null;
@@ -74,6 +76,7 @@ export type PublicStoreProduct = {
 
 export function toPublicProduct(input: {
   id: string;
+  userId?: string;
   cleanTitle?: string | null;
   rawTitle: string;
   descriptionHtml?: string | null;
@@ -85,6 +88,8 @@ export function toPublicProduct(input: {
     variantName: string;
     variantPrice: number;
     inventoryCount: number;
+    supplierImageUrl?: string | null;
+    cleanImageUrl?: string | null;
   }>;
 }): PublicStoreProduct {
   const title = input.cleanTitle || input.rawTitle;
@@ -96,9 +101,11 @@ export function toPublicProduct(input: {
     name: shopperVariantLabel(variant.variantName),
     price: variant.variantPrice || input.retailPrice,
     stock: Math.max(0, variant.inventoryCount),
+    imageUrl: variant.cleanImageUrl || variant.supplierImageUrl || null,
   }));
   return {
     id: input.id,
+    userId: input.userId,
     title,
     descriptionHtml: sanitizeShopperHtml(input.descriptionHtml ?? "", title),
     imageUrl: input.imageUrl ?? null,

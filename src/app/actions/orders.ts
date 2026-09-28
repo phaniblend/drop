@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { toCsv } from "@/lib/csv";
 import { ensureDb } from "@/lib/db";
-import { listOrders } from "@/lib/db/queries";
-import { orders } from "@/lib/db/schema";
+import { getOrder, listOrders, requireOperator } from "@/lib/db/queries";
+import { orders, refunds } from "@/lib/db/schema";
+import { nid, nowIso } from "@/lib/utils";
 import { logActivity } from "@/lib/db/seed";
 
 export async function markOrdersPlaced(orderIds: string[], supplierOrderId: string) {
@@ -54,6 +55,32 @@ export async function bulkTracking(rows: Array<{ orderId: string; tracking: stri
     if (!row.tracking.trim()) continue;
     await attachTracking(row.orderId, row.tracking, row.carrier);
   }
+}
+
+export async function requestOrderRefund(orderId: string, reason = "Seller started a refund") {
+  const operator = await requireOperator();
+  const order = await getOrder(orderId);
+  if (!order || order.userId !== operator.id) throw new Error("Order not found.");
+  const db = await ensureDb();
+  await db.insert(refunds).values({
+    id: nid("ref"),
+    orderId: order.id,
+    reason,
+    amount: order.totalRevenue,
+    status: "open",
+    createdAt: nowIso(),
+  });
+  await db.update(orders).set({ fulfillmentStatus: "refunded" }).where(eq(orders.id, order.id));
+  await logActivity(db, {
+    kind: "order",
+    message: `Refund opened for ${order.orderNumber}.`,
+    href: `/orders/${order.id}`,
+  });
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${order.id}`);
+  revalidatePath("/ops");
+  revalidatePath("/");
+  return { ok: true as const };
 }
 
 export async function setOrderStatus(orderId: string, status: string) {

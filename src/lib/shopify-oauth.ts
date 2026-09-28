@@ -132,6 +132,9 @@ export async function resolveShopifyConnection(): Promise<ShopifyConnection | nu
     };
   }
 
+  // Signed-in sellers without Connect must not inherit the platform Shopify store.
+  if (operator) return null;
+
   if (env.shopifyDomain && env.shopifyToken) {
     return { domain: env.shopifyDomain, token: env.shopifyToken, source: "env_token" };
   }

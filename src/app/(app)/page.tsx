@@ -12,6 +12,7 @@ import { storeHomePath } from "@/lib/store-slug";
 import { stripeKeyMode } from "@/lib/stripe-keys";
 import { StripeOnboardingGate } from "@/components/stripe-keys-form";
 import { maskStripeKey } from "@/lib/stripe-keys";
+import { customerDisplayName } from "@/lib/fulfillment-copy";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -163,7 +164,9 @@ export default async function CommandPage() {
               <div key={order.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {order.orderNumber} · {order.customerName}
+                    <DeskLink href={`/orders/${order.id}`}>
+                      {order.orderNumber} · {customerDisplayName(order.customerName, order.customerEmail)}
+                    </DeskLink>
                   </p>
                   <p className="text-xs text-muted">
                     {order.items.map((i) => i.title).join(", ")} · {money(order.netMargin)} net

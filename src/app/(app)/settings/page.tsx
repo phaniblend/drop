@@ -26,8 +26,8 @@ export default async function SettingsPage({
     return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
   }
 
-  const shopifyOk = shopifyLive || status.shopify;
   const oauthConnected = Boolean(user.shopifyDomain?.trim() && user.shopifyAccessToken?.trim());
+  const shopifyOk = oauthConnected || shopifyLive;
   const metaLive = meta.live;
 
   return (

@@ -220,7 +220,7 @@ export function AdsDesk({
         <Card className="p-5">
           <p className="text-sm font-semibold text-ink">Finish Meta setup</p>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
-            <li>Add the Meta ad account id from Ads Manager in host settings.</li>
+            <li>Add your Meta ad account id in Settings.</li>
             <li>Add the Meta app id and secret, then Settings → Extend Meta token.</li>
             <li>Confirm the token can read ads and pause them.</li>
           </ol>

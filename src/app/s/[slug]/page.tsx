@@ -29,7 +29,7 @@ export default async function SlugStoreHomePage({
           {products.map((product) => (
             <Link
               key={product.id}
-              href={`/store/${product.id}`}
+              href={`/s/${slug}/${product.id}`}
               className="overflow-hidden rounded-2xl border border-line bg-surface"
             >
               <Thumb src={product.imageUrl} alt={product.title} className="h-52 w-full rounded-none" />

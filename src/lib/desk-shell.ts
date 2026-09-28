@@ -37,7 +37,7 @@ export async function loadDeskShell(input: {
 
   async function liveApiCount() {
     const status = integrationStatus();
-    const shopify = (await shopifyIsConnected()) || status.shopify;
+    const shopify = await shopifyIsConnected();
     let meta = false;
     try {
       const health = await import("./meta-health").then((m) => m.getMetaHealth(false));

@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { ensureDb } from "./db";
-import { getDefaultStoreUser, getProduct, getUserById } from "./db/queries";
+import { getDefaultStoreUser, getOperator, getProduct, getUserById } from "./db/queries";
 import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
 import { env } from "./env";
@@ -24,7 +24,9 @@ export function storeHomeUrl(slug?: string | null) {
 }
 
 export async function getStorefrontBrand(userId?: string) {
-  const user = userId ? await getUserById(userId) : await getDefaultStoreUser();
+  const user = userId
+    ? await getUserById(userId)
+    : (await getOperator()) ?? (await getDefaultStoreUser());
   return {
     name: user?.storeName || "SetoStore",
     slug: user?.storeSlug || "seto",
@@ -60,7 +62,7 @@ export async function listLiveStoreProducts(userId?: string): Promise<PublicStor
   for (const product of rows) {
     const vars = byProduct.get(product.id) ?? [];
     if (!(product.retailPrice > 0 || vars.some((v) => v.variantPrice > 0))) continue;
-    published.push(toPublicProduct({ ...product, variants: vars }));
+    published.push(toPublicProduct({ ...product, variants: vars, userId: product.userId }));
   }
   return published;
 }
@@ -70,7 +72,7 @@ export async function getLiveStoreProduct(id: string): Promise<PublicStoreProduc
   const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!product || product.status !== "published") return null;
   const variants = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-  return toPublicProduct({ ...product, variants });
+  return toPublicProduct({ ...product, variants, userId: product.userId });
 }
 
 export type PublishStoreResult = {

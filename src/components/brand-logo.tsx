@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
 
-export function BrandLogo({ className }: { className?: string }) {
+export function BrandLogo({ className, wordmark = "SetoStore" }: { className?: string; wordmark?: string }) {
   return (
     <span className={cn("flex items-center gap-2", className)}>
       <BrandMark />
-      <span className="text-[17px] font-semibold tracking-tight text-ink">SetoStore</span>
+      <span className="text-[17px] font-semibold tracking-tight text-ink">{wordmark}</span>
     </span>
   );
 }

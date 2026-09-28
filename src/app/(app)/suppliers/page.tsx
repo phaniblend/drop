@@ -4,6 +4,7 @@ import { money } from "@/lib/utils";
 import { LOW_STOCK_THRESHOLD, isLowStock } from "@/lib/stock-threshold";
 import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
+import { deliveryWindow } from "@/lib/delivery";
 
 export default async function SuppliersPage() {
   const vendors = await listSuppliers();
@@ -39,8 +40,8 @@ export default async function SuppliersPage() {
             <p className="mt-2 text-sm text-muted">{s.notes}</p>
             <dl className="mt-4 grid grid-cols-2 gap-2 font-mono text-xs">
               <div>
-                <dt className="text-faint">Transit</dt>
-                <dd>{s.avgShippingDays} days</dd>
+                <dt className="text-faint">Shoppers see</dt>
+                <dd>{deliveryWindow(s.avgShippingDays).short}</dd>
               </div>
               <div>
                 <dt className="text-faint">Reliability</dt>
@@ -79,7 +80,7 @@ export default async function SuppliersPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
                   <p className="text-xs text-muted">
-                    Your cost {money(p.baseCost + p.shippingCost)} · {p.shippingDays}d
+                    Your cost {money(p.baseCost + p.shippingCost)} · {deliveryWindow(p.shippingDays).short}
                   </p>
                 </div>
                 <span className={`font-mono text-sm ${isLowStock(p.stock) ? "text-loss" : "text-muted"}`}>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Thumb } from "@/components/thumb";
 import { getStorefrontBrand, listLiveStoreProducts } from "@/lib/storefront";
+import { storeHomePath } from "@/lib/store-slug";
 import { money } from "@/lib/utils";
 
 export default async function StoreHomePage() {
@@ -21,7 +22,7 @@ export default async function StoreHomePage() {
           {products.map((product) => (
             <Link
               key={product.id}
-              href={`/store/${product.id}`}
+              href={storeHomePath(brand.slug) === "/store" ? `/store/${product.id}` : `${storeHomePath(brand.slug)}/${product.id}`}
               className="overflow-hidden rounded-2xl border border-line bg-surface"
             >
               <Thumb src={product.imageUrl} alt={product.title} className="h-52 w-full rounded-none" />

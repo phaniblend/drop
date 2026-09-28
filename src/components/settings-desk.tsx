@@ -82,6 +82,7 @@ export function SettingsDesk({
   const [shopInput, setShopInput] = useState(shopifyOAuth?.domain || "");
 
   const [clearConfirm, setClearConfirm] = useState("");
+  const [repairMsg, setRepairMsg] = useState("");
 
   const connections = [
     {
@@ -93,12 +94,12 @@ export function SettingsDesk({
     },
     {
       name: "Shopify",
-      ok: status.shopify,
+      ok: Boolean(shopifyOAuth?.connected),
       why: shopifyOAuth?.connected
-        ? `Optional leftover: connected as ${shopifyOAuth.domain}.myshopify.com.`
+        ? `Connected as ${shopifyOAuth.domain}.myshopify.com. Optional — you do not need Shopify to sell.`
         : "Optional. You do not need Shopify — your Seto store is included.",
-      href: storefrontUrl || undefined,
-      hrefLabel: storefrontUrl ? "Open Shopify storefront" : undefined,
+      href: shopifyOAuth?.connected ? storefrontUrl || undefined : undefined,
+      hrefLabel: shopifyOAuth?.connected && storefrontUrl ? "Open Shopify storefront" : undefined,
       shopifyConnect: true as const,
     },
     {
@@ -110,7 +111,7 @@ export function SettingsDesk({
           ? `Live ad account check passed${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`
           : status.metaStatus === "degraded"
             ? friendlyMetaError(status.metaError) ||
-              "Token present but Guard cannot protect spend yet — finish Meta setup (account ID + long-lived token)."
+              "Token expired or incomplete. Use Reconnect Meta on this card."
             : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
       metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded"),
       reconnectMeta: status.metaStatus !== "connected",
@@ -125,7 +126,7 @@ export function SettingsDesk({
       ok: status.aliexpress,
       why: status.aliexpress
         ? "Live Discover search + Open API catalog enrich when you import."
-        : "Public search works. Host still needs AliExpress app keys for official catalog enrich.",
+        : "Public search works. Official catalog enrich needs AliExpress app keys in Settings on this desk.",
     },
     {
       name: "CJ Dropshipping",
@@ -268,8 +269,6 @@ export function SettingsDesk({
                   >
                     Disconnect Shopify
                   </Button>
-                ) : status.shopify ? (
-                  <p className="text-xs text-muted">Connected on the host. Optional — you do not need Shopify to sell.</p>
                 ) : shopifyOAuth?.appReady ? (
                   <form
                     className="flex flex-wrap items-end gap-2"
@@ -301,7 +300,7 @@ export function SettingsDesk({
                   </form>
                 ) : (
                   <p className="text-xs text-muted">
-                    Shopify Connect is optional and needs the Shopify app credentials on the host.
+                    Shopify Connect is optional. You can sell on your Seto store without it.
                   </p>
                 )}
               </div>
@@ -333,7 +332,7 @@ export function SettingsDesk({
                 </Button>
               ) : (
                 <p className="mt-3 text-xs text-muted">
-                  Extend Meta token is hidden until the Meta app credentials are set on the host.
+                  Reconnect Meta needs the Facebook app to be enabled for this desk. Paste a token after that, or ask support if the button stays hidden.
                 </p>
               )
             ) : null}
@@ -445,8 +444,8 @@ export function SettingsDesk({
       <Card className="p-5">
         <h2 className="text-sm font-semibold">Repair catalog data</h2>
         <p className="mt-1 text-sm text-muted">
-          Caps fake ~99k stock figures, fixes unlabeled “Option” variants, and aligns sell prices to your
-          markup. Safe to run anytime.
+          Caps fake ~99k stock figures and fixes unlabeled “Option” variants. It does not change prices
+          you already set.
         </p>
         <Button
           className="mt-4"
@@ -455,14 +454,15 @@ export function SettingsDesk({
           onClick={() =>
             start(async () => {
               const result = await repairCatalog();
-              setMsg(
-                `Repaired ${result.variantsFixed} variants, ${result.productsPriced} prices, linked ${result.suppliersLinked} suppliers.`,
+              setRepairMsg(
+                `Repaired ${result.variantsFixed} variants and added ${result.suppliersLinked} suppliers.`,
               );
             })
           }
         >
           Repair catalog
         </Button>
+        {repairMsg ? <p className="mt-3 text-sm text-profit">{repairMsg}</p> : null}
       </Card>
 
       <Card className="p-5">
