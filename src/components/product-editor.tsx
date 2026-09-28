@@ -25,6 +25,7 @@ type Economics = { cogs: number; fee: number; profit: number; margin: number };
 export function ProductEditor({
   product,
   storefrontHomeUrl = "",
+  storeHref = "/store",
 }: {
   product: Product & {
     variants: ProductVariant[];
@@ -32,6 +33,7 @@ export function ProductEditor({
     economics: Economics;
   };
   storefrontHomeUrl?: string;
+  storeHref?: string;
 }) {
   const router = useRouter();
   const [savingPrice, startPrice] = useTransition();
@@ -136,7 +138,7 @@ export function ProductEditor({
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Product</p>
           <h1 className="mt-1 text-2xl font-semibold">{product.cleanTitle ?? product.rawTitle}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">{product.rawTitle}</p>
-          <a href="/store" className="mt-2 inline-block text-xs text-accent">
+          <a href={storeHref} className="mt-2 inline-block text-xs text-accent">
             Open your store →
           </a>
         </div>

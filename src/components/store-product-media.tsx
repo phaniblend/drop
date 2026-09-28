@@ -7,10 +7,12 @@ export function StoreProductMedia({
   title,
   imageUrl,
   variants,
+  priority = false,
 }: {
   title: string;
   imageUrl: string | null;
   variants: Array<{ id: string; imageUrl?: string | null }>;
+  priority?: boolean;
 }) {
   const extras = [...new Set(variants.map((variant) => variant.imageUrl).filter(Boolean))] as string[];
   const gallery = [imageUrl, ...extras.filter((src) => src !== imageUrl)].filter(Boolean) as string[];
@@ -18,7 +20,12 @@ export function StoreProductMedia({
 
   return (
     <div className="space-y-3">
-      <Thumb src={active || imageUrl} alt={title} className="aspect-square w-full rounded-2xl sm:h-80 sm:aspect-auto" />
+      <Thumb
+        src={active || imageUrl}
+        alt={title}
+        priority={priority}
+        className="aspect-square w-full rounded-2xl sm:h-80 sm:aspect-auto"
+      />
       {gallery.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto">
           {gallery.slice(0, 6).map((src) => (
@@ -34,9 +41,7 @@ export function StoreProductMedia({
             </button>
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted">Same photo for every option.</p>
-      )}
+      ) : null}
     </div>
   );
 }

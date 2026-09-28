@@ -1,5 +1,5 @@
 import { StoreRefundsCopy } from "@/components/store-policies";
 
-export default function StoreRefundsPage() {
+export default function SlugRefundsPage() {
   return <StoreRefundsCopy />;
 }

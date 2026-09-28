@@ -19,10 +19,12 @@ export function Thumb({
   src,
   alt,
   className,
+  priority = false,
 }: {
   src?: string | null;
   alt: string;
   className?: string;
+  priority?: boolean;
 }) {
   const url = proxiedImageUrl(absoluteImageUrl(src));
   const [failed, setFailed] = useState(false);
@@ -38,6 +40,7 @@ export function Thumb({
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 280px"
+            priority={priority}
             onError={() => setFailed(true)}
           />
         ) : (
@@ -47,7 +50,8 @@ export function Thumb({
             src={url}
             alt={alt}
             referrerPolicy="no-referrer"
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
             onError={() => setFailed(true)}

@@ -22,7 +22,8 @@ export default async function StoreHomePage() {
           {products.map((product) => (
             <Link
               key={product.id}
-              href={storeHomePath(brand.slug) === "/store" ? `/store/${product.id}` : `${storeHomePath(brand.slug)}/${product.id}`}
+              href={`${storeHomePath(brand.slug)}/${product.id}`}
+              prefetch={false}
               className="overflow-hidden rounded-2xl border border-line bg-surface"
             >
               <Thumb src={product.imageUrl} alt={product.title} className="h-52 w-full rounded-none" />

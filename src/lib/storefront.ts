@@ -2,21 +2,21 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { ensureDb } from "./db";
-import { getDefaultStoreUser, getOperator, getProduct, getUserById } from "./db/queries";
+import { getOperator, getProduct, getUserById } from "./db/queries";
 import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
 import { env } from "./env";
 import { stripeCheckoutMode } from "./stripe-mode";
 import { publicHtmlLeaksOperatorCopy, toPublicProduct, type PublicStoreProduct } from "./shopper-copy";
 import { MIN_PUBLISH_PRICE, screenListing } from "./product-screen";
-import { storeHomePath } from "./store-slug";
+import { storefrontPath, storeHomePath } from "./store-slug";
 
-export function storePath(productId: string) {
-  return `/store/${productId}`;
+export function storePath(productId: string, slug?: string | null) {
+  return storefrontPath(slug, productId);
 }
 
-export function storeProductUrl(productId: string) {
-  return `${appOrigin()}${storePath(productId)}`;
+export function storeProductUrl(productId: string, slug?: string | null) {
+  return `${appOrigin()}${storePath(productId, slug)}`;
 }
 
 export function storeHomeUrl(slug?: string | null) {
@@ -24,15 +24,16 @@ export function storeHomeUrl(slug?: string | null) {
 }
 
 export async function getStorefrontBrand(userId?: string) {
-  const user = userId
-    ? await getUserById(userId)
-    : (await getOperator()) ?? (await getDefaultStoreUser());
+  const user = userId ? await getUserById(userId) : await getOperator();
   return {
     name: user?.storeName || "SetoStore",
-    slug: user?.storeSlug || "seto",
+    slug: user?.storeSlug || "",
     userId: user?.id ?? "",
     stripeReady: Boolean(user?.storeStripeSk || env.stripeSecretKey),
     stripeMode: stripeCheckoutMode(user?.storeStripeSk || env.stripeSecretKey),
+    supportEmail: user?.supportEmail?.trim() || user?.email || "",
+    businessAddress: user?.businessAddress?.trim() || "",
+    metaPixelId: user?.metaPixelId?.trim() || "",
   };
 }
 
@@ -43,13 +44,12 @@ async function persistCleanCopy(id: string, nextHtml: string, prevHtml: string |
 }
 
 export async function listLiveStoreProducts(userId?: string): Promise<PublicStoreProduct[]> {
+  if (!userId) return [];
   const db = await ensureDb();
-  const rows = userId
-    ? await db
-        .select()
-        .from(products)
-        .where(and(eq(products.status, "published"), eq(products.userId, userId)))
-    : await db.select().from(products).where(eq(products.status, "published"));
+  const rows = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.status, "published"), eq(products.userId, userId)));
   const variants = await db.select().from(productVariants);
   const byProduct = new Map<string, typeof variants>();
   for (const variant of variants) {
@@ -122,7 +122,7 @@ export async function publishLiveProduct(
     productId: storeId,
     handle: product.id,
     title: product.cleanTitle || product.rawTitle,
-    storeUrl: storeProductUrl(product.id),
+    storeUrl: storeProductUrl(product.id, (await getUserById(product.userId))?.storeSlug),
     firstShop,
   };
 }

@@ -6,7 +6,7 @@ import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
-import { env, integrationStatus } from "@/lib/env";
+import { env } from "@/lib/env";
 import { stripeCheckoutMode } from "@/lib/stripe-mode";
 import { storeHomePath } from "@/lib/store-slug";
 import { stripeKeyMode } from "@/lib/stripe-keys";
@@ -19,12 +19,13 @@ export default async function CommandPage() {
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
-  const integrations = integrationStatus();
   const storeHref = storeHomePath(data.user?.storeSlug);
   const merchantStripe = stripeKeyMode(data.user?.storeStripeSk);
   const stripeLabel =
     merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Sandbox" : stripeCheckoutMode(env.stripeSecretKey) === "off" ? "Pending" : "Sandbox";
-  const adsLabel = integrations.meta || integrations.tiktok ? "Ready" : "Pending";
+  const meta = await import("@/lib/meta-health").then((m) => m.getMetaHealth(true));
+  const adsLabel =
+    meta.status === "connected" ? "Ready" : meta.status === "degraded" ? "Expired" : "Pending";
   const findFirst = data.pendingCount === 0;
 
   return (

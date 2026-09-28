@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     await logActivity(db, {
       kind: "publish",
       message: `Published ${result.title} to your Seto Storefront`,
-      href: `/store/${result.handle}`,
+      href: result.storeUrl.replace(/^https?:\/\/[^/]+/, "") || `/store/${result.handle}`,
     });
     return NextResponse.json({
       ...result,

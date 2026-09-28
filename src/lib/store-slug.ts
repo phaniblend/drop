@@ -11,6 +11,12 @@ export function suggestStoreSlug(storeName: string, email: string) {
 
 export function storeHomePath(slug?: string | null) {
   const value = (slug || "").trim();
-  if (!value || value === "seto") return "/store";
+  if (!value) return "/store";
   return `/s/${value}`;
+}
+
+export function storefrontPath(slug?: string | null, suffix = "") {
+  const home = storeHomePath(slug);
+  const rest = suffix.replace(/^\/+/, "");
+  return rest ? `${home}/${rest}` : home;
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { storeHomePath, suggestStoreSlug } from "./store-slug";
+import { storeHomePath, storefrontPath, suggestStoreSlug } from "./store-slug";
 
 describe("store slug", () => {
-  it("keeps the original shop at /store", () => {
-    expect(storeHomePath("seto")).toBe("/store");
+  it("puts every named shop under /s/slug so shoppers never hit the demo /store", () => {
+    expect(storeHomePath("seto")).toBe("/s/seto");
     expect(storeHomePath("")).toBe("/store");
+    expect(storefrontPath("phani", "cart")).toBe("/s/phani/cart");
   });
 
   it("puts later shops under /s/slug", () => {

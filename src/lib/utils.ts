@@ -13,13 +13,13 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function todayKey(timeZone = "America/Chicago") {
+export function todayKey(timeZone = "America/Chicago", at: Date | string = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(typeof at === "string" ? new Date(at) : at);
 }
 
 export function startOfTodayIso(timeZone = "America/Chicago") {

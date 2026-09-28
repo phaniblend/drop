@@ -75,6 +75,9 @@ export function SettingsDesk({
     minRoasThreshold: number;
     timezone: string;
     daypartingEnabled: boolean;
+    supportEmail: string;
+    businessAddress: string;
+    metaPixelId: string;
   };
 }) {
   const [pending, start] = useTransition();
@@ -176,7 +179,7 @@ export function SettingsDesk({
           Billing use Ready / Needs you and are not counted as live APIs.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <a href="/store" className="inline-flex min-h-11 items-center rounded-xl border border-line px-3.5 py-2 text-sm">
+          <a href={storeHref} className="inline-flex min-h-11 items-center rounded-xl border border-line px-3.5 py-2 text-sm">
             Open your store
           </a>
           <PwaInstallButton />
@@ -396,6 +399,31 @@ export function SettingsDesk({
           <Field label="Email (Google)">
             <input className={inputClass} value={form.email} readOnly />
           </Field>
+          <Field label="Shopper support email">
+            <input
+              className={inputClass}
+              type="email"
+              value={form.supportEmail}
+              onChange={(e) => setForm({ ...form, supportEmail: e.target.value })}
+              placeholder={form.email}
+            />
+          </Field>
+          <Field label="Business address">
+            <input
+              className={inputClass}
+              value={form.businessAddress}
+              onChange={(e) => setForm({ ...form, businessAddress: e.target.value })}
+              placeholder="Shown on the store contact page"
+            />
+          </Field>
+          <Field label="Meta Pixel ID">
+            <input
+              className={inputClass}
+              value={form.metaPixelId}
+              onChange={(e) => setForm({ ...form, metaPixelId: e.target.value })}
+              placeholder="Digits only — used on your public store"
+            />
+          </Field>
           <Field label="Default markup">
             <input
               className={inputClass}
@@ -413,7 +441,7 @@ export function SettingsDesk({
               onChange={(e) => setForm({ ...form, spendLimitThreshold: Number(e.target.value) })}
             />
           </Field>
-          <Field label="Min sales per ad $">
+          <Field label="Min ROAS (sales per $1 ad)">
             <input
               className={inputClass}
               type="number"

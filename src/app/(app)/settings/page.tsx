@@ -83,6 +83,9 @@ export default async function SettingsPage({
         minRoasThreshold: user.minRoasThreshold,
         timezone: user.timezone,
         daypartingEnabled: Boolean(user.daypartingEnabled),
+        supportEmail: user.supportEmail ?? "",
+        businessAddress: user.businessAddress ?? "",
+        metaPixelId: user.metaPixelId ?? "",
       }}
       stripeKeys={{
         publishableMasked: maskStripeKey(user.storeStripePk),

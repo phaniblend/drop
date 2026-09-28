@@ -5,7 +5,8 @@ import { StoreProductMedia } from "@/components/store-product-media";
 import { getLiveStoreProduct, storeProductUrl } from "@/lib/storefront";
 import { getUserById } from "@/lib/db/queries";
 import { deliveryWindow } from "@/lib/delivery";
-import { storeHomePath } from "@/lib/store-slug";
+import { storeProductJsonLd } from "@/lib/store-jsonld";
+import { storefrontPath, storeHomePath } from "@/lib/store-slug";
 import { money } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -43,38 +44,10 @@ export default async function StoreProductPage({
     }
   }
   const ship = deliveryWindow(product.shippingDays);
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.title,
-    image: product.imageUrl ? [product.imageUrl] : undefined,
-    offers: {
-      "@type": "Offer",
-      price: product.price.toFixed(2),
-      priceCurrency: "USD",
-      availability: product.variants.some((v) => v.stock > 0)
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        deliveryTime: {
-          "@type": "ShippingDeliveryTime",
-          handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 1, unitCode: "DAY" },
-          transitTime: {
-            "@type": "QuantitativeValue",
-            minValue: ship.low,
-            maxValue: ship.high,
-            unitCode: "DAY",
-          },
-        },
-      },
-    },
-  };
-
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <StoreProductMedia title={product.title} imageUrl={product.imageUrl} variants={product.variants} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeProductJsonLd(product)) }} />
+      <StoreProductMedia title={product.title} imageUrl={product.imageUrl} variants={product.variants} priority />
       <div className="space-y-4">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">For sale</p>
         <h1 className="text-2xl font-semibold sm:text-3xl">{product.title}</h1>
@@ -85,7 +58,12 @@ export default async function StoreProductPage({
           className="prose-sm text-sm text-muted [&_li]:ml-4 [&_li]:list-disc"
           dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
         />
-        <StoreBuyBox productId={product.id} variants={product.variants} />
+        <StoreBuyBox
+          productId={product.id}
+          variants={product.variants}
+          storeId={product.userId}
+          cartHref={storefrontPath(undefined, "cart")}
+        />
       </div>
     </div>
   );

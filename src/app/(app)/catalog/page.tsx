@@ -1,5 +1,6 @@
 import { DeskLink } from "@/components/desk-link";
-import { listProducts } from "@/lib/db/queries";
+import { getOperator, listProducts } from "@/lib/db/queries";
+import { storeHomePath } from "@/lib/store-slug";
 import { money, pct } from "@/lib/utils";
 import { Badge, Button, Card } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
@@ -18,7 +19,8 @@ export default async function CatalogPage({
       /* webhook still applies the plan */
     }
   }
-  const all = await listProducts();
+  const [all, operator] = await Promise.all([listProducts(), getOperator()]);
+  const storeHref = storeHomePath(operator?.storeSlug);
   const rows = status ? all.filter((p) => p.status === status) : all;
   const filters = [
     { id: "all", label: "All" },
@@ -44,7 +46,7 @@ export default async function CatalogPage({
           ) : null}
         </div>
         <div className="flex gap-2">
-          <DeskLink href="/store">
+          <DeskLink href={storeHref}>
             <Button tone="line">Open your store</Button>
           </DeskLink>
           <DeskLink href="/discover">

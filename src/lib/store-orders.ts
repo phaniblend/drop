@@ -102,7 +102,9 @@ export async function resolveStoreLines(
     const qty = qtyCheck.qty;
     const option = variant ? shopperVariantLabel(variant.variantName) : "";
     if (lines.length && lines[0].merchantId !== product.userId) {
-      throw new StoreCheckoutError("Pay for one shop at a time.");
+      throw new StoreCheckoutError(
+        `This bag has items from more than one shop. Remove “${product.cleanTitle || product.rawTitle}”, then pay.`,
+      );
     }
     lines.push({
       productId: product.id,

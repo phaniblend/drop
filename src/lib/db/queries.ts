@@ -390,10 +390,14 @@ export async function getDashboard() {
       Promise.resolve(integrationStatus()),
     ]);
 
-  const today = todayKey(user?.timezone);
-  const isToday = (iso: string) => iso.slice(0, 10) === today || todayKey() === iso.slice(0, 10);
+  const tz = user?.timezone || "America/Chicago";
+  const today = todayKey(tz);
+  const inStoreDay = (iso: string) => {
+    const day = todayKey(tz, iso);
+    return day === today && Number.isFinite(new Date(iso).getTime());
+  };
 
-  const todaysOrders = orderRows.filter((o) => isToday(o.createdAt) || agingHours(o) < 24);
+  const todaysOrders = orderRows.filter((o) => inStoreDay(o.createdAt) || agingHours(o) < 24);
   const revenue = round2(todaysOrders.reduce((s, o) => s + o.totalRevenue, 0));
   const cogs = round2(todaysOrders.reduce((s, o) => s + o.totalCogs, 0));
   const fees = round2(todaysOrders.reduce((s, o) => s + o.paymentFee, 0));

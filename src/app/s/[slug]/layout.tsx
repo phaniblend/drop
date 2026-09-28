@@ -4,6 +4,7 @@ import { StoreShell } from "@/components/store-shell";
 import { StoreFooter } from "@/components/store-footer";
 import { getUserBySlug } from "@/lib/db/queries";
 import { stripeCheckoutMode } from "@/lib/stripe-mode";
+import { storeHomePath } from "@/lib/store-slug";
 import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +33,18 @@ export default async function SlugStoreLayout({
   const { slug } = await params;
   const user = await getUserBySlug(slug);
   if (!user) notFound();
+  const homeHref = storeHomePath(user.storeSlug);
   return (
-    <StoreShell storeName={user.storeName}>
+    <StoreShell
+      storeName={user.storeName}
+      storeId={user.id}
+      homeHref={homeHref}
+      metaPixelId={user.metaPixelId ?? ""}
+    >
       {children}
       <StoreFooter
         storeName={user.storeName}
+        homeHref={homeHref}
         stripeMode={stripeCheckoutMode(user.storeStripeSk || env.stripeSecretKey)}
       />
     </StoreShell>

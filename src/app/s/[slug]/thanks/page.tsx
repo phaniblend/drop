@@ -1,18 +1,23 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { fulfillStoreCheckout } from "@/lib/store-orders";
 import { StoreThanksClear } from "@/components/store-thanks-clear";
-import { getStorefrontBrand } from "@/lib/storefront";
+import { getUserBySlug } from "@/lib/db/queries";
 import { money } from "@/lib/utils";
 import { deliveryWindow } from "@/lib/delivery";
 import { storeHomePath } from "@/lib/store-slug";
 
-export default async function StoreThanksPage({
+export default async function SlugStoreThanksPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ session_id?: string }>;
 }) {
+  const { slug } = await params;
+  const user = await getUserBySlug(slug);
+  if (!user) notFound();
   const { session_id: sessionId } = await searchParams;
-  const brand = await getStorefrontBrand();
   let receipt = null;
   if (sessionId) {
     try {
@@ -22,11 +27,11 @@ export default async function StoreThanksPage({
     }
   }
   const window = deliveryWindow();
-  const homeHref = storeHomePath(brand.slug);
+  const homeHref = storeHomePath(user.storeSlug);
 
   return (
     <div className="space-y-5">
-      <StoreThanksClear paid={Boolean(receipt)} storeId={brand.userId} />
+      <StoreThanksClear paid={Boolean(receipt)} storeId={user.id} />
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Order Confirmed</p>
       <h1 className="text-3xl font-semibold">Order Confirmed</h1>
       {receipt ? (

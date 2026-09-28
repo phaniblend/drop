@@ -4,6 +4,7 @@ import { appOrigin, stripePost } from "@/lib/stripe";
 import { resolveStoreLines, savePendingStoreCart, StoreCheckoutError } from "@/lib/store-orders";
 import { rememberCheckoutMerchant, resolveMerchantStripeSecret } from "@/lib/merchant-stripe";
 import { getUserById } from "@/lib/db/queries";
+import { storefrontPath } from "@/lib/store-slug";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
   const payload: Record<string, string> = {
     mode: "payment",
     "payment_method_types[0]": "card",
-    success_url: `${origin}/store/thanks?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/store/cart?canceled=1`,
+    success_url: `${origin}${storefrontPath(merchant?.storeSlug, "thanks")}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}${storefrontPath(merchant?.storeSlug, "cart")}?canceled=1`,
     "shipping_address_collection[allowed_countries][0]": "US",
     "billing_address_collection": "auto",
     "name_collection[individual][enabled]": "true",

@@ -47,11 +47,21 @@ export function shopperFallbackHtml(title: string) {
   return `<p>${name} ships with tracking. What you see is what we send.</p><ul><li>Tracked shipping</li><li>Packed as shown</li><li>Refund or replacement if it arrives wrong or damaged</li></ul>`;
 }
 
+function looksLikeSupplierSku(part: string) {
+  return /^\d{6,}[:#]/.test(part) || /:\d{6,}/.test(part) || /#\w+\s*T\d+/i.test(part);
+}
+
 export function shopperVariantLabel(raw: string) {
   const parts = String(raw ?? "")
     .split(/\s*·\s*|\s*;\s*/)
     .map((part) => part.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim())
-    .filter((part) => part && !isShipFromPart(part) && !/^option$/i.test(part));
+    .filter(
+      (part) =>
+        part &&
+        !isShipFromPart(part) &&
+        !/^option$/i.test(part) &&
+        !looksLikeSupplierSku(part),
+    );
   return parts.length ? [...new Set(parts)].join(" · ") : "Option";
 }
 

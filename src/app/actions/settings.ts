@@ -16,6 +16,9 @@ export async function saveOperatorSettings(input: {
   minRoasThreshold: number;
   timezone?: string;
   daypartingEnabled?: boolean;
+  supportEmail?: string;
+  businessAddress?: string;
+  metaPixelId?: string;
 }) {
   const operator = await requireOperator();
   const db = await ensureDb();
@@ -29,6 +32,9 @@ export async function saveOperatorSettings(input: {
       minRoasThreshold: input.minRoasThreshold,
       timezone: input.timezone?.trim() || "America/Chicago",
       daypartingEnabled: Boolean(input.daypartingEnabled),
+      supportEmail: input.supportEmail?.trim() || null,
+      businessAddress: input.businessAddress?.trim() || null,
+      metaPixelId: (input.metaPixelId ?? "").replace(/\D/g, "") || null,
     })
     .where(eq(users.id, operator.id));
   revalidatePath("/settings");

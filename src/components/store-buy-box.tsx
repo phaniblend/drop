@@ -14,10 +14,12 @@ function shopperStockLabel(stock: number) {
 export function StoreBuyBox({
   productId,
   variants,
+  storeId = "",
   cartHref = "/store/cart",
 }: {
   productId: string;
   variants: Array<{ id: string; name: string; stock: number; imageUrl?: string | null }>;
+  storeId?: string;
   cartHref?: string;
 }) {
   const router = useRouter();
@@ -25,17 +27,17 @@ export function StoreBuyBox({
   const [adding, setAdding] = useState(false);
   const selected = variants.find((variant) => variant.id === variantId) ?? variants[0];
   const soldOut = !selected || selected.stock <= 0;
+  const showOptions = variants.length > 1;
 
   return (
     <div className="space-y-3">
-      {variants.length ? (
+      {showOptions ? (
         <label className="block text-sm">
           <span className="text-xs uppercase tracking-wider text-faint">Option</span>
           <select
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2"
             value={variantId}
             onChange={(e) => setVariantId(e.target.value)}
-            disabled={variants.length === 1}
           >
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
@@ -52,7 +54,7 @@ export function StoreBuyBox({
         className="w-full"
         disabled={soldOut || adding}
         onClick={() => {
-          addStoreCartLine({ productId, variantId, qty: 1 });
+          addStoreCartLine({ productId, variantId, qty: 1 }, storeId);
           setAdding(true);
           router.push(`${cartHref}?added=1`);
         }}

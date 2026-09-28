@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StoreBuyBox } from "@/components/store-buy-box";
 import { StoreProductMedia } from "@/components/store-product-media";
-import { getLiveStoreProduct } from "@/lib/storefront";
+import { getLiveStoreProduct, storeProductUrl } from "@/lib/storefront";
 import { getUserBySlug } from "@/lib/db/queries";
 import { deliveryWindow } from "@/lib/delivery";
+import { storeProductJsonLd } from "@/lib/store-jsonld";
+import { storefrontPath } from "@/lib/store-slug";
 import { money } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -12,12 +14,17 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string; id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { slug, id } = await params;
   const product = await getLiveStoreProduct(id);
   if (!product) return { title: "Not found" };
   return {
     title: product.title,
     description: `${product.title} — ${deliveryWindow(product.shippingDays).text}.`,
+    alternates: { canonical: storeProductUrl(product.id, slug) },
+    openGraph: {
+      title: product.title,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
+    },
   };
 }
 
@@ -35,7 +42,8 @@ export default async function SlugProductPage({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
-      <StoreProductMedia title={product.title} imageUrl={product.imageUrl} variants={product.variants} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeProductJsonLd(product)) }} />
+      <StoreProductMedia title={product.title} imageUrl={product.imageUrl} variants={product.variants} priority />
       <div className="space-y-4">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">For sale</p>
         <h1 className="text-2xl font-semibold sm:text-3xl">{product.title}</h1>
@@ -46,7 +54,12 @@ export default async function SlugProductPage({
           className="prose-sm text-sm text-muted [&_li]:ml-4 [&_li]:list-disc"
           dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
         />
-        <StoreBuyBox productId={product.id} variants={product.variants} />
+        <StoreBuyBox
+          productId={product.id}
+          variants={product.variants}
+          storeId={user.id}
+          cartHref={storefrontPath(user.storeSlug, "cart")}
+        />
       </div>
     </div>
   );

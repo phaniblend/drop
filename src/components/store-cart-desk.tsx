@@ -20,10 +20,14 @@ type CatalogLine = {
 
 export function StoreCartDesk({
   catalog,
+  storeId = "",
+  homeHref = "/store",
   canceled = false,
   added = false,
 }: {
   catalog: CatalogLine[];
+  storeId?: string;
+  homeHref?: string;
   canceled?: boolean;
   added?: boolean;
 }) {
@@ -32,8 +36,8 @@ export function StoreCartDesk({
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    setLines(readStoreCart());
-  }, []);
+    setLines(readStoreCart(storeId));
+  }, [storeId]);
 
   const priced = lines
     .map((line) => {
@@ -56,7 +60,7 @@ export function StoreCartDesk({
       )
       .filter((line) => line.qty > 0);
     setLines(next);
-    writeStoreCart(next);
+    writeStoreCart(next, storeId);
   }
 
   return (
@@ -77,7 +81,7 @@ export function StoreCartDesk({
       {priced.length === 0 ? (
         <p className="text-sm text-muted">
           Nothing here yet.{" "}
-          <Link href="/store" className="text-accent">
+          <Link href={homeHref} prefetch={false} className="text-accent">
             Browse the store
           </Link>
           .
@@ -129,7 +133,7 @@ export function StoreCartDesk({
         <div className="space-y-1 text-sm">
           <p className="font-medium">Items {money(total)}</p>
           <p className="text-xs text-muted">Shipping and tax are collected on the card page when they apply.</p>
-          <Link href="/store" className="inline-block text-xs text-accent">
+          <Link href={homeHref} prefetch={false} className="inline-block text-xs text-accent">
             Continue shopping
           </Link>
         </div>
