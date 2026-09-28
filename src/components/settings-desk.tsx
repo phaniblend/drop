@@ -15,6 +15,7 @@ import { emitPaywall } from "@/lib/paywall";
 import type { BillingSummary } from "@/lib/paywall";
 import { friendlyMetaError } from "@/lib/meta-status";
 import { StripeKeysForm } from "./stripe-keys-form";
+import { BillingPortalButton } from "./billing-portal-button";
 
 type Status = {
   store?: boolean;
@@ -199,9 +200,21 @@ export function SettingsDesk({
               {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
             </p>
             <p className="mt-2 text-xs text-faint">
-              {billing.stripeReady ? "Upgrade checkout is ready." : "Upgrade checkout is not connected yet."}
+              {billing.health?.liveReady
+                ? "Live subscription checkout is ready."
+                : billing.health?.testReady
+                  ? "Stripe is in test mode — upgrades will not take real cards."
+                  : "Subscription checkout is not connected yet."}
             </p>
+            <ul className="mt-2 space-y-0.5 text-xs text-muted">
+              <li>Platform secret: {billing.health?.mode === "live" ? "Live" : billing.health?.mode === "test" ? "Test" : "Missing"}</li>
+              <li>Starter price: {billing.health?.hasStarterPrice ? "Set" : "Missing"}</li>
+              <li>Scaler price: {billing.health?.hasScalerPrice ? "Set" : "Missing"}</li>
+              <li>Webhook: {billing.health?.hasWebhook ? "Set" : "Missing"}</li>
+            </ul>
           </div>
+          <div className="flex flex-col items-stretch gap-2">
+          {billing.hasCustomer ? <BillingPortalButton /> : null}
           {billing.tier === "trial_5" ? (
             <Button
               tone="accent"
@@ -218,6 +231,7 @@ export function SettingsDesk({
               Upgrade
             </Button>
           ) : null}
+          </div>
         </div>
       </Card>
 

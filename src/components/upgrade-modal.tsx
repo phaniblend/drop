@@ -6,7 +6,7 @@ import { PAYWALL_EVENT, type PaywallPayload } from "@/lib/paywall";
 
 export function UpgradeModal() {
   const [open, setOpen] = useState<PaywallPayload | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"starter" | "scaler" | "">("");
   const [hint, setHint] = useState("");
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export function UpgradeModal() {
   if (!open) return null;
 
   async function checkout(plan: "starter" | "scaler") {
-    setBusy(true);
+    setBusy(plan);
     setHint("");
     try {
       const res = await fetch("/api/billing/checkout", {
@@ -39,7 +39,7 @@ export function UpgradeModal() {
     } catch {
       setHint("Could not start checkout.");
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
 
@@ -55,19 +55,47 @@ export function UpgradeModal() {
             : "Upgrade to keep going"}
         </h2>
         <p className="mt-2 text-sm text-muted">{open.message}</p>
-        <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
-          <p className="text-sm font-semibold">Starter plan</p>
-          <p className="mt-1 text-2xl font-semibold">$19<span className="text-sm font-medium text-muted"> / month</span></p>
-          <ul className="mt-3 space-y-1 text-sm text-muted">
-            <li>30 product imports / month</li>
-            <li>Margin Guard on up to 5 ad sets</li>
-            <li>50 Lens lookups / month</li>
-          </ul>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl border border-line bg-surface-2 p-4">
+            <p className="text-sm font-semibold">Starter</p>
+            <p className="mt-1 text-2xl font-semibold">
+              $19<span className="text-sm font-medium text-muted"> / month</span>
+            </p>
+            <ul className="mt-3 space-y-1 text-sm text-muted">
+              <li>30 product imports / month</li>
+              <li>Margin Guard on up to 5 ad sets</li>
+              <li>50 Lens lookups / month</li>
+            </ul>
+            <Button
+              className="mt-4 w-full"
+              tone="accent"
+              disabled={Boolean(busy)}
+              onClick={() => void checkout("starter")}
+            >
+              {busy === "starter" ? "Opening checkout…" : "Unlock Starter ($19/mo)"}
+            </Button>
+          </div>
+          <div className="rounded-xl border border-line bg-surface-2 p-4">
+            <p className="text-sm font-semibold">Scaler</p>
+            <p className="mt-1 text-2xl font-semibold">
+              $39<span className="text-sm font-medium text-muted"> / month</span>
+            </p>
+            <ul className="mt-3 space-y-1 text-sm text-muted">
+              <li>120 product imports / month</li>
+              <li>Unlimited Margin Guard campaigns</li>
+              <li>200 Lens lookups / month</li>
+            </ul>
+            <Button
+              className="mt-4 w-full"
+              tone="line"
+              disabled={Boolean(busy)}
+              onClick={() => void checkout("scaler")}
+            >
+              {busy === "scaler" ? "Opening checkout…" : "Unlock Scaler ($39/mo)"}
+            </Button>
+          </div>
         </div>
         {hint ? <p className="mt-3 text-xs text-warn">{hint}</p> : null}
-        <Button className="mt-4 w-full" tone="accent" disabled={busy} onClick={() => void checkout("starter")}>
-          Unlock Starter ($19/mo)
-        </Button>
         <button
           type="button"
           className="mt-3 w-full text-sm text-muted hover:text-ink"

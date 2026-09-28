@@ -12,6 +12,16 @@ export type PaywallPayload = {
   resource?: "products" | "lens" | "campaigns";
 };
 
+export type StripeBillingHealth = {
+  mode: "off" | "test" | "live";
+  hasSecret: boolean;
+  hasWebhook: boolean;
+  hasStarterPrice: boolean;
+  hasScalerPrice: boolean;
+  liveReady: boolean;
+  testReady: boolean;
+};
+
 export type BillingSummary = {
   tier: "trial_5" | "starter" | "scaler";
   status: string;
@@ -24,6 +34,8 @@ export type BillingSummary = {
   period: "lifetime" | "month";
   label: string;
   stripeReady: boolean;
+  hasCustomer: boolean;
+  health: StripeBillingHealth;
 };
 
 export const PAYWALL_EVENT = "setostore-paywall";

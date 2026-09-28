@@ -8,9 +8,16 @@ import { Thumb } from "@/components/thumb";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; upgraded?: string }>;
+  searchParams: Promise<{ status?: string; upgraded?: string; session_id?: string }>;
 }) {
-  const { status, upgraded } = await searchParams;
+  const { status, upgraded, session_id: sessionId } = await searchParams;
+  if (sessionId) {
+    try {
+      await import("@/lib/billing").then((m) => m.fulfillBillingCheckout(sessionId));
+    } catch {
+      /* webhook still applies the plan */
+    }
+  }
   const all = await listProducts();
   const rows = status ? all.filter((p) => p.status === status) : all;
   const filters = [
@@ -31,7 +38,9 @@ export default async function CatalogPage({
             Drafts stay on the desk. Publish puts the product on your Seto store for shoppers.
           </p>
           {upgraded ? (
-            <p className="mt-2 text-sm text-profit">Starter is on. Monthly import quota has reset.</p>
+            <p className="mt-2 text-sm text-profit">
+              {upgraded === "scaler" ? "Scaler" : "Starter"} is on. Monthly import quota has reset.
+            </p>
           ) : null}
         </div>
         <div className="flex gap-2">

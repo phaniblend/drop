@@ -6,6 +6,7 @@ import { ensureDb } from "./db";
 import { campaignTrackers, users } from "./db/schema";
 import type { BillingSummary, PaywallPayload } from "./paywall";
 import { isSuperuser } from "./superuser";
+import { mapStripeSubscriptionStatus, stripeBillingHealth } from "./stripe-billing";
 
 export type { BillingSummary };
 
@@ -82,6 +83,14 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     .where(eq(campaignTrackers.isPaused, false));
   const campaignsUsed = Number(active[0]?.n ?? 0);
 
+  const health = stripeBillingHealth({
+    secretKey: env.stripeSecretKey,
+    webhookSecret: env.stripeWebhookSecret,
+    starterPrice: env.stripePriceStarter,
+    scalerPrice: env.stripePriceScaler,
+  });
+  const stripeReady = health.liveReady || health.testReady;
+
   if (isSuperuser(user.email)) {
     return {
       tier: "scaler",
@@ -94,7 +103,9 @@ export async function getBillingSummary(): Promise<BillingSummary> {
       campaignsLimit: Number.POSITIVE_INFINITY,
       period: "month",
       label: "Superuser",
-      stripeReady: Boolean(env.stripeSecretKey && env.stripePriceStarter),
+      stripeReady,
+      hasCustomer: Boolean(user.stripeCustomerId),
+      health,
     };
   }
 
@@ -111,7 +122,9 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     campaignsLimit: plan.campaigns,
     period: plan.period,
     label: plan.label,
-    stripeReady: Boolean(env.stripeSecretKey && env.stripePriceStarter),
+    stripeReady,
+    hasCustomer: Boolean(user.stripeCustomerId),
+    health,
   };
 }
 
@@ -218,27 +231,71 @@ export async function incrementLensSearches() {
   await refreshDeskShell();
 }
 
+export async function fulfillBillingCheckout(sessionId: string) {
+  if (!sessionId) return false;
+  const { stripeGet } = await import("./stripe");
+  const session = await stripeGet<{
+    mode?: string;
+    payment_status?: string;
+    customer?: string;
+    subscription?: string;
+    metadata?: { userId?: string; plan?: string };
+  }>(`checkout/sessions/${sessionId}`);
+  if (session.mode !== "subscription") return false;
+  if (session.payment_status && session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+    return false;
+  }
+  return applyStripeSubscription({
+    userId: session.metadata?.userId,
+    customerId: typeof session.customer === "string" ? session.customer : undefined,
+    subscriptionId: typeof session.subscription === "string" ? session.subscription : undefined,
+    tier: session.metadata?.plan === "scaler" ? "scaler" : "starter",
+    status: "active",
+  });
+}
+
 export async function applyStripeSubscription(input: {
-  userId: string;
-  customerId: string;
-  subscriptionId: string;
-  tier: "starter" | "scaler";
+  userId?: string;
+  customerId?: string;
+  subscriptionId?: string;
+  tier?: "starter" | "scaler";
+  status?: string | null;
 }) {
   const db = await ensureDb();
+  const status = mapStripeSubscriptionStatus(input.status ?? "active");
+  const [byUser] = input.userId
+    ? await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
+    : [];
+  const [bySub] =
+    !byUser && input.subscriptionId
+      ? await db.select().from(users).where(eq(users.stripeSubscriptionId, input.subscriptionId)).limit(1)
+      : [];
+  const [byCustomer] =
+    !byUser && !bySub && input.customerId
+      ? await db.select().from(users).where(eq(users.stripeCustomerId, input.customerId)).limit(1)
+      : [];
+  const user = byUser ?? bySub ?? byCustomer;
+  if (!user) return false;
+
+  const tier =
+    status === "canceled"
+      ? "trial_5"
+      : input.tier ?? (user.subscriptionTier === "scaler" ? "scaler" : "starter");
   const start = new Date().toISOString();
   await db
     .update(users)
     .set({
-      subscriptionTier: input.tier,
-      subscriptionStatus: "active",
-      stripeCustomerId: input.customerId,
-      stripeSubscriptionId: input.subscriptionId,
-      billingCycleStart: start,
-      billingCycleEnd: cycleEnd(),
+      subscriptionTier: tier,
+      subscriptionStatus: status === "canceled" ? "canceled" : status,
+      stripeCustomerId: input.customerId || user.stripeCustomerId,
+      stripeSubscriptionId: input.subscriptionId || user.stripeSubscriptionId,
+      billingCycleStart: status === "active" ? start : user.billingCycleStart,
+      billingCycleEnd: status === "active" ? cycleEnd() : user.billingCycleEnd,
     })
-    .where(eq(users.id, input.userId));
+    .where(eq(users.id, user.id));
   const { invalidateDeskShell } = await import("./desk-shell");
   invalidateDeskShell();
+  return true;
 }
 
 export async function cancelStripeSubscription(subscriptionId: string) {
