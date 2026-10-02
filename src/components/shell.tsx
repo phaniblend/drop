@@ -161,13 +161,6 @@ export function Shell({
               </DeskLink>
             );
           })}
-          <HelpMenuButton
-            active={helpOpen}
-            onClick={() => {
-              setHelpOpen(true);
-              setNavOpen(false);
-            }}
-          />
         </nav>
         <div className="mt-3 rounded-xl border border-line bg-surface px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3">
           <p className="text-[11px] uppercase tracking-wider text-faint">Connections</p>
@@ -199,6 +192,11 @@ export function Shell({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <HelpMenuButton
+              placement="topbar"
+              active={helpOpen}
+              onClick={() => setHelpOpen(true)}
+            />
             <DeskLink
               href="/discover"
               aria-label="Discover products"

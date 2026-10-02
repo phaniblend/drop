@@ -342,8 +342,33 @@ export async function publishProduct(productId: string) {
 }
 
 export async function setProductStatus(productId: string, status: string) {
+  const product = await getProduct(productId);
+  if (!product) throw new Error("Product not found.");
   const db = await ensureDb();
   await db.update(products).set({ status }).where(eq(products.id, productId));
   revalidatePath("/catalog");
   revalidatePath(`/catalog/${productId}`);
+  revalidatePath("/suppliers");
+  revalidatePath("/");
+}
+
+/** Soft-remove: hides from Catalog, Suppliers, and the public store. Orders keep their history. */
+export async function removeProductFromCatalog(productId: string) {
+  const product = await getProduct(productId);
+  if (!product) throw new Error("Product not found.");
+  const db = await ensureDb();
+  await db.update(products).set({ status: "archived" }).where(eq(products.id, productId));
+  await logActivity(db, {
+    kind: "catalog",
+    message: `Removed “${product.cleanTitle || product.rawTitle}” from the catalog.`,
+    href: "/catalog",
+  });
+  revalidatePath("/catalog");
+  revalidatePath(`/catalog/${productId}`);
+  revalidatePath("/suppliers");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
+  revalidatePath("/store");
+  revalidatePath("/s", "layout");
+  return { ok: true as const };
 }

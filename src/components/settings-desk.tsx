@@ -7,6 +7,7 @@ import {
   saveOperatorSettings,
   extendMetaAccessToken,
   disconnectShopify,
+  saveMarginGuardMode,
 } from "@/app/actions/settings";
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
@@ -45,6 +46,11 @@ type ShopifyOAuthProps = {
   flash: { tone: "ok" | "err"; message: string } | null;
 };
 
+type MetaOAuthProps = {
+  connected: boolean;
+  flash: { tone: "ok" | "err"; message: string } | null;
+};
+
 export function SettingsDesk({
   status,
   user,
@@ -55,6 +61,8 @@ export function SettingsDesk({
   metaLongLived = false,
   canExtendMeta = false,
   metaAppReady = false,
+  metaOAuth,
+  guardMode = "ALERT_ONLY",
   stripeKeys,
 }: {
   status: Status;
@@ -65,6 +73,8 @@ export function SettingsDesk({
   metaLongLived?: boolean;
   canExtendMeta?: boolean;
   metaAppReady?: boolean;
+  metaOAuth?: MetaOAuthProps;
+  guardMode?: "OFF" | "ALERT_ONLY" | "AUTO_PAUSE";
   stripeKeys?: { publishableMasked: string; secretMasked: string; mode: "off" | "test" | "live" };
   user: {
     displayName: string;
@@ -82,8 +92,10 @@ export function SettingsDesk({
 }) {
   const [pending, start] = useTransition();
   const [form, setForm] = useState(user);
-  const [msg, setMsg] = useState(shopifyOAuth?.flash?.message || "");
+  const [msg, setMsg] = useState(shopifyOAuth?.flash?.message || metaOAuth?.flash?.message || "");
   const [shopInput, setShopInput] = useState(shopifyOAuth?.domain || "");
+  const [mode, setMode] = useState(guardMode);
+  const [consentAuto, setConsentAuto] = useState(false);
 
   const [clearConfirm, setClearConfirm] = useState("");
   const [repairMsg, setRepairMsg] = useState("");
@@ -108,17 +120,18 @@ export function SettingsDesk({
     },
     {
       name: "Meta ads",
-      ok: status.metaStatus === "connected",
+      ok: status.metaStatus === "connected" || Boolean(metaOAuth?.connected),
       degraded: status.metaStatus === "degraded",
       why:
-        status.metaStatus === "connected"
+        status.metaStatus === "connected" || metaOAuth?.connected
           ? `Live ad account check passed${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`
           : status.metaStatus === "degraded"
             ? friendlyMetaError(status.metaError) ||
-              "Token expired or incomplete. Use Reconnect Meta on this card."
+              "Token expired or incomplete. Use Connect with Facebook or Reconnect Meta on this card."
             : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
-      metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded"),
-      reconnectMeta: status.metaStatus !== "connected",
+      metaLogin: true as const,
+      metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded" || metaOAuth?.connected),
+      reconnectMeta: status.metaStatus !== "connected" && !metaOAuth?.connected,
     },
     {
       name: "TikTok ads",
@@ -327,11 +340,33 @@ export function SettingsDesk({
                 {friendlyMetaError(status.metaError)}
               </p>
             ) : null}
+            {"metaLogin" in c && c.metaLogin ? (
+              <div id="meta" className="mt-3 flex flex-wrap items-center gap-2">
+                {metaAppReady ? (
+                  <a href="/api/meta/auth">
+                    <Button type="button" className="h-8 px-3 text-xs" tone="accent" disabled={pending}>
+                      {metaOAuth?.connected || status.metaStatus === "connected"
+                        ? "Reconnect with Facebook"
+                        : "Connect with Facebook"}
+                    </Button>
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Meta Login needs META_APP_ID and META_APP_SECRET on the host.
+                  </p>
+                )}
+                {metaOAuth?.flash ? (
+                  <p className={`text-xs ${metaOAuth.flash.tone === "ok" ? "text-profit" : "text-loss"}`}>
+                    {metaOAuth.flash.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {"metaExtend" in c && c.metaExtend ? (
               metaAppReady ? (
                 <Button
                   className="mt-3 h-8 px-3 text-xs"
-                  tone="accent"
+                  tone="line"
                   disabled={pending || !canExtendMeta}
                   onClick={() =>
                     start(async () => {
@@ -345,7 +380,7 @@ export function SettingsDesk({
                     })
                   }
                 >
-                  {status.metaStatus === "connected" ? "Extend Meta token (~60d)" : "Reconnect Meta"}
+                  {status.metaStatus === "connected" ? "Extend Meta token (~60d)" : "Extend pasted token"}
                 </Button>
               ) : (
                 <p className="mt-3 text-xs text-muted">
@@ -369,6 +404,73 @@ export function SettingsDesk({
           mode={stripeKeys.mode}
         />
       ) : null}
+
+      <Card id="margin-guard">
+        <CardHeader title="Margin Guard mode" eyebrow="Ads & Guard" />
+        <div className="space-y-4 p-5">
+          <p className="text-sm text-muted">
+            Dual-signal Guard (Meta + Shopify contribution) runs hourly. Choose whether Seto only alerts or can
+            pause losing ad sets.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["OFF", "Off"],
+                ["ALERT_ONLY", "Alert only"],
+                ["AUTO_PAUSE", "Auto-pause"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                  mode === value
+                    ? "border-accent bg-accent/10 text-ink"
+                    : "border-line text-muted hover:border-ink/30"
+                }`}
+                onClick={() => setMode(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === "AUTO_PAUSE" ? (
+            <label className="flex items-start gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[#5B5FFF]"
+                checked={consentAuto || guardMode === "AUTO_PAUSE"}
+                onChange={(e) => setConsentAuto(e.target.checked)}
+              />
+              <span>
+                I understand Seto may pause Meta ad sets that fail dual-signal checks. I can turn this off anytime.
+                Host kill switch: <code className="font-mono text-[11px]">MARGIN_GUARD_AUTOPAUSE_ENABLED</code>.
+              </span>
+            </label>
+          ) : null}
+          <Button
+            tone="accent"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                setMsg("");
+                try {
+                  const res = await saveMarginGuardMode({
+                    mode,
+                    consentAutoPause: consentAuto || guardMode === "AUTO_PAUSE",
+                  });
+                  setMode(res.mode as "OFF" | "ALERT_ONLY" | "AUTO_PAUSE");
+                  setMsg(res.message);
+                } catch (e) {
+                  setMsg(e instanceof Error ? e.message : "Could not save Guard mode.");
+                }
+              })
+            }
+          >
+            Save Guard mode
+          </Button>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Operator defaults" eyebrow="This store" />

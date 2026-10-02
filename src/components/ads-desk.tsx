@@ -14,9 +14,11 @@ import { emitPaywall, hasPaywall } from "@/lib/paywall";
 import { isPaidLaunchUnlocked, parseSentinelSettings, type SentinelSettings } from "@/lib/ad-protection";
 import { friendlyMetaError } from "@/lib/meta-status";
 import { DeskLink } from "./desk-link";
+import { explainReasonCode, explainVerdict } from "@/lib/margin-guard-v2/why";
 
 type CampaignRow = {
   id: string;
+  adSetId: string;
   adSetName: string | null;
   platform: string;
   spendToday: number;
@@ -44,6 +46,14 @@ type CampaignRow = {
   } | null;
 };
 
+type WhyEval = {
+  verdict: string;
+  reasonCodes: string[];
+  formulaVersion: string;
+  evaluatedAtUtc: string;
+  inputs: Record<string, number | null>;
+};
+
 export function AdsDesk({
   campaigns,
   sentinelRaw,
@@ -54,6 +64,8 @@ export function AdsDesk({
   metaAccountId = "",
   metaError = null,
   metaFetchedCount = null,
+  guardMode = "ALERT_ONLY",
+  whyByAdset = {},
   guardLog = [],
 }: {
   campaigns: CampaignRow[];
@@ -65,6 +77,8 @@ export function AdsDesk({
   metaAccountId?: string;
   metaError?: string | null;
   metaFetchedCount?: number | null;
+  guardMode?: string;
+  whyByAdset?: Record<string, WhyEval>;
   guardLog?: Array<{ id: string; message: string }>;
 }) {
   const [pending, start] = useTransition();
@@ -74,6 +88,7 @@ export function AdsDesk({
   const [pauseError, setPauseError] = useState("");
   const [preview, setPreview] = useState<Record<string, string>>({});
   const [checkMsg, setCheckMsg] = useState("");
+  const [whyOpen, setWhyOpen] = useState<Record<string, boolean>>({});
 
   return (
     <div className="space-y-6">
@@ -83,7 +98,8 @@ export function AdsDesk({
           <h1 className="mt-1 text-2xl font-semibold">Kill losers before they eat the store</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Pauses ads that are losing money, and watches the first clicks before anyone buys. Quiet hours
-            {daypartingEnabled ? " are on" : " are off"} in Settings.
+            {daypartingEnabled ? " are on" : " are off"} in Settings. Dual-signal mode:{" "}
+            <span className="font-medium text-ink">{guardMode.replace(/_/g, " ").toLowerCase()}</span>.
           </p>
           {metaFullyConnected ? (
             <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>
@@ -322,7 +338,50 @@ export function AdsDesk({
                 </div>
               </dl>
               {preview[c.id] ? <p className="mt-3 text-xs text-muted">{preview[c.id]}</p> : null}
+              {whyOpen[c.id] && whyByAdset[c.adSetId] ? (
+                <div className="mt-3 space-y-2 rounded-lg border border-line bg-[rgba(0,0,0,0.02)] px-3 py-3 text-xs text-muted">
+                  <p className="font-medium text-ink">{explainVerdict(whyByAdset[c.adSetId].verdict)}</p>
+                  <p className="font-mono text-[10px] text-faint">
+                    {whyByAdset[c.adSetId].formulaVersion} ·{" "}
+                    {new Date(whyByAdset[c.adSetId].evaluatedAtUtc).toLocaleString()}
+                  </p>
+                  <ul className="list-disc space-y-1 pl-4">
+                    {whyByAdset[c.adSetId].reasonCodes.map((code) => (
+                      <li key={code}>{explainReasonCode(code)}</li>
+                    ))}
+                  </ul>
+                  <dl className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                    <div>
+                      <dt className="text-faint">Spend (S)</dt>
+                      <dd>{money(Number(whyByAdset[c.adSetId].inputs.S ?? 0))}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-faint">Floor (F)</dt>
+                      <dd>{money(Number(whyByAdset[c.adSetId].inputs.F ?? 0))}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-faint">Net shop</dt>
+                      <dd>{money(Number(whyByAdset[c.adSetId].inputs.Net_shop ?? 0))}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-faint">Net meta</dt>
+                      <dd>{money(Number(whyByAdset[c.adSetId].inputs.Net_meta ?? 0))}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : whyOpen[c.id] ? (
+                <p className="mt-3 text-xs text-muted">
+                  No dual-signal evaluation yet — it runs on the hourly cron after Meta insights sync.
+                </p>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  tone="line"
+                  disabled={pending}
+                  onClick={() => setWhyOpen((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+                >
+                  Why?
+                </Button>
                 <Button
                   tone="line"
                   disabled={pending}

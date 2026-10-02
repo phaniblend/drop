@@ -19,6 +19,7 @@ import { StatusPill } from "./status-pill";
 import { Thumb } from "./thumb";
 import type { CampaignTracker, Product, ProductVariant } from "@/lib/db/schema";
 import { AdHooksPanel } from "./ad-hooks-panel";
+import { RemoveProductButton } from "./remove-product-button";
 
 type Economics = { cogs: number; fee: number; profit: number; margin: number };
 
@@ -400,7 +401,7 @@ export function ProductEditor({
               {product.supplierUrl}
             </a>
             <p className="mt-2 text-xs text-muted">{deliveryWindow(product.shippingDays).text}</p>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 tone="line"
                 disabled={statusPending}
@@ -408,13 +409,13 @@ export function ProductEditor({
               >
                 Mark ready
               </Button>
-              <Button
+              <RemoveProductButton
+                productId={product.id}
+                productTitle={product.cleanTitle || product.rawTitle}
+                label="Remove from catalog"
                 tone="ghost"
-                disabled={statusPending}
-                onClick={() => startStatus(() => setProductStatus(product.id, "archived"))}
-              >
-                Archive
-              </Button>
+                redirectTo="/catalog"
+              />
             </div>
           </Card>
         </div>

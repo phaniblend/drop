@@ -132,3 +132,35 @@ export async function disconnectShopify() {
   revalidatePath("/catalog");
   return { ok: true as const, message: "Shopify disconnected from this desk." };
 }
+
+export async function connectMetaWithToken(shortLivedToken: string) {
+  const { saveMetaConnectionFromToken } = await import("@/lib/integrations/meta-oauth");
+  const result = await saveMetaConnectionFromToken(shortLivedToken.trim());
+  revalidatePath("/settings");
+  revalidatePath("/ads");
+  revalidatePath("/");
+  return {
+    ok: true as const,
+    message: `Meta connected as ${result.userName}. ${result.accounts} ad account${result.accounts === 1 ? "" : "s"} found.`,
+  };
+}
+
+export async function saveMarginGuardMode(input: {
+  mode: "OFF" | "ALERT_ONLY" | "AUTO_PAUSE";
+  consentAutoPause?: boolean;
+}) {
+  const { saveGuardMode } = await import("@/lib/margin-guard-v2/finance-config");
+  const cfg = await saveGuardMode(input);
+  revalidatePath("/settings");
+  revalidatePath("/ads");
+  return {
+    ok: true as const,
+    mode: cfg.guardMode,
+    message:
+      cfg.guardMode === "AUTO_PAUSE"
+        ? "Auto-pause is on. Seto can pause losing ad sets."
+        : cfg.guardMode === "ALERT_ONLY"
+          ? "Alert-only mode — Seto will warn but not pause."
+          : "Margin Guard is off for this store.",
+  };
+}

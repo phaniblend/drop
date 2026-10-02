@@ -7,6 +7,7 @@ import type { ParsedSupplierPayload } from "../scraper";
 import { extractAliExpressProductId } from "../aliexpress-url";
 import { collectVariantLookup, labeledVariantName } from "../variant-label";
 import { normalizeSupplierStock, normalizeVariantStocks } from "../supplier-stock";
+import { parseSupplierRating } from "../discover-sort";
 import { fetchAliExpressHtml } from "../aliexpress-scrape/http";
 import {
   collectHtmlListings,
@@ -225,6 +226,7 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     stockKnown: false as const,
     demand: Math.min(1, orders / 5000),
     orders30d: orders,
+    rating: parseSupplierRating(item.evaluate_rate),
     image: (() => {
       const raw = String(item.product_main_image_url || "").trim();
       if (!raw) return "";

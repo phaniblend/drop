@@ -231,10 +231,31 @@ export function HelpGuide({
 export function HelpMenuButton({
   active,
   onClick,
+  placement = "sidebar",
 }: {
   active: boolean;
   onClick: () => void;
+  placement?: "sidebar" | "topbar";
 }) {
+  if (placement === "topbar") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Open help"
+        aria-pressed={active}
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition",
+          active
+            ? "border-accent/40 bg-accent/10 text-ink"
+            : "border-line text-muted hover:border-line-strong hover:text-ink",
+        )}
+      >
+        <CircleHelp className={cn("h-3.5 w-3.5", active ? "text-accent" : "text-faint")} />
+        <span className="hidden sm:inline">Help</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"

@@ -6,6 +6,7 @@ export type HtmlListing = {
   target_sale_price?: string | number;
   product_main_image_url?: string;
   lastest_volume?: string | number;
+  evaluate_rate?: string;
 };
 
 export function queryWords(query: string) {
@@ -147,6 +148,14 @@ export function collectHtmlListings(html: string): HtmlListing[] {
     const image = extractImageFromChunk(window);
     if (price) item.target_sale_price = price;
     if (image) item.product_main_image_url = image;
+    const rating = firstNumber(window, [
+      /"evaluateRate"\s*:\s*"?([\d.]+)/i,
+      /"averageStar"\s*:\s*"?([\d.]+)/i,
+      /"starRating"\s*:\s*"?([\d.]+)/i,
+    ]);
+    if (rating) item.evaluate_rate = rating;
+    const volume = firstNumber(window, [/"lastestVolume"\s*:\s*"?([\d.]+)/i, /"orders"\s*:\s*"?([\d.]+)/i]);
+    if (volume) item.lastest_volume = volume;
   }
 
   return [...found.values()];

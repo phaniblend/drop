@@ -6,6 +6,9 @@ import { env } from "./env";
 import { ensureDb } from "./db";
 import { users } from "./db/schema";
 import { getOperator } from "./db/queries";
+import { shopifyConnections } from "./db/schema-guard";
+import { encryptSecret } from "./crypto";
+import { nid, nowIso } from "./utils";
 
 /** Scopes for publish + order ingest. */
 export const SHOPIFY_OAUTH_SCOPES =
@@ -101,6 +104,44 @@ export async function saveShopifyOAuthConnection(input: { domain: string; access
       shopifyAccessToken: input.accessToken,
     })
     .where(eq(users.id, operator.id));
+  const now = nowIso();
+  const host = `${normalizeShopDomain(input.domain)}.myshopify.com`;
+  try {
+    const accessTokenEnc = encryptSecret(input.accessToken);
+    const [existing] = await db
+      .select({ id: shopifyConnections.id })
+      .from(shopifyConnections)
+      .where(eq(shopifyConnections.storeId, operator.id))
+      .limit(1);
+    if (existing) {
+      await db
+        .update(shopifyConnections)
+        .set({
+          shopDomain: host,
+          accessTokenEnc,
+          status: "ACTIVE",
+          uninstalledAt: null,
+          updatedAt: now,
+        })
+        .where(eq(shopifyConnections.id, existing.id));
+    } else {
+      await db.insert(shopifyConnections).values({
+        id: nid("shconn"),
+        storeId: operator.id,
+        shopDomain: host,
+        accessTokenEnc,
+        scopesJson: JSON.stringify(SHOPIFY_OAUTH_SCOPES.split(",")),
+        ianaTimezone: operator.timezone || "UTC",
+        currency: "USD",
+        installedAt: now,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  } catch {
+    /* ENCRYPTION_KEY missing — operator token still saved on users */
+  }
 }
 
 export async function clearShopifyOAuthConnection() {

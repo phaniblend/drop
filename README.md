@@ -16,11 +16,12 @@ Open [http://localhost:3000](http://localhost:3000). Copy `env.example` to `.env
 ## Go-live checklist
 
 1. **Shopify** — Settings → Connect Shopify (or env fallback). Turn **storefront password off** (Admin → Online Store → Preferences).
-2. **Meta** — `META_AD_ACCOUNT_ID` + long-lived token (`META_APP_ID`/`META_APP_SECRET` → Settings → Extend Meta token). Status must be **Connected**, not Needs setup.
+2. **Meta** — Settings → **Connect with Facebook** (or paste/`META_ACCESS_TOKEN` + Extend). Status must be **Connected**. For App Review: Valid OAuth Redirect URI `APP_URL/api/meta/callback`, Data Deletion Request URL `APP_URL/api/meta/data-deletion` (see `/privacy`).
 3. **One test order** through Shopify checkout → Orders → Fulfill → tracking → Command KPIs move.
-4. **One Preview pause** on Ads & Guard against a real campaign (Preview never calls pause APIs).
-5. **Cron** — cron-job.org hourly `GET /api/cron/hourly` with `Authorization: Bearer CRON_SECRET`.
-6. **Railway** — health check path `/api/health`; prefer min replicas = 1 to avoid ~8s cold starts.
+4. **One Preview pause** on Ads & Guard against a real campaign (Preview never calls pause APIs). Open **Why?** for dual-signal math.
+5. **Cron** — cron-job.org hourly `GET /api/cron/hourly` with `Authorization: Bearer CRON_SECRET` (reconcile + Meta insights + dual-signal + daypart).
+6. **Margin Guard auto-pause** — Settings → Margin Guard mode → Auto-pause (opt-in). Host kill switch: `MARGIN_GUARD_AUTOPAUSE_ENABLED=false`.
+7. **Railway** — health check path `/api/health`; prefer min replicas = 1 to avoid ~8s cold starts.
 
 ## Env vars (Railway / `.env.local`)
 
@@ -31,9 +32,11 @@ Open [http://localhost:3000](http://localhost:3000). Copy `env.example` to `.env
 | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Required for Connect | Settings → Shopify |
 | `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ADMIN_TOKEN` | Optional fallback | Settings → Shopify |
 | `SHOPIFY_WEBHOOK_SECRET` | Optional (HMAC) | Webhooks |
-| `META_ACCESS_TOKEN` | Required for Meta | Settings → Meta / Ads |
-| `META_AD_ACCOUNT_ID` | Required for Connected (else Needs setup) | Settings → Meta / Ads |
-| `META_APP_ID`, `META_APP_SECRET` | Required to extend token ~60d | Settings → Extend Meta |
+| `META_ACCESS_TOKEN` | Optional if using Meta Login | Settings → Meta / Ads |
+| `META_AD_ACCOUNT_ID` | Fallback when Login not used | Settings → Meta / Ads |
+| `META_APP_ID`, `META_APP_SECRET` | Required for Login + Extend ~60d | Settings → Connect with Facebook |
+| `ENCRYPTION_KEY` | Required to encrypt Meta tokens at rest | Meta Login |
+| `MARGIN_GUARD_AUTOPAUSE_ENABLED` | Optional (`false` kills auto-pause host-wide) | Settings → Margin Guard |
 | `TIKTOK_ACCESS_TOKEN`, `TIKTOK_ADVERTISER_ID` | Optional | Settings → TikTok |
 | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Optional enrich | Settings → AliExpress |
 | `CJ_API_KEY` | Optional | Settings → CJ |

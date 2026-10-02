@@ -24,6 +24,9 @@ export const proxy = auth((req) => {
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/guard") ||
+    pathname.startsWith("/api/meta/callback") ||
+    pathname.startsWith("/api/meta/data-deletion") ||
     pathname.startsWith("/api/shopify/callback");
 
   if (publicPath) {

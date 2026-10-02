@@ -4,8 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
-import * as schema from "./schema";
+import * as core from "./schema";
+import * as guard from "./schema-guard";
+import { MARGIN_GUARD_DDL } from "./margin-guard-ddl";
 import { seedIfEmpty } from "./seed";
+
+const schema = { ...core, ...guard };
 
 type DB = LibSQLDatabase<typeof schema>;
 
@@ -287,6 +291,7 @@ export async function ensureDb() {
       await client.executeMultiple(DDL);
       await migrateUsersBilling(client);
       await migrateAdProtection(client);
+      await client.executeMultiple(MARGIN_GUARD_DDL);
       const db = getDb();
       await seedIfEmpty(db);
       return db;

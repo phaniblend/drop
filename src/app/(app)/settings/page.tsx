@@ -10,7 +10,12 @@ import { maskStripeKey, stripeKeyMode } from "@/lib/stripe-keys";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ shopify?: string; shopify_error?: string }>;
+  searchParams: Promise<{
+    shopify?: string;
+    shopify_error?: string;
+    meta?: string;
+    meta_error?: string;
+  }>;
 }) {
   const params = await searchParams;
   const [user, status, billing, gemini, meta, storefrontUrl, shopifyLive] = await Promise.all([
@@ -25,6 +30,10 @@ export default async function SettingsPage({
   if (!user) {
     return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
   }
+
+  const finance = await import("@/lib/margin-guard-v2/finance-config").then((m) =>
+    m.getOrCreateFinanceConfig(user.id),
+  );
 
   const oauthConnected = Boolean(user.shopifyDomain?.trim() && user.shopifyAccessToken?.trim());
   const shopifyOk = oauthConnected || shopifyLive;
@@ -74,6 +83,22 @@ export default async function SettingsPage({
       metaLongLived={Boolean(user.metaAccessToken?.trim()) || meta.longLived}
       canExtendMeta={Boolean(env.metaAppId && env.metaAppSecret && (env.metaToken || user.metaAccessToken))}
       metaAppReady={Boolean(env.metaAppId && env.metaAppSecret)}
+      metaOAuth={{
+        connected: Boolean(user.metaAccessToken?.trim()),
+        flash:
+          params.meta === "connected"
+            ? { tone: "ok" as const, message: "Meta Login connected. Insights sync can run." }
+            : params.meta === "error" || params.meta === "missing_app"
+              ? {
+                  tone: "err" as const,
+                  message:
+                    params.meta === "missing_app"
+                      ? "Meta app id/secret are not configured on this host."
+                      : params.meta_error || "Meta Login failed. Try again.",
+                }
+              : null,
+      }}
+      guardMode={(finance.guardMode as "OFF" | "ALERT_ONLY" | "AUTO_PAUSE") || "ALERT_ONLY"}
       user={{
         displayName: user.displayName,
         storeName: user.storeName,

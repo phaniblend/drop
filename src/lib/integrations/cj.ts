@@ -4,6 +4,7 @@ import { env } from "../env";
 import { matchesNiche, queryWords, titleMatches } from "../aliexpress-search-html";
 import type { FeedProduct } from "../supplier-feed";
 import { normalizeSupplierStock } from "../supplier-stock";
+import { parseSupplierRating } from "../discover-sort";
 
 const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
 
@@ -59,6 +60,8 @@ type CjProduct = {
   warehouseInventoryNum?: number | string;
   listedNum?: number | string;
   productUrl?: string;
+  productStar?: string | number;
+  evaluateRate?: string | number;
 };
 
 function toFeedProduct(item: CjProduct): FeedProduct | null {
@@ -88,6 +91,7 @@ function toFeedProduct(item: CjProduct): FeedProduct | null {
     stockKnown: stock > 0,
     demand: Math.min(1, orders / 5000),
     orders30d: orders > 0 ? orders : undefined,
+    rating: parseSupplierRating(item.productStar ?? item.evaluateRate),
     image,
     tags: ["cj", "live"],
     live: true,

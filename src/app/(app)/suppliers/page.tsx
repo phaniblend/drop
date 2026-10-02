@@ -5,6 +5,7 @@ import { LOW_STOCK_THRESHOLD, isLowStock } from "@/lib/stock-threshold";
 import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
 import { deliveryWindow } from "@/lib/delivery";
+import { RemoveProductButton } from "@/components/remove-product-button";
 
 export default async function SuppliersPage() {
   const vendors = await listSuppliers();
@@ -71,22 +72,32 @@ export default async function SuppliersPage() {
           />
           <div className="overflow-hidden divide-y divide-line">
             {s.skus.map((p) => (
-              <DeskLink
+              <div
                 key={p.id}
-                href={`/catalog/${p.id}`}
                 className="flex items-center gap-3 overflow-hidden px-5 py-3 hover:bg-black/[0.02]"
               >
-                <Thumb src={p.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
-                  <p className="text-xs text-muted">
-                    Your cost {money(p.baseCost + p.shippingCost)} · {deliveryWindow(p.shippingDays).short}
-                  </p>
-                </div>
-                <span className={`font-mono text-sm ${isLowStock(p.stock) ? "text-loss" : "text-muted"}`}>
-                  {p.stock} pcs
-                </span>
-              </DeskLink>
+                <DeskLink
+                  href={`/catalog/${p.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3"
+                >
+                  <Thumb src={p.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
+                    <p className="text-xs text-muted">
+                      Your cost {money(p.baseCost + p.shippingCost)} · {deliveryWindow(p.shippingDays).short}
+                    </p>
+                  </div>
+                  <span className={`font-mono text-sm ${isLowStock(p.stock) ? "text-loss" : "text-muted"}`}>
+                    {p.stock} pcs
+                  </span>
+                </DeskLink>
+                <RemoveProductButton
+                  productId={p.id}
+                  productTitle={p.cleanTitle || p.rawTitle}
+                  label="Remove"
+                  tone="ghost"
+                />
+              </div>
             ))}
             {s.skus.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">No products linked to this supplier yet.</p>

@@ -1,0 +1,440 @@
+// Spec contract for Margin Guard v2 (Section 1.1).
+// Runtime storage is Drizzle + LibSQL in src/lib/db/schema-guard.ts — this app is not on Postgres/Prisma.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  DEGRADED
+  EXPIRED
+  REVOKED
+  UNINSTALLED
+}
+
+enum GuardMode {
+  OFF
+  ALERT_ONLY
+  AUTO_PAUSE
+}
+
+enum MetaPurchaseSignal {
+  OMNI_PURCHASE
+  PURCHASE
+  PIXEL_PURCHASE
+}
+
+enum CostSource {
+  SHOPIFY_UNIT_COST
+  SUPPLIER_SYNC
+  MANUAL
+  CSV_IMPORT
+}
+
+enum AttributionModel {
+  UTM_LAST_VISIT
+  UTM_FIRST_VISIT
+  MANUAL
+}
+
+enum AttributionConfidence {
+  EXACT_ID
+  ID_FROM_NAME_LOOKUP
+  PARTIAL
+  NONE
+}
+
+enum MetaLevel {
+  CAMPAIGN
+  ADSET
+  AD
+}
+
+enum GuardStateKind {
+  MONITORING
+  CANDIDATE
+  ALERTED
+  PAUSED_BY_SETO
+  RESUMED_BY_USER
+  EXTERNALLY_CHANGED
+  BLOCKED
+}
+
+enum GuardVerdict {
+  HOLD_LEARNING
+  HOLD_DISAGREE
+  HOLD_LAG
+  HEALTHY
+  CANDIDATE_NO_SALE
+  CANDIDATE_NEGATIVE_NET
+  BLOCKED_DATA
+}
+
+enum GuardActionKind {
+  ALERT
+  PAUSE
+  UNDO_RESUME
+}
+
+enum GuardActionResult {
+  PENDING
+  SUCCEEDED
+  FAILED
+  SKIPPED_CAP
+  SKIPPED_STATE_CHANGED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  QUEUED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum UtmStatus {
+  OK
+  WARN
+  ERROR
+  UNREADABLE
+}
+
+model ShopifyConnection {
+  id                 String           @id
+  storeId            String           @unique
+  shopDomain         String           @unique
+  primaryDomain      String?
+  accessTokenEnc     String
+  scopes             String
+  ianaTimezone       String
+  currency           String
+  planName           String?
+  installedAt        DateTime
+  uninstalledAt      DateTime?
+  lastReconciledAt   DateTime?
+  webhooksVerifiedAt DateTime?
+  status             ConnectionStatus @default(ACTIVE)
+  createdAt          DateTime
+  updatedAt          DateTime
+}
+
+model MetaConnection {
+  id              String           @id
+  storeId         String           @unique
+  metaUserId      String
+  accessTokenEnc  String
+  tokenType       String
+  tokenExpiresAt  DateTime?
+  grantedScopes   String
+  status          ConnectionStatus @default(ACTIVE)
+  lastErrorCode   String?
+  lastErrorAt     DateTime?
+  createdAt       DateTime
+  updatedAt       DateTime
+  adAccounts      MetaAdAccount[]
+}
+
+model MetaAdAccount {
+  id                     String         @id
+  metaConnectionId       String
+  metaConnection         MetaConnection @relation(fields: [metaConnectionId], references: [id], onDelete: Cascade)
+  name                   String
+  currency               String
+  timezoneName           String
+  timezoneOffsetHoursUtc Float
+  accountStatus          Int
+  guardEnabled           Boolean        @default(false)
+  lastInsightsSyncAt     DateTime?
+  createdAt              DateTime
+  updatedAt              DateTime
+}
+
+model StoreFinanceConfig {
+  storeId                 String                      @id
+  paymentFeePct           Decimal                     @default(0.0290)
+  paymentFixedFee         Decimal                     @default(0.30)
+  currencyConversionPct   Decimal                     @default(0)
+  defaultShippingCost     Decimal                     @default(0)
+  defaultCogsPctOfPrice   Decimal?
+  refundReservePct        Decimal                     @default(0.03)
+  guardMode               GuardMode                   @default(ALERT_ONLY)
+  autoPauseConsentAt      DateTime?
+  autoPauseConsentBy      String?
+  breakEvenMultiplier     Decimal                     @default(1.75)
+  minSpendFloor           Decimal                     @default(10.00)
+  lossTolerancePct        Decimal                     @default(0.25)
+  attributionLagHours     Int                         @default(3)
+  evaluationWindowDays    Int                         @default(3)
+  consecutiveHitsRequired Int                         @default(2)
+  maxAutoPausesPerDay     Int                         @default(3)
+  purchaseSignal          MetaPurchaseSignal          @default(OMNI_PURCHASE)
+  updatedAt               DateTime
+  gatewayOverrides        PaymentGatewayFeeOverride[]
+}
+
+model PaymentGatewayFeeOverride {
+  id       String             @id
+  storeId  String
+  config   StoreFinanceConfig @relation(fields: [storeId], references: [storeId], onDelete: Cascade)
+  gateway  String
+  feePct   Decimal
+  fixedFee Decimal
+
+  @@unique([storeId, gateway])
+}
+
+model VariantCost {
+  id               String     @id
+  storeId          String
+  shopifyVariantId String
+  shopifyProductId String
+  sku              String?
+  unitCogs         Decimal
+  unitShippingCost Decimal    @default(0)
+  source           CostSource
+  effectiveFrom    DateTime
+  effectiveTo      DateTime?
+  createdAt        DateTime
+
+  @@index([storeId, shopifyVariantId, effectiveFrom])
+}
+
+model ShopifyOrder {
+  id                 String           @id
+  storeId            String
+  name               String
+  test               Boolean
+  createdAtUtc       DateTime
+  processedAtUtc     DateTime
+  cancelledAtUtc     DateTime?
+  shopLocalDate      String
+  adAccountLocalDate String?
+  financialStatus    String
+  currency           String
+  subtotal           Decimal
+  totalDiscounts     Decimal
+  shippingCharged    Decimal
+  totalTax           Decimal
+  totalPrice         Decimal
+  totalRefunded      Decimal          @default(0)
+  gateways           String
+  sourceName         String?
+  landingSite        String?
+  referringSite      String?
+  firstUtmSource     String?
+  firstUtmMedium     String?
+  firstUtmCampaign   String?
+  firstUtmTerm       String?
+  firstUtmContent    String?
+  lastUtmSource      String?
+  lastUtmMedium      String?
+  lastUtmCampaign    String?
+  lastUtmTerm        String?
+  lastUtmContent     String?
+  customerIdHash     String?
+  cogsTotal          Decimal          @default(0)
+  shippingCostTotal  Decimal          @default(0)
+  paymentFees        Decimal          @default(0)
+  contributionMargin Decimal          @default(0)
+  costsComplete      Boolean          @default(false)
+  shopifyUpdatedAt   DateTime
+  syncedAt           DateTime
+  lineItems          ShopifyLineItem[]
+  refunds            ShopifyRefund[]
+  attributions       AdAttribution[]
+
+  @@index([storeId, processedAtUtc])
+  @@index([storeId, lastUtmTerm])
+}
+
+model ShopifyLineItem {
+  id                 String      @id
+  orderId            String
+  order              ShopifyOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shopifyProductId   String?
+  shopifyVariantId   String?
+  sku                String?
+  quantity           Int
+  refundedQuantity   Int         @default(0)
+  unitPrice          Decimal
+  totalDiscount      Decimal
+  unitCogsSnapshot   Decimal?
+  unitShipSnapshot   Decimal?
+  costSourceSnapshot CostSource?
+}
+
+model ShopifyRefund {
+  id           String       @id
+  orderId      String
+  order        ShopifyOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAtUtc DateTime
+  amount       Decimal
+  restockedQty Int          @default(0)
+}
+
+model AdAttribution {
+  id         String                 @id
+  orderId    String
+  order      ShopifyOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  platform   String
+  model      AttributionModel
+  campaignId String?
+  adsetId    String?
+  adId       String?
+  confidence AttributionConfidence
+  matchedAt  DateTime
+
+  @@unique([orderId, model])
+  @@index([adsetId])
+}
+
+model MetaEntity {
+  id              String    @id
+  adAccountId     String
+  level           MetaLevel
+  parentId        String?
+  name            String
+  status          String
+  effectiveStatus String
+  dailyBudget     Decimal?
+  landingUrl      String?
+  urlTags         String?
+  mappedProductId String?
+  createdTimeUtc  DateTime
+  updatedTimeUtc  DateTime
+  syncedAt        DateTime
+
+  @@index([adAccountId, level])
+}
+
+model AdPerformanceSnapshot {
+  id                 String    @id
+  adAccountId        String
+  level              MetaLevel
+  entityId           String
+  snapshotAtUtc      DateTime
+  windowStartLocal   String
+  windowEndLocal     String
+  attributionSetting String
+  accountCurrency    String
+  fxToShopCurrency   Decimal   @default(1)
+  spend              Decimal
+  impressions        Int
+  inlineLinkClicks   Int
+  addToCart          Int       @default(0)
+  purchases          Int
+  purchaseValue      Decimal
+  firstSpendAtUtc    DateTime?
+  raw                String
+
+  @@index([entityId, snapshotAtUtc])
+}
+
+model GuardState {
+  adsetId           String         @id
+  adAccountId       String
+  storeId           String
+  state             GuardStateKind @default(MONITORING)
+  consecutiveHits   Int            @default(0)
+  candidateSinceUtc DateTime?
+  floorCrossedAtUtc DateTime?
+  snoozedUntilUtc   DateTime?
+  snoozeSpendMark   Decimal?
+  exempt            Boolean        @default(false)
+  lastEvaluationId  String?
+  updatedAt         DateTime
+}
+
+model GuardEvaluation {
+  id             String       @id
+  adsetId        String
+  evaluatedAtUtc DateTime
+  formulaVersion String
+  inputs         String
+  verdict        GuardVerdict
+  reasonCodes    String
+
+  @@index([adsetId, evaluatedAtUtc])
+}
+
+model GuardAction {
+  id               String            @id
+  adsetId          String
+  adAccountId      String
+  storeId          String
+  evaluationId     String
+  kind             GuardActionKind
+  actor            String
+  mode             GuardMode
+  requestedAtUtc   DateTime
+  executedAtUtc    DateTime?
+  priorStatus      String?
+  metaResponse     String?
+  result           GuardActionResult
+  undoTokenHash    String?           @unique
+  undoExpiresAtUtc DateTime?
+  undoneByActionId String?
+
+  @@index([adAccountId, requestedAtUtc])
+}
+
+model WebhookEvent {
+  id            String        @id
+  dedupeKey     String        @unique
+  topic         String
+  shopDomain    String
+  apiVersion    String?
+  triggeredAt   DateTime?
+  receivedAtUtc DateTime
+  payloadHash   String
+  resourceGid   String?
+  status        WebhookStatus @default(RECEIVED)
+  attempts      Int           @default(0)
+  lastError     String?
+  processedAt   DateTime?
+
+  @@index([shopDomain, topic, receivedAtUtc])
+}
+
+model ComplianceRequest {
+  id                String    @id
+  topic             String
+  shopDomain        String
+  shopifyCustomerId String?
+  ordersRequested   String
+  payload           String
+  receivedAtUtc     DateTime
+  dueByUtc          DateTime
+  completedAtUtc    DateTime?
+}
+
+model UtmCheckResult {
+  id           String    @id
+  adId         String
+  adsetId      String
+  adAccountId  String
+  checkedAtUtc DateTime
+  status       UtmStatus
+  issues       String
+
+  @@index([adAccountId, checkedAtUtc])
+}
+
+model JobRun {
+  id         String    @id
+  job        String
+  scopeKey   String
+  startedAt  DateTime
+  finishedAt DateTime?
+  ok         Boolean?
+  stats      String?
+  error      String?
+
+  @@index([job, scopeKey, startedAt])
+}

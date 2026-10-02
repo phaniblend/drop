@@ -34,6 +34,20 @@ export default async function AdsPage() {
     listActivity(8),
   ]);
 
+  const finance = operator
+    ? await import("@/lib/margin-guard-v2/finance-config").then((m) =>
+        m.getOrCreateFinanceConfig(operator.id),
+      )
+    : null;
+
+  const adsetIds = campaigns.map((c) => c.adSetId).filter(Boolean);
+  const whyByAdset =
+    adsetIds.length > 0
+      ? await import("@/lib/margin-guard-v2/run-evaluate").then((m) =>
+          m.listLatestEvaluationsForAdsets(adsetIds),
+        )
+      : {};
+
   const adsLive = Boolean(metaHealth.live || integrations.tiktok);
 
   return (
@@ -47,6 +61,8 @@ export default async function AdsPage() {
       metaAccountId={metaSync?.adAccountId || env.metaAdAccountId || ""}
       metaError={metaSync?.error || metaHealth.error || null}
       metaFetchedCount={metaSync?.count ?? null}
+      guardMode={finance?.guardMode ?? "ALERT_ONLY"}
+      whyByAdset={whyByAdset}
       guardLog={activity.filter((item) => item.kind === "ads" || item.kind === "alert").slice(0, 6)}
     />
   );

@@ -5,6 +5,7 @@ import { money, pct } from "@/lib/utils";
 import { Badge, Button, Card } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
 import { Thumb } from "@/components/thumb";
+import { RemoveProductButton } from "@/components/remove-product-button";
 
 export default async function CatalogPage({
   searchParams,
@@ -81,6 +82,9 @@ export default async function CatalogPage({
               <th className="px-4 py-3 font-medium">Margin</th>
               <th className="px-4 py-3 font-medium">Stock</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -107,6 +111,14 @@ export default async function CatalogPage({
                 <td className="px-4 py-3 font-mono text-xs">{p.stock}</td>
                 <td className="px-4 py-3">
                   <StatusPill value={p.status} />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <RemoveProductButton
+                    productId={p.id}
+                    productTitle={p.cleanTitle || p.rawTitle}
+                    label="Remove"
+                    tone="ghost"
+                  />
                 </td>
               </tr>
             ))}
