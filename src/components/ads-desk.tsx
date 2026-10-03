@@ -236,9 +236,9 @@ export function AdsDesk({
         <Card className="p-5">
           <p className="text-sm font-semibold text-ink">Finish Meta setup</p>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
-            <li>Add your Meta ad account id in Settings.</li>
-            <li>Add the Meta app id and secret, then Settings → Extend Meta token.</li>
-            <li>Confirm the token can read ads and pause them.</li>
+            <li>Settings → Meta ads → Connect with Facebook (Seto owns the app — you only approve access).</li>
+            <li>After connect, pick your ad account if more than one is listed.</li>
+            <li>Confirm Ads & Guard shows Connected, then run Check all ads.</li>
           </ol>
           {metaError ? (
             <p className="mt-3 text-sm text-loss">{friendlyMetaError(metaError)}</p>

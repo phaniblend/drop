@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const origin = appOrigin();
   return [
     { url: `${origin}/store`, changeFrequency: "daily", priority: 1 },
+    { url: `${origin}/pricing`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${origin}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${origin}/terms`, changeFrequency: "yearly", priority: 0.3 },
     ...STORE_POLICIES.map((item) => ({

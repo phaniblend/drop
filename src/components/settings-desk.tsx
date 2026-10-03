@@ -8,6 +8,7 @@ import {
   extendMetaAccessToken,
   disconnectShopify,
   saveMarginGuardMode,
+  saveTikTokCredentials,
 } from "@/app/actions/settings";
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
@@ -17,6 +18,7 @@ import type { BillingSummary } from "@/lib/paywall";
 import { friendlyMetaError } from "@/lib/meta-status";
 import { StripeKeysForm } from "./stripe-keys-form";
 import { BillingPortalButton } from "./billing-portal-button";
+import { MetaAdAccountPicker } from "./meta-ad-account-picker";
 
 type Status = {
   store?: boolean;
@@ -63,6 +65,7 @@ export function SettingsDesk({
   metaAppReady = false,
   metaOAuth,
   guardMode = "ALERT_ONLY",
+  metaAccounts = [],
   stripeKeys,
 }: {
   status: Status;
@@ -75,6 +78,7 @@ export function SettingsDesk({
   metaAppReady?: boolean;
   metaOAuth?: MetaOAuthProps;
   guardMode?: "OFF" | "ALERT_ONLY" | "AUTO_PAUSE";
+  metaAccounts?: Array<{ id: string; name: string; currency: string; guardEnabled?: boolean }>;
   stripeKeys?: { publishableMasked: string; secretMasked: string; mode: "off" | "test" | "live" };
   user: {
     displayName: string;
@@ -96,6 +100,8 @@ export function SettingsDesk({
   const [shopInput, setShopInput] = useState(shopifyOAuth?.domain || "");
   const [mode, setMode] = useState(guardMode);
   const [consentAuto, setConsentAuto] = useState(false);
+  const [tiktokToken, setTiktokToken] = useState("");
+  const [tiktokAdv, setTiktokAdv] = useState("");
 
   const [clearConfirm, setClearConfirm] = useState("");
   const [repairMsg, setRepairMsg] = useState("");
@@ -136,7 +142,10 @@ export function SettingsDesk({
     {
       name: "TikTok ads",
       ok: status.tiktok,
-      why: "Reads spend and can pause TikTok ads that are losing money.",
+      why: status.tiktok
+        ? "Reads spend and can pause TikTok ads that are losing money."
+        : "Paste a Marketing API access token and advertiser id to connect your own TikTok ads account.",
+      tiktokConnect: true as const,
     },
     {
       name: "AliExpress",
@@ -145,20 +154,24 @@ export function SettingsDesk({
         ? "Live Discover search + Open API catalog enrich when you import."
         : "Public search works. Official catalog enrich needs AliExpress app keys in Settings on this desk.",
     },
-    {
-      name: "CJ Dropshipping",
-      ok: Boolean(status.cj),
-      why: status.cj
-        ? "Second live supplier catalog + paste-URL import."
-        : "Optional. Host can add a CJ key to search that catalog and import CJ URLs.",
-    },
-    {
-      name: "SerpApi (visual match)",
-      ok: status.serp,
-      why: status.serp
-        ? "Google Lens reverse image search is live on Discover."
-        : "Used on Discover for competitor creative reverse search. Host can add a visual-search key.",
-    },
+    ...(status.cj
+      ? [
+          {
+            name: "CJ Dropshipping",
+            ok: true,
+            why: "Second live supplier catalog + paste-URL import.",
+          },
+        ]
+      : []),
+    ...(status.serp
+      ? [
+          {
+            name: "SerpApi (visual match)",
+            ok: true,
+            why: "Google Lens reverse image search is live on Discover.",
+          },
+        ]
+      : []),
     {
       name: "Listing copy",
       ok: status.ai,
@@ -166,7 +179,7 @@ export function SettingsDesk({
         ? `Title and ad-angle rewrite is live${status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""}.`
         : status.aiConfigured
           ? `Key is set but the copy service failed a health check${status.aiError ? ` (${status.aiError})` : ""}. Offline benefit copy still runs.`
-          : "Offline benefit-based copy runs today. Host can add a copy key to turn on live rewrites.",
+          : "Offline benefit-based copy runs today.",
     },
     {
       name: "Listing import",
@@ -208,11 +221,8 @@ export function SettingsDesk({
               {Number.isFinite(billing.productsLimit)
                 ? `${billing.productsUsed} / ${billing.productsLimit} product imports`
                 : `${billing.productsUsed} product imports (unlimited)`}
-              {billing.period === "month" ? " this month" : " on this trial"}. Lens{" "}
-              {Number.isFinite(billing.lensLimit)
-                ? `${billing.lensUsed} / ${billing.lensLimit}`
-                : `${billing.lensUsed} / ∞`}
-              . Margin Guard {billing.campaignsUsed} /{" "}
+              {billing.period === "month" ? " this month" : " on this trial"}. Margin Guard{" "}
+              {billing.campaignsUsed} /{" "}
               {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
             </p>
             <p className="mt-2 text-xs text-faint">
@@ -222,12 +232,6 @@ export function SettingsDesk({
                   ? "Stripe is in test mode — upgrades will not take real cards."
                   : "Subscription checkout is not connected yet."}
             </p>
-            <ul className="mt-2 space-y-0.5 text-xs text-muted">
-              <li>Platform secret: {billing.health?.mode === "live" ? "Live" : billing.health?.mode === "test" ? "Test" : "Missing"}</li>
-              <li>Starter price: {billing.health?.hasStarterPrice ? "Set" : "Missing"}</li>
-              <li>Scaler price: {billing.health?.hasScalerPrice ? "Set" : "Missing"}</li>
-              <li>Webhook: {billing.health?.hasWebhook ? "Set" : "Missing"}</li>
-            </ul>
           </div>
           <div className="flex flex-col items-stretch gap-2">
           {billing.hasCustomer ? <BillingPortalButton /> : null}
@@ -360,9 +364,19 @@ export function SettingsDesk({
                     {metaOAuth.flash.message}
                   </p>
                 ) : null}
+                {metaAccounts.length ? (
+                  <MetaAdAccountPicker
+                    accounts={metaAccounts}
+                    selectedId={metaAccounts.find((a) => a.guardEnabled)?.id || metaAccounts[0]?.id || ""}
+                  />
+                ) : null}
+                <p className="mt-2 text-[11px] text-faint">
+                  Seto can read ad spend and pause ad sets you allow. Disconnect anytime with Reconnect → revoke in
+                  Facebook, or contact support to clear the desk token.
+                </p>
               </div>
             ) : null}
-            {"metaExtend" in c && c.metaExtend ? (
+            {"metaExtend" in c && c.metaExtend && status.metaStatus === "connected" ? (
               metaAppReady ? (
                 <Button
                   className="mt-3 h-8 px-3 text-xs"
@@ -380,13 +394,48 @@ export function SettingsDesk({
                     })
                   }
                 >
-                  {status.metaStatus === "connected" ? "Extend Meta token (~60d)" : "Extend pasted token"}
+                  Extend Meta token (~60d)
                 </Button>
-              ) : (
-                <p className="mt-3 text-xs text-muted">
-                  Reconnect Meta needs the Facebook app to be enabled for this desk. Paste a token after that, or ask support if the button stays hidden.
-                </p>
-              )
+              ) : null
+            ) : null}
+            {"tiktokConnect" in c && c.tiktokConnect && !c.ok ? (
+              <form
+                className="mt-3 space-y-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  start(async () => {
+                    setMsg("");
+                    try {
+                      const res = await saveTikTokCredentials({
+                        accessToken: tiktokToken,
+                        advertiserId: tiktokAdv,
+                      });
+                      setMsg(res.message);
+                      setTiktokToken("");
+                    } catch (err) {
+                      setMsg(err instanceof Error ? err.message : "Could not save TikTok.");
+                    }
+                  });
+                }}
+              >
+                <input
+                  className={inputClass}
+                  placeholder="TikTok Marketing API access token"
+                  value={tiktokToken}
+                  onChange={(e) => setTiktokToken(e.target.value)}
+                  autoComplete="off"
+                />
+                <input
+                  className={inputClass}
+                  placeholder="Advertiser id"
+                  value={tiktokAdv}
+                  onChange={(e) => setTiktokAdv(e.target.value)}
+                  autoComplete="off"
+                />
+                <Button type="submit" className="h-8 px-3 text-xs" tone="accent" disabled={pending}>
+                  Connect TikTok
+                </Button>
+              </form>
             ) : null}
             {"href" in c && c.href ? (
               <a href={c.href} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-accent">
@@ -444,7 +493,6 @@ export function SettingsDesk({
               />
               <span>
                 I understand Seto may pause Meta ad sets that fail dual-signal checks. I can turn this off anytime.
-                Host kill switch: <code className="font-mono text-[11px]">MARGIN_GUARD_AUTOPAUSE_ENABLED</code>.
               </span>
             </label>
           ) : null}
@@ -566,7 +614,7 @@ export function SettingsDesk({
               checked={form.daypartingEnabled}
               onChange={(e) => setForm({ ...form, daypartingEnabled: e.target.checked })}
             />
-            Dayparting engine — pause ad sets 1:00–6:00 AM store time, resume at 6:00 AM (never wakes killed or manually paused ads)
+            Quiet hours (dayparting) — pause ad sets 1:00–6:00 AM store time, resume at 6:00 AM (never wakes killed or manually paused ads)
           </label>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={pending}>

@@ -20,25 +20,35 @@ export function Thumb({
   alt,
   className,
   priority = false,
+  /** Product photos default to contain so AliExpress shots are not cropped. */
+  fit = "contain",
 }: {
   src?: string | null;
   alt: string;
   className?: string;
   priority?: boolean;
+  fit?: "contain" | "cover";
 }) {
   const url = proxiedImageUrl(absoluteImageUrl(src));
   const [failed, setFailed] = useState(false);
   const show = Boolean(url) && !failed;
+  const objectFit = fit === "cover" ? "object-cover" : "object-contain";
 
   return (
-    <div className={cn("relative overflow-hidden bg-surface-2 [&_img]:object-cover", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden bg-surface-2",
+        fit === "cover" ? "[&_img]:object-cover" : "[&_img]:object-contain",
+        className,
+      )}
+    >
       {show ? (
         useNextImage(url) ? (
           <Image
             src={url}
             alt={alt}
             fill
-            className="object-cover"
+            className={objectFit}
             sizes="(max-width: 768px) 100vw, 280px"
             priority={priority}
             onError={() => setFailed(true)}
@@ -53,7 +63,7 @@ export function Thumb({
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : "auto"}
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover"
+            className={cn("absolute inset-0 h-full w-full", objectFit)}
             onError={() => setFailed(true)}
           />
         )

@@ -10,7 +10,7 @@ import {
 } from "@/app/actions/products";
 import { postJson } from "@/lib/retry-fetch";
 import { money, pct } from "@/lib/utils";
-import { unitMargin } from "@/lib/money";
+import { unitMargin, breakevenRoas } from "@/lib/money";
 import { deliveryWindow } from "@/lib/delivery";
 import { MIN_PUBLISH_PRICE, screenListing } from "@/lib/product-screen";
 import { humanizeVariantLabel, labeledVariantName } from "@/lib/variant-label";
@@ -74,6 +74,7 @@ export function ProductEditor({
   const shipNum = Number(shipping) || 0;
   const retailNum = Number(retail) || 0;
   const liveEcon = unitMargin(retailNum, baseCost, shipNum);
+  const beRoas = breakevenRoas(retailNum, baseCost, shipNum);
   const shipUnknown = shipNum <= 0;
 
   function runPublish() {
@@ -94,6 +95,18 @@ export function ProductEditor({
         setPublishMsg({
           tone: "warn",
           text: "Enter ship cost, or check the box to publish with shipping unknown.",
+        });
+        requestAnimationFrame(() => {
+          document.getElementById("ship-cost")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          document.getElementById("ship-cost")?.focus();
+        });
+        return;
+      }
+      const sellable = product.variants.reduce((s, v) => s + Math.max(0, v.inventoryCount), 0);
+      if (sellable <= 0) {
+        setPublishMsg({
+          tone: "loss",
+          text: "No variant has stock. Fix stock before publishing — shoppers would have nothing to buy.",
         });
         return;
       }
@@ -173,6 +186,11 @@ export function ProductEditor({
         title={product.cleanTitle ?? product.rawTitle}
         description={product.descriptionHtml ?? ""}
         price={product.retailPrice}
+        productUrl={
+          typeof window !== "undefined"
+            ? `${window.location.origin}${storeHref.replace(/\/$/, "")}/${product.id}`
+            : `${storeHref.replace(/\/$/, "")}/${product.id}`
+        }
         initialHooks={(() => {
           try {
             const raw = (product as { adAnglesJson?: string | null }).adAnglesJson;
@@ -303,6 +321,14 @@ export function ProductEditor({
                 <dt className="text-faint">Break-even ad cost / sale</dt>
                 <dd>{liveEcon.profit > 0 ? money(liveEcon.profit) : "Price does not cover cost + fees"}</dd>
               </div>
+              <div className="col-span-2">
+                <dt className="text-faint">Break-even ROAS</dt>
+                <dd>
+                  {Number.isFinite(beRoas) && beRoas > 0
+                    ? `${beRoas.toFixed(2)}x (Ads Manager target)`
+                    : "—"}
+                </dd>
+              </div>
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-2">
               <Field label="Selling price">
@@ -312,12 +338,22 @@ export function ProductEditor({
                 <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
               <Field label="Ship $">
-                <input className={inputClass} value={shipping} onChange={(e) => setShipping(e.target.value)} />
+                <input
+                  id="ship-cost"
+                  className={`${inputClass} ${shipUnknown && !allowUnknownShipping ? "border-loss/50" : ""}`}
+                  value={shipping}
+                  onChange={(e) => setShipping(e.target.value)}
+                />
               </Field>
             </div>
             {shipUnknown ? (
               <p className="mt-2 text-xs text-warn">
                 Supplier freight was not available — margin is estimated until you enter ship cost.
+              </p>
+            ) : null}
+            {shipUnknown && !allowUnknownShipping ? (
+              <p className="mt-1 text-xs text-loss">
+                Enter ship cost above, or check “Publish without a ship cost”, before publishing.
               </p>
             ) : null}
             {shipUnknown ? (

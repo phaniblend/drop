@@ -18,6 +18,12 @@ export default async function StoreCartPage({
       homeHref={storeHomePath(brand.slug)}
       canceled={canceled === "1"}
       added={added === "1"}
+      checkoutEnabled={brand.stripeMode === "live"}
+      checkoutBlockedReason={
+        brand.stripeMode === "test"
+          ? "This store is still in Stripe test mode. Live keys are required before shoppers can pay."
+          : "Checkout is offline until the store connects live Stripe keys in Settings."
+      }
     />
   );
 }

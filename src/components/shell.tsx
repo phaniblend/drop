@@ -163,13 +163,17 @@ export function Shell({
           })}
         </nav>
         <div className="mt-3 rounded-xl border border-line bg-surface px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3">
-          <p className="text-[11px] uppercase tracking-wider text-faint">Connections</p>
+          <p className="text-[11px] uppercase tracking-wider text-faint">Setup</p>
           <p className="mt-1 text-sm text-ink">
-            {liveCount === 0 ? "No APIs connected" : `${liveCount} live API${liveCount === 1 ? "" : "s"}`}
-            {stripeMode === "test" ? " · Checkout test" : stripeMode === "live" ? " · Checkout live" : ""}
+            {liveCount === 0 ? "Connect Stripe + ads" : `${liveCount} live connection${liveCount === 1 ? "" : "s"}`}
+            {stripeMode === "test"
+              ? " · Checkout sandbox"
+              : stripeMode === "live"
+                ? " · Checkout live"
+                : " · Checkout off"}
           </p>
-          <DeskLink href="/settings" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
-            Integrations →
+          <DeskLink href="/#setup" className="mt-2 inline-block text-xs text-accent hover:text-accent-2">
+            Open checklist →
           </DeskLink>
         </div>
       </aside>

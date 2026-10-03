@@ -23,7 +23,11 @@ export function StoreFooter({
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 text-xs text-muted">
         <p>
           {storeName}
-          {stripeMode === "test" ? " · Card checkout is in test mode" : ""}
+          {stripeMode === "live"
+            ? ""
+            : stripeMode === "test"
+              ? " · Preview · checkout not live"
+              : " · Preview · checkout offline"}
         </p>
         <nav className="flex flex-wrap gap-3">
           {POLICIES.map((item) => (

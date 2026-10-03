@@ -111,7 +111,8 @@ export async function listProducts() {
   }
   return rows.map((p) => {
     const vars = byProduct.get(p.id) ?? [];
-    const stock = vars.reduce((s, v) => s + v.inventoryCount, 0);
+    const stock = vars.reduce((s, v) => s + Math.max(0, v.inventoryCount), 0);
+    const sellableVariants = vars.filter((v) => v.inventoryCount > 0).length;
     const economics = unitMargin(p.retailPrice, p.baseCost, p.shippingCost);
     let thumb = p.imageUrl;
     if (!thumb) {
@@ -126,7 +127,15 @@ export async function listProducts() {
         thumb = null;
       }
     }
-    return { ...p, imageUrl: thumb || p.imageUrl, variants: vars, stock, economics };
+    return {
+      ...p,
+      imageUrl: thumb || p.imageUrl,
+      variants: vars,
+      stock,
+      sellableVariants,
+      outOfStock: stock <= 0,
+      economics,
+    };
   });
 }
 
@@ -698,7 +707,7 @@ import { applyExplicitRetailPrice } from "../pricing";
 
 /**
  * Persist operator pricing. Explicit retailPrice wins over cost × markup.
- * The same selling price is applied to every variant (no per-variant overrides yet).
+ * Variant prices scale with cost so accessory SKUs do not inherit the hero price.
  * Markup is stored for display; editing markup in the UI recomputes price client-side.
  */
 export async function writeProductPricing(
@@ -720,6 +729,13 @@ export async function writeProductPricing(
     markupMultiplier: Number(input.markupMultiplier),
     firstVariantCost: firstCost,
   });
+  const { scaleVariantPrices } = await import("../variant-pricing");
+  const scaled = scaleVariantPrices(
+    vars.map((v) => ({ cost: v.variantCost })),
+    retailPrice,
+    shippingCost,
+    markupMultiplier,
+  );
   await db
     .update(products)
     .set({
@@ -729,8 +745,11 @@ export async function writeProductPricing(
     })
     .where(eq(products.id, productId));
   await Promise.all(
-    vars.map((v) =>
-      db.update(productVariants).set({ variantPrice: retailPrice }).where(eq(productVariants.id, v.id)),
+    vars.map((v, i) =>
+      db
+        .update(productVariants)
+        .set({ variantPrice: scaled[i] ?? retailPrice })
+        .where(eq(productVariants.id, v.id)),
     ),
   );
   return { retailPrice, markupMultiplier, shippingCost };

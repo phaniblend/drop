@@ -14,6 +14,7 @@ export const proxy = auth((req) => {
     pathname === "/login" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
+    pathname === "/pricing" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/store") ||

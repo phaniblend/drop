@@ -15,10 +15,57 @@ import { num, parseCsv } from "@/lib/csv";
 import { assertProductQuota, isBillingError } from "@/lib/billing";
 import type { PaywallPayload } from "@/lib/paywall";
 import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
+import { partitionVariants, scaleVariantPrices, uniquifyVariantNames } from "@/lib/variant-pricing";
 
 function paywallResult(error: unknown): { paywall: PaywallPayload } {
   if (isBillingError(error)) return { paywall: error.paywall };
   throw error;
+}
+
+function importVariantsFromParsed(parsed: {
+  baseCost: number;
+  shippingCost: number;
+  variants: Array<{ skuId: string; attributes: string; cost: number; stock: number; imageUrl?: string }>;
+}) {
+  const retail = suggestedRetail(parsed.baseCost, parsed.shippingCost, 3);
+  const raw =
+    parsed.variants.length > 0
+      ? parsed.variants.map((v) => ({
+          skuId: v.skuId,
+          name: v.attributes,
+          attributes: v.attributes,
+          cost: v.cost,
+          stock: v.stock,
+          imageUrl: v.imageUrl,
+        }))
+      : [
+          {
+            skuId: "DEFAULT",
+            name: "Default",
+            attributes: "Default",
+            cost: parsed.baseCost,
+            stock: 0,
+            imageUrl: undefined as string | undefined,
+          },
+        ];
+  const { primary } = partitionVariants(raw);
+  const names = uniquifyVariantNames(primary.map((v) => v.name || "Option"));
+  const prices = scaleVariantPrices(
+    primary.map((v) => ({ cost: v.cost })),
+    retail,
+    parsed.shippingCost,
+    3,
+  );
+  const variants = primary.map((v, i) => ({
+    skuId: v.skuId,
+    name: names[i]!,
+    cost: v.cost,
+    price: prices[i] ?? suggestedRetail(v.cost, parsed.shippingCost, 3),
+    stock: v.stock,
+    imageUrl: v.imageUrl,
+  }));
+  const baseCost = variants[0]?.cost ?? parsed.baseCost;
+  return { retail: suggestedRetail(baseCost, parsed.shippingCost, 3), baseCost, variants };
 }
 
 export async function importFromSupplierUrl(url: string) {
@@ -31,12 +78,12 @@ export async function importFromSupplierUrl(url: string) {
     }
   }
   const parsed = await scrapeSupplierUrl(url);
+  const mapped = importVariantsFromParsed(parsed);
   const copy = await enrichCopy({
     rawTitle: parsed.title,
-    cost: parsed.baseCost,
+    cost: mapped.baseCost,
     shipping: parsed.shippingCost,
   });
-  const retail = suggestedRetail(parsed.baseCost, parsed.shippingCost, 3);
   const id = await insertImportedProduct({
     rawTitle: parsed.title,
     cleanTitle: copy.title,
@@ -45,42 +92,33 @@ export async function importFromSupplierUrl(url: string) {
     supplierSource: parsed.source,
     imageUrl: parsed.galleryImages[0],
     gallery: parsed.galleryImages,
-    baseCost: parsed.baseCost,
+    baseCost: mapped.baseCost,
     shippingCost: parsed.shippingCost,
-    retailPrice: retail,
+    retailPrice: mapped.retail,
     shippingDays: parsed.shippingDays,
-    variants:
-      parsed.variants.length > 0
-        ? parsed.variants.map((v) => ({
-            skuId: v.skuId,
-            name: v.attributes,
-            cost: v.cost,
-            price: suggestedRetail(v.cost, parsed.shippingCost, 3),
-            stock: v.stock,
-            imageUrl: v.imageUrl,
-          }))
-        : [
-            {
-              skuId: "DEFAULT",
-              name: "Default",
-              cost: parsed.baseCost,
-              price: retail,
-              stock: 0,
-            },
-          ],
+    variants: mapped.variants,
   });
   const db = await ensureDb();
+  const priceNote =
+    existing && existing.baseCost > 0 && Math.abs(existing.baseCost - mapped.baseCost) > 0.05
+      ? ` Cost updated from $${existing.baseCost.toFixed(2)} to $${mapped.baseCost.toFixed(2)}.`
+      : "";
   await logActivity(db, {
     kind: "import",
     message: existing
-      ? `Updated existing draft for ${copy.title} (${parsed.importPath === "page" ? "listing page" : "official catalog"}).`
+      ? `Updated existing draft for ${copy.title} (${parsed.importPath === "page" ? "listing page" : "official catalog"}).${priceNote}`
       : `Imported ${copy.title} (${parsed.importPath === "page" ? "listing page" : "official catalog"}).`,
     href: `/catalog/${id}`,
   });
   revalidatePath("/catalog");
   revalidatePath("/");
   revalidatePath("/", "layout");
-  return { id, reused: Boolean(existing) };
+  return {
+    id,
+    reused: Boolean(existing),
+    costWas: existing?.baseCost ?? null,
+    costNow: mapped.baseCost,
+  };
 }
 
 export async function importScrapedListing(listing: ScrapedListing) {
@@ -93,12 +131,12 @@ export async function importScrapedListing(listing: ScrapedListing) {
     }
   }
   const parsed = listingToParsed(listing);
+  const mapped = importVariantsFromParsed(parsed);
   const copy = await enrichCopy({
     rawTitle: parsed.title,
-    cost: parsed.baseCost,
+    cost: mapped.baseCost,
     shipping: parsed.shippingCost,
   });
-  const retail = suggestedRetail(parsed.baseCost, parsed.shippingCost, 3);
   const id = await insertImportedProduct({
     rawTitle: parsed.title,
     cleanTitle: copy.title,
@@ -107,29 +145,11 @@ export async function importScrapedListing(listing: ScrapedListing) {
     supplierSource: parsed.source,
     imageUrl: parsed.galleryImages[0],
     gallery: parsed.galleryImages,
-    baseCost: parsed.baseCost,
+    baseCost: mapped.baseCost,
     shippingCost: parsed.shippingCost,
-    retailPrice: retail,
+    retailPrice: mapped.retail,
     shippingDays: parsed.shippingDays,
-    variants:
-      parsed.variants.length > 0
-        ? parsed.variants.map((v) => ({
-            skuId: v.skuId,
-            name: v.attributes,
-            cost: v.cost,
-            price: suggestedRetail(v.cost, parsed.shippingCost, 3),
-            stock: v.stock,
-            imageUrl: v.imageUrl,
-          }))
-        : [
-            {
-              skuId: "DEFAULT",
-              name: "Default",
-              cost: parsed.baseCost,
-              price: retail,
-              stock: 0,
-            },
-          ],
+    variants: mapped.variants,
   });
   const db = await ensureDb();
   await logActivity(db, {

@@ -25,8 +25,11 @@ async function copyAndOpen(text: string, url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function fullScript(hook: AdHookAngle) {
-  return formatScript([hook.hook, hook.script]);
+function fullScript(hook: AdHookAngle, productUrl?: string) {
+  const body = formatScript([hook.hook, hook.script]);
+  if (!productUrl) return body;
+  const tagged = `${productUrl}${productUrl.includes("?") ? "&" : "?"}utm_source=seto&utm_medium=paid&utm_campaign=${encodeURIComponent(hook.label)}&utm_content=${encodeURIComponent(hook.id)}`;
+  return `${body}\n\nShop: ${tagged}`;
 }
 
 export function AdHooksPanel({
@@ -34,12 +37,14 @@ export function AdHooksPanel({
   title,
   description,
   price,
+  productUrl = "",
   initialHooks = [],
 }: {
   productId?: string;
   title: string;
   description: string;
   price: number;
+  productUrl?: string;
   initialHooks?: AdHookAngle[];
 }) {
   const [pending, start] = useTransition();
@@ -105,9 +110,9 @@ export function AdHooksPanel({
       />
       <div className="space-y-3 p-5">
         <p className="text-sm text-muted">
-          Three angles ready to post. <strong className="font-medium text-ink">Post on Meta</strong> or{" "}
-          <strong className="font-medium text-ink">Post on TikTok</strong> copies the script and opens Ads
-          Manager — paste it into primary text, upload your clip, set budget.
+          {hooks.length
+            ? "Suggested angles — edit freely in Ads Manager after you paste. Post buttons copy script plus a UTM product link."
+            : "No angles yet. Write ad angles for three short-form hooks you can paste into Meta or TikTok."}
         </p>
         {reason ? <p className="text-xs text-warn">{reason}</p> : null}
         {pending ? (
@@ -120,7 +125,7 @@ export function AdHooksPanel({
         {posted ? <p className="text-xs text-profit">{posted}</p> : null}
         {open && hooks.length > 0
           ? hooks.map((hook) => {
-              const full = fullScript(hook);
+              const full = fullScript(hook, productUrl);
               return (
                 <div key={hook.id} className="rounded-xl border border-line bg-bg p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -133,13 +138,20 @@ export function AdHooksPanel({
                   <pre className="mt-3 whitespace-pre-wrap font-sans text-sm text-muted">
                     {formatScript(hook.script)}
                   </pre>
+                  {productUrl ? (
+                    <p className="mt-2 break-all font-mono text-[10px] text-faint">
+                      UTM link included when you copy / post.
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       tone="accent"
                       className="h-9 px-3 text-xs"
                       onClick={() => {
                         void copyAndOpen(full, META_ADS);
-                        setPosted("Script copied — paste it in Meta Ads Manager, then upload your creative.");
+                        setPosted(
+                          "Script + UTM link copied — paste in Meta Ads Manager, then upload your creative.",
+                        );
                       }}
                     >
                       Post on Meta
@@ -149,7 +161,9 @@ export function AdHooksPanel({
                       className="h-9 px-3 text-xs"
                       onClick={() => {
                         void copyAndOpen(full, TIKTOK_ADS);
-                        setPosted("Script copied — paste it in TikTok Ads Manager, then upload your creative.");
+                        setPosted(
+                          "Script + UTM link copied — paste it in TikTok Ads Manager, then upload your creative.",
+                        );
                       }}
                     >
                       Post on TikTok

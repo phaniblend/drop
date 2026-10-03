@@ -10,7 +10,7 @@ import {
 } from "@/app/actions/products";
 import { postJson } from "@/lib/retry-fetch";
 import { visualSearch } from "@/app/actions/ops";
-import { unitMargin, suggestedRetail } from "@/lib/money";
+import { unitMargin, suggestedRetail, breakevenRoas } from "@/lib/money";
 import { DISCOVER_COST_CEILING, discoverShipping, discoverShippingKnown, plausibleDiscoverCost } from "@/lib/discover-cost";
 import { licensedBrandWarning } from "@/lib/product-screen";
 import { DISCOVER_SORTS, sortDiscoverItems, type DiscoverSortId, discoverMetrics } from "@/lib/discover-sort";
@@ -64,6 +64,48 @@ export function DiscoverDesk({
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
   const [savingKey, setSavingKey] = useState("");
   const [statusHint, setStatusHint] = useState("");
+  const [preview, setPreview] = useState<{
+    title: string;
+    supplierUrl: string;
+    costLabel: string;
+    baseCost: number;
+    shippingCost: number;
+    shippingDays: number;
+    shippingUnknown?: boolean;
+    stockTotal: number;
+    accessoriesExcluded: number;
+    variants: Array<{ name: string; cost: number; stock: number }>;
+    images: string[];
+    feedCost?: number;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState("");
+  const [pricedOnly, setPricedOnly] = useState(false);
+  const [minRating4, setMinRating4] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("seto_discover_filters_v1");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { pricedOnly?: boolean; minRating4?: boolean; inStockOnly?: boolean };
+      if (parsed.pricedOnly) setPricedOnly(true);
+      if (parsed.minRating4) setMinRating4(true);
+      if (parsed.inStockOnly) setInStockOnly(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "seto_discover_filters_v1",
+        JSON.stringify({ pricedOnly, minRating4, inStockOnly }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [pricedOnly, minRating4, inStockOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,7 +159,18 @@ export function DiscoverDesk({
     };
   }, [query, niche, showSaved]);
 
-  const rows = sortDiscoverItems(showSaved ? savedRows : (liveRows ?? []), sort);
+  const sorted = sortDiscoverItems(showSaved ? savedRows : (liveRows ?? []), sort);
+  const rows = sorted.filter((p) => {
+    const cost = plausibleDiscoverCost(
+      (p.variants ?? []).map((v) => v.cost).filter((c) => c > 0).length
+        ? Math.min(...(p.variants ?? []).map((v) => v.cost).filter((c) => c > 0))
+        : p.cost,
+    );
+    if (pricedOnly && !(cost > 0)) return false;
+    if (minRating4 && !(p.rating && p.rating >= 4)) return false;
+    if (inStockOnly && (p.stockKnown === false || p.stock <= 0)) return false;
+    return true;
+  });
 
   async function toggleSave(item: FeedProduct) {
     const key = savedListingKey(item);
@@ -225,17 +278,15 @@ export function DiscoverDesk({
             active={statusHint}
             onToggle={setStatusHint}
           />
-          <StatusHint
-            label={cjLive ? "CJ on" : "CJ optional"}
-            tone={cjLive ? "profit" : "line"}
-            detail={
-              cjLive
-                ? "Search mixes AliExpress with CJ Dropshipping. Pick whichever cost and ship time looks better."
-                : "AliExpress is the default. Connect a CJ key in Settings if you want their catalog mixed in — you can import without it."
-            }
-            active={statusHint}
-            onToggle={setStatusHint}
-          />
+          {cjLive ? (
+            <StatusHint
+              label="CJ on"
+              tone="profit"
+              detail="Search mixes AliExpress with CJ Dropshipping. Pick whichever cost and ship time looks better."
+              active={statusHint}
+              onToggle={setStatusHint}
+            />
+          ) : null}
           <StatusHint
             label="Clean titles"
             tone="profit"
@@ -251,15 +302,7 @@ export function DiscoverDesk({
               active={statusHint}
               onToggle={setStatusHint}
             />
-          ) : (
-            <StatusHint
-              label="Visual match soon"
-              tone="line"
-              detail="Reverse image search is not connected on this desk yet. Use the search bar or a supplier URL."
-              active={statusHint}
-              onToggle={setStatusHint}
-            />
-          )}
+          ) : null}
         </div>
         {statusHint ? <p className="text-xs leading-5 text-muted">{statusHint}</p> : null}
       </div>
@@ -327,21 +370,36 @@ export function DiscoverDesk({
         <p className="text-sm text-muted">
           {rows.length} listing{rows.length === 1 ? "" : "s"}
           {showSaved ? " saved" : ""}
+          {sorted.length !== rows.length ? ` (of ${sorted.length})` : ""}
         </p>
-        <label className="flex items-center gap-2 text-sm text-ink">
-          <span className="font-medium">Sort by</span>
-          <select
-            className={`${inputClass} h-10 w-[14rem] border-accent/40 py-1 text-sm font-medium`}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as DiscoverSortId)}
-          >
-            {DISCOVER_SORTS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={pricedOnly} onChange={(e) => setPricedOnly(e.target.checked)} />
+            Priced only
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={minRating4} onChange={(e) => setMinRating4(e.target.checked)} />
+            4★+
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} />
+            In stock
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <span className="font-medium">Sort by</span>
+            <select
+              className={`${inputClass} h-10 w-[14rem] border-accent/40 py-1 text-sm font-medium`}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as DiscoverSortId)}
+            >
+              {DISCOVER_SORTS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((p) => {
@@ -360,13 +418,14 @@ export function DiscoverDesk({
                 ? "Verify cost on import"
                 : "On import"
               : variantCosts.length > 1 && maxCost - minCost > 0.01
-                ? `from ${money(displayCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : ` + ~${money(shipping)} ship (est.)`}`
+                ? `from ${money(displayCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : ` + ~${money(shipping)} ship (est.)`} · feed est.`
                 : shipKnown
-                  ? `${money(displayCost)} + ~${money(p.shipping)} ship`
-                  : `${money(displayCost)} + ~${money(shipping)} ship (est.)`;
+                  ? `${money(displayCost)} + ~${money(p.shipping)} ship · feed est.`
+                  : `${money(displayCost)} + ~${money(shipping)} ship (est.) · feed est.`;
           const retail = displayCost > 0 ? suggestedRetail(displayCost, shipping, 3) : 0;
           const econ = unitMargin(retail, displayCost, shipping);
-          const score = discoverMetrics(p).score;
+          const metrics = discoverMetrics(p);
+          const score = metrics.score;
           const licensed = licensedBrandWarning(p.title, p.cleanTitle);
           const shipLabel =
             p.shippingDays > 0 ? `${p.shippingDays}d ship` : "est. ship";
@@ -379,16 +438,28 @@ export function DiscoverDesk({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold">{p.cleanTitle}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-muted">{p.title}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] text-muted" title={p.title}>
+                      {p.title}
+                    </p>
                     <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
                       {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
-                      {p.rating ? ` · ${p.rating.toFixed(1)} rating` : ""}
+                      {p.rating ? ` · ${p.rating.toFixed(1)}★` : ""}
+                      {p.orders30d ? ` · ${p.orders30d.toLocaleString()} sold/30d` : ""}
+                      {p.shippingDays > 0 ? ` · ${p.shippingDays}d` : ""}
                       {p.stockKnown === false ? " · confirm stock on import" : ""}
                     </p>
                   </div>
-                  <Badge tone={score >= 75 ? "profit" : score >= 50 ? "warn" : "line"}>
-                    {score > 0 ? score : "—"}
-                  </Badge>
+                  <span
+                    title={
+                      score > 0
+                        ? `Score from ${metrics.scoreDrivers?.join(", ") || "margin"}`
+                        : "Needs a priced listing"
+                    }
+                  >
+                    <Badge tone={score >= 75 ? "profit" : score >= 50 ? "warn" : "line"}>
+                      {score > 0 ? score : "—"}
+                    </Badge>
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <div>
@@ -400,41 +471,62 @@ export function DiscoverDesk({
                     <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
                   </div>
                   <span className="text-profit">
-                    {displayCost > 0 ? `${pct(econ.margin)} after fees${shipKnown ? "" : " (est.)"}` : "Margin on import"}
+                    {displayCost > 0
+                      ? `${pct(econ.margin)} before ads${shipKnown ? "" : " (est.)"}`
+                      : "Margin on import"}
                   </span>
                   <span className="text-right text-muted">
-                    {p.orders30d
-                      ? `${p.orders30d.toLocaleString()} sold / 30d`
-                      : `${shipLabel}${
-                          p.stockKnown === false || p.stock <= 0 ? "" : ` · ${p.stock} pcs`
-                        }`}
+                    {displayCost > 0
+                      ? (() => {
+                          const be = breakevenRoas(retail, displayCost, shipping);
+                          return Number.isFinite(be) && be > 0 ? `BE ROAS ${be.toFixed(1)}x` : "—";
+                        })()
+                      : p.orders30d
+                        ? `${p.orders30d.toLocaleString()} sold / 30d`
+                        : `${shipLabel}${
+                            p.stockKnown === false || p.stock <= 0 ? "" : ` · ${p.stock} pcs`
+                          }`}
                   </span>
                 </div>
                 {licensed ? <p className="text-xs text-loss">{licensed}</p> : null}
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
-                    disabled={pending}
+                    tone="accent"
+                    disabled={pending || previewLoading === p.url}
                     onClick={() =>
                       start(async () => {
                         setError("");
+                        setPreviewLoading(p.url);
                         try {
-                          const res = await importLiveListing(p);
-                          if (hasPaywall(res)) {
-                            emitPaywall(res.paywall);
-                            return;
-                          }
-                          if ("reused" in res && res.reused) {
-                            setError("Already in your catalog — opening the existing draft.");
-                          }
-                          router.push(`/catalog/${res.id}`);
+                          const res = await postJson<{
+                            ok?: boolean;
+                            data?: {
+                              title: string;
+                              supplierUrl: string;
+                              costLabel: string;
+                              baseCost: number;
+                              shippingCost: number;
+                              shippingDays: number;
+                              shippingUnknown?: boolean;
+                              stockTotal: number;
+                              accessoriesExcluded: number;
+                              variants: Array<{ name: string; cost: number; stock: number }>;
+                              images: string[];
+                            };
+                            error?: string;
+                          }>("/api/scrape", { url: p.url });
+                          if (!res.data) throw new Error(res.error || "Preview failed");
+                          setPreview({ ...res.data, feedCost: displayCost > 0 ? displayCost : undefined });
                         } catch (e) {
-                          setError(e instanceof Error ? e.message : "Import failed");
+                          setError(e instanceof Error ? e.message : "Preview failed");
+                        } finally {
+                          setPreviewLoading("");
                         }
                       })
                     }
                   >
-                    Import & clean
+                    {previewLoading === p.url ? "Fetching…" : "Preview (free)"}
                   </Button>
                   <Button
                     tone={isSaved ? "accent" : "line"}
@@ -528,49 +620,52 @@ export function DiscoverDesk({
             Import CSV
           </Button>
         </Card>
-        <Card className={`p-5 ${serpLive ? "" : "border-dashed bg-surface-2/60"}`}>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-muted">Visual match (competitor ad)</span>
-            <Badge tone={serpLive ? "profit" : "warn"}>{serpLive ? "Beta" : "Coming soon"}</Badge>
-          </div>
-          <input
-            className={inputClass}
-            placeholder={serpLive ? "https://image-url-from-ad.jpg" : "Connect visual match in Settings"}
-            value={lensUrl}
-            disabled={!serpLive}
-            onChange={(e) => setLensUrl(e.target.value)}
-          />
-          <p className="mt-1.5 text-[11px] text-faint">
-            {serpLive
-              ? "Paste a competitor ad photo to find a matching supplier listing."
-              : "Not connected yet. Search by name or paste a supplier URL instead."}
-          </p>
-          <Button
-            className="mt-3 w-full"
-            tone="line"
-            disabled={!serpLive || pending || !lensUrl}
-            onClick={() =>
-              start(async () => {
-                setError("");
-                try {
-                  const res = await visualSearch(lensUrl);
-                  if (hasPaywall(res)) {
-                    emitPaywall(res.paywall);
-                    return;
+        {serpLive ? (
+          <Card className="p-5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted">Visual match (competitor ad)</span>
+              <Badge tone="profit">Beta</Badge>
+            </div>
+            <input
+              className={inputClass}
+              placeholder="https://image-url-from-ad.jpg"
+              value={lensUrl}
+              onChange={(e) => setLensUrl(e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] text-faint">
+              Paste a competitor ad photo to find a matching supplier listing.
+            </p>
+            <Button
+              className="mt-3 w-full"
+              tone="line"
+              disabled={pending || !lensUrl}
+              onClick={() =>
+                start(async () => {
+                  setError("");
+                  try {
+                    const res = await visualSearch(lensUrl);
+                    if (hasPaywall(res)) {
+                      emitPaywall(res.paywall);
+                      return;
+                    }
+                    setLens(res.matches);
+                    setFactoryBest(res.factoryBest);
+                    setLensWarning(res.warning ?? "");
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Lens failed");
                   }
-                  setLens(res.matches);
-                  setFactoryBest(res.factoryBest);
-                  setLensWarning(res.warning ?? "");
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Lens failed");
-                }
-              })
-            }
-          >
-            {serpLive ? "Reverse search" : "Reverse search (soon)"}
-          </Button>
-          <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
-        </Card>
+                })
+              }
+            >
+              Reverse search
+            </Button>
+            <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
+          </Card>
+        ) : (
+          <Card className="p-5">
+            <CompetitorAdsPanel defaultQuery={query || factoryBest?.title || ""} />
+          </Card>
+        )}
         </div>
       </details>
 
@@ -616,6 +711,76 @@ export function DiscoverDesk({
             ))}
           </div>
         </Card>
+      ) : null}
+
+      {preview ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">Free preview</p>
+            <h2 className="mt-1 text-lg font-semibold text-ink">{preview.title}</h2>
+            <p className="mt-2 text-sm text-muted">
+              Real cost {preview.costLabel}
+              {preview.feedCost != null && Math.abs(preview.feedCost - preview.baseCost) > 0.05
+                ? ` (Discover card showed ~${money(preview.feedCost)})`
+                : ""}
+              · Ship{" "}
+              {preview.shippingUnknown || preview.shippingCost <= 0
+                ? "unknown — enter after import"
+                : money(preview.shippingCost)}
+              · {preview.stockTotal} pcs sellable
+              {preview.accessoriesExcluded
+                ? ` · ${preview.accessoriesExcluded} accessory SKU${preview.accessoriesExcluded === 1 ? "" : "s"} hidden`
+                : ""}
+            </p>
+            <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-xs text-muted">
+              {preview.variants.slice(0, 12).map((v) => (
+                <li key={`${v.name}-${v.cost}`} className="flex justify-between gap-2 border-b border-line/60 py-1">
+                  <span className="truncate">{v.name}</span>
+                  <span className="shrink-0 font-mono">
+                    {money(v.cost)} · {v.stock} pcs
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-faint">
+              Preview is free. Adding to catalog uses 1 import credit.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                tone="accent"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    setError("");
+                    try {
+                      const res = await importFromSupplierUrl(preview.supplierUrl);
+                      if (hasPaywall(res)) {
+                        emitPaywall(res.paywall);
+                        return;
+                      }
+                      if ("costWas" in res && res.costWas != null && res.costNow != null) {
+                        setError(
+                          Math.abs(Number(res.costWas) - Number(res.costNow)) > 0.05
+                            ? `Added. Cost was $${Number(res.costWas).toFixed(2)}, now $${Number(res.costNow).toFixed(2)}.`
+                            : "Added to catalog.",
+                        );
+                      }
+                      setPreview(null);
+                      router.push(`/catalog/${res.id}`);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Import failed");
+                    }
+                  })
+                }
+              >
+                Add to catalog
+              </Button>
+              <Button tone="line" onClick={() => setPreview(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

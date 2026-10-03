@@ -155,6 +155,15 @@ export async function saveMetaConnectionFromToken(shortOrLongToken: string) {
     }
   }
 
+  // Default-select first account for Guard if none enabled yet.
+  const owned = await db
+    .select({ id: metaAdAccounts.id, guardEnabled: metaAdAccounts.guardEnabled })
+    .from(metaAdAccounts)
+    .where(eq(metaAdAccounts.metaConnectionId, connId));
+  if (owned.length && !owned.some((a) => a.guardEnabled)) {
+    await db.update(metaAdAccounts).set({ guardEnabled: true }).where(eq(metaAdAccounts.id, owned[0]!.id));
+  }
+
   return {
     userId: me.id,
     userName: me.name || me.id,

@@ -51,15 +51,21 @@ export function winningScore(input: {
   stock: number;
   shippingDays: number;
   demand: number;
+  rating?: number;
+  orders30d?: number;
 }) {
   if (!(input.cost > 0) || !(input.retail > 0)) return 0;
   const { margin } = unitMargin(input.retail, input.cost, input.shipping);
-  const marginPts = clamp01(margin) * 40;
-  const stockPts = input.stock >= 200 ? 15 : input.stock >= 50 ? 10 : input.stock > 0 ? 6 : 2;
+  const marginPts = clamp01(margin) * 32;
+  const stockPts = input.stock >= 200 ? 12 : input.stock >= 50 ? 8 : input.stock > 0 ? 5 : 1;
   const shipPts =
-    input.shippingDays <= 0 ? 6 : input.shippingDays <= 10 ? 20 : input.shippingDays <= 16 ? 12 : 5;
-  const demandPts = input.demand > 0 ? clamp01(input.demand) * 25 : 4;
-  return Math.round(marginPts + stockPts + shipPts + demandPts);
+    input.shippingDays <= 0 ? 5 : input.shippingDays <= 10 ? 16 : input.shippingDays <= 16 ? 10 : 4;
+  const demandPts = input.demand > 0 ? clamp01(input.demand) * 18 : 3;
+  const orders = input.orders30d ?? 0;
+  const orderPts = orders >= 5000 ? 12 : orders >= 1000 ? 9 : orders >= 200 ? 6 : orders > 0 ? 3 : 0;
+  const rating = input.rating ?? 0;
+  const ratingPts = rating >= 4.7 ? 10 : rating >= 4.3 ? 7 : rating >= 4 ? 4 : rating > 0 ? 2 : 0;
+  return Math.round(marginPts + stockPts + shipPts + demandPts + orderPts + ratingPts);
 }
 
 function clamp01(n: number) {

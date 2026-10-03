@@ -34,6 +34,21 @@ export default async function SettingsPage({
   const finance = await import("@/lib/margin-guard-v2/finance-config").then((m) =>
     m.getOrCreateFinanceConfig(user.id),
   );
+  const metaAccounts = await import("@/lib/db").then(async ({ ensureDb }) => {
+    const db = await ensureDb();
+    const { metaAdAccounts, metaConnections } = await import("@/lib/db/schema-guard");
+    const { eq: eq2 } = await import("drizzle-orm");
+    return db
+      .select({
+        id: metaAdAccounts.id,
+        name: metaAdAccounts.name,
+        currency: metaAdAccounts.currency,
+        guardEnabled: metaAdAccounts.guardEnabled,
+      })
+      .from(metaAdAccounts)
+      .innerJoin(metaConnections, eq2(metaAdAccounts.metaConnectionId, metaConnections.id))
+      .where(eq2(metaConnections.storeId, user.id));
+  });
 
   const oauthConnected = Boolean(user.shopifyDomain?.trim() && user.shopifyAccessToken?.trim());
   const shopifyOk = oauthConnected || shopifyLive;
@@ -56,7 +71,7 @@ export default async function SettingsPage({
         liveCount: Object.values({
           shopify: shopifyOk,
           meta: metaLive,
-          tiktok: status.tiktok,
+          tiktok: status.tiktok || Boolean(user.tiktokAccessToken?.trim()),
           aliexpress: status.aliexpress,
           cj: Boolean(status.cj),
           serp: status.serp,
@@ -99,6 +114,7 @@ export default async function SettingsPage({
               : null,
       }}
       guardMode={(finance.guardMode as "OFF" | "ALERT_ONLY" | "AUTO_PAUSE") || "ALERT_ONLY"}
+      metaAccounts={metaAccounts}
       user={{
         displayName: user.displayName,
         storeName: user.storeName,

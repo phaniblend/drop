@@ -6,13 +6,12 @@ import { StatusPill } from "@/components/status-pill";
 import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
-import { env } from "@/lib/env";
-import { stripeCheckoutMode } from "@/lib/stripe-mode";
 import { storeHomePath } from "@/lib/store-slug";
 import { stripeKeyMode } from "@/lib/stripe-keys";
 import { StripeOnboardingGate } from "@/components/stripe-keys-form";
 import { maskStripeKey } from "@/lib/stripe-keys";
 import { customerDisplayName } from "@/lib/fulfillment-copy";
+import { SetupChecklist } from "@/components/setup-checklist";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -22,11 +21,57 @@ export default async function CommandPage() {
   const storeHref = storeHomePath(data.user?.storeSlug);
   const merchantStripe = stripeKeyMode(data.user?.storeStripeSk);
   const stripeLabel =
-    merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Sandbox" : stripeCheckoutMode(env.stripeSecretKey) === "off" ? "Pending" : "Sandbox";
+    merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Sandbox" : "Not connected";
+  const storeLabel =
+    merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Preview" : "Setup needed";
   const meta = await import("@/lib/meta-health").then((m) => m.getMetaHealth(true));
   const adsLabel =
     meta.status === "connected" ? "Ready" : meta.status === "degraded" ? "Expired" : "Pending";
   const findFirst = data.pendingCount === 0;
+  const sellerReady = Boolean(
+    data.user?.supportEmail?.trim() && data.user?.businessAddress?.trim() && data.user?.storeName?.trim(),
+  );
+  const hasProduct = (data.catalog?.length ?? 0) > 0;
+  const hasAngles = (data.catalog ?? []).some((p) => {
+    try {
+      const raw = (p as { adAnglesJson?: string | null }).adAnglesJson;
+      return Boolean(raw && JSON.parse(raw).length);
+    } catch {
+      return false;
+    }
+  });
+  const setupSteps = [
+    {
+      id: "business",
+      label: "Business name, support email, address",
+      done: sellerReady,
+      href: "/settings",
+    },
+    {
+      id: "stripe",
+      label: "Connect live Stripe keys",
+      done: merchantStripe === "live",
+      href: "/settings#stripe",
+    },
+    {
+      id: "meta",
+      label: "Connect Meta with Facebook",
+      done: meta.status === "connected",
+      href: "/settings#meta",
+    },
+    {
+      id: "product",
+      label: "Import your first product",
+      done: hasProduct,
+      href: "/discover",
+    },
+    {
+      id: "adlink",
+      label: "Generate ad angles with UTM link",
+      done: hasAngles,
+      href: hasProduct ? "/catalog" : "/discover",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -40,13 +85,17 @@ export default async function CommandPage() {
             <span>
               Store:{" "}
               <DeskLink href={storeHref} className="text-accent">
-                Live
+                {storeLabel}
               </DeskLink>
             </span>
             <span className="text-faint">|</span>
             <span>Stripe: {stripeLabel}</span>
             <span className="text-faint">|</span>
             <span>Ad Tracking: {adsLabel}</span>
+            <span className="text-faint">|</span>
+            <span>
+              Setup: {setupSteps.filter((s) => s.done).length}/{setupSteps.length}
+            </span>
           </div>
           <p className="mt-2 max-w-2xl text-sm text-muted">
             Select a product from your catalog and launch your first creative test.
@@ -61,6 +110,8 @@ export default async function CommandPage() {
           </DeskLink>
         </div>
       </div>
+
+      <SetupChecklist steps={setupSteps} />
 
       <StripeOnboardingGate
         live={merchantStripe === "live"}

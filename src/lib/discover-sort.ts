@@ -38,14 +38,22 @@ export function discoverMetrics(product: FeedProduct) {
     stock: product.stock,
     shippingDays: product.shippingDays,
     demand: product.demand,
+    rating: product.rating,
+    orders30d: product.orders30d,
   });
   return {
     cost,
     retail,
     score,
-    orders: product.orders30d ?? product.demand * 1000,
+    orders: product.orders30d ?? Math.round(product.demand * 1000),
     rating: product.rating ?? 0,
     ship: product.shippingDays > 0 ? product.shippingDays : Number.POSITIVE_INFINITY,
+    scoreDrivers: [
+      cost > 0 ? "margin" : null,
+      (product.orders30d ?? 0) > 0 ? "orders" : null,
+      (product.rating ?? 0) > 0 ? "rating" : null,
+      product.shippingDays > 0 ? "ship" : null,
+    ].filter(Boolean) as string[],
   };
 }
 

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const secret = await resolveMerchantStripeSecret(lines[0]?.merchantId);
   if (!secret) {
     return NextResponse.json(
-      { error: "Checkout is not connected yet. Add live Stripe keys in Settings." },
+      { error: "Checkout is disabled until this store connects its own Stripe keys in Settings. Seto will not take the payment." },
       { status: 503 },
     );
   }

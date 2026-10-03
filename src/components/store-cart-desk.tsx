@@ -24,12 +24,16 @@ export function StoreCartDesk({
   homeHref = "/store",
   canceled = false,
   added = false,
+  checkoutEnabled = true,
+  checkoutBlockedReason = "",
 }: {
   catalog: CatalogLine[];
   storeId?: string;
   homeHref?: string;
   canceled?: boolean;
   added?: boolean;
+  checkoutEnabled?: boolean;
+  checkoutBlockedReason?: string;
 }) {
   const [lines, setLines] = useState<StoreCartLine[]>([]);
   const [error, setError] = useState("");
@@ -139,11 +143,17 @@ export function StoreCartDesk({
         </div>
       ) : null}
       {error ? <p className="text-sm text-loss">{error}</p> : null}
+      {!checkoutEnabled && payable.length > 0 ? (
+        <p className="rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+          {checkoutBlockedReason || "Checkout is not live yet. The store owner must connect live Stripe keys."}
+        </p>
+      ) : null}
       {payable.length > 0 ? (
         <Button
           tone="accent"
-          disabled={pending}
+          disabled={pending || !checkoutEnabled}
           onClick={async () => {
+            if (!checkoutEnabled) return;
             setError("");
             setPending(true);
             try {
@@ -155,7 +165,7 @@ export function StoreCartDesk({
             }
           }}
         >
-          {pending ? "Opening checkout…" : "Pay with card"}
+          {pending ? "Opening checkout…" : checkoutEnabled ? "Pay with card" : "Checkout unavailable"}
         </Button>
       ) : null}
     </div>

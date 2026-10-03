@@ -6,5 +6,11 @@ export default async function SlugPrivacyPage({ params }: { params: Promise<{ sl
   const { slug } = await params;
   const user = await getUserBySlug(slug);
   if (!user) notFound();
-  return <StorePrivacyCopy email={user.supportEmail?.trim() || user.email} />;
+  return (
+    <StorePrivacyCopy
+      email={user.supportEmail?.trim() || ""}
+      storeName={user.storeName}
+      hasPixel={Boolean(user.metaPixelId?.trim())}
+    />
+  );
 }

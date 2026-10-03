@@ -5,7 +5,6 @@ import { ensureDb } from "./db";
 import { getOperator, getProduct, getUserById } from "./db/queries";
 import { productVariants, products } from "./db/schema";
 import { appOrigin } from "./stripe";
-import { env } from "./env";
 import { stripeCheckoutMode } from "./stripe-mode";
 import { publicHtmlLeaksOperatorCopy, toPublicProduct, type PublicStoreProduct } from "./shopper-copy";
 import { MIN_PUBLISH_PRICE, screenListing } from "./product-screen";
@@ -25,15 +24,17 @@ export function storeHomeUrl(slug?: string | null) {
 
 export async function getStorefrontBrand(userId?: string) {
   const user = userId ? await getUserById(userId) : await getOperator();
+  const merchantSk = user?.storeStripeSk?.trim() || "";
   return {
-    name: user?.storeName || "SetoStore",
+    name: user?.storeName || "Your store",
     slug: user?.storeSlug || "",
     userId: user?.id ?? "",
-    stripeReady: Boolean(user?.storeStripeSk || env.stripeSecretKey),
-    stripeMode: stripeCheckoutMode(user?.storeStripeSk || env.stripeSecretKey),
-    supportEmail: user?.supportEmail?.trim() || user?.email || "",
+    stripeReady: Boolean(merchantSk),
+    stripeMode: stripeCheckoutMode(merchantSk),
+    supportEmail: user?.supportEmail?.trim() || "",
     businessAddress: user?.businessAddress?.trim() || "",
     metaPixelId: user?.metaPixelId?.trim() || "",
+    sellerReady: Boolean(user?.supportEmail?.trim() && user?.businessAddress?.trim() && user?.storeName?.trim()),
   };
 }
 
@@ -90,6 +91,17 @@ export async function publishLiveProduct(
 ): Promise<PublishStoreResult> {
   const product = await getProduct(productId);
   if (!product) throw new Error("Product not found.");
+  const brand = await getStorefrontBrand(product.userId);
+  if (!brand.sellerReady) {
+    throw new Error(
+      "Add store name, support email, and business address in Settings before publishing. Shoppers must see your business, not Seto.",
+    );
+  }
+  if (!brand.stripeReady || brand.stripeMode !== "live") {
+    throw new Error(
+      "Connect your own live Stripe keys in Settings before publishing. Checkout will not use a Seto account.",
+    );
+  }
   const screen = screenListing({
     title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
     description: product.descriptionHtml ?? "",
@@ -101,6 +113,12 @@ export async function publishLiveProduct(
   }
   if (product.retailPrice > 0 && product.retailPrice < MIN_PUBLISH_PRICE) {
     throw new Error(`Selling under $${MIN_PUBLISH_PRICE.toFixed(2)} rarely covers ads. Raise the price or keep it as a draft.`);
+  }
+  const sellableStock = product.variants.reduce((sum, v) => sum + Math.max(0, v.inventoryCount), 0);
+  if (sellableStock <= 0) {
+    throw new Error(
+      "No variant has stock. Fix supplier stock or keep this as a draft — publishing would show nothing buyable.",
+    );
   }
   const db = await ensureDb();
   const live = await db

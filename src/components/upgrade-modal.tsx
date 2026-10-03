@@ -64,7 +64,7 @@ export function UpgradeModal() {
             <ul className="mt-3 space-y-1 text-sm text-muted">
               <li>30 product imports / month</li>
               <li>Margin Guard on up to 5 ad sets</li>
-              <li>50 Lens lookups / month</li>
+              <li>Your own Stripe checkout + Meta Guard</li>
             </ul>
             <Button
               className="mt-4 w-full"
@@ -83,7 +83,7 @@ export function UpgradeModal() {
             <ul className="mt-3 space-y-1 text-sm text-muted">
               <li>120 product imports / month</li>
               <li>Unlimited Margin Guard campaigns</li>
-              <li>200 Lens lookups / month</li>
+              <li>Priority supplier tools as they ship</li>
             </ul>
             <Button
               className="mt-4 w-full"

@@ -41,9 +41,11 @@ export async function POST(req: NextRequest) {
       storefrontUrl: result.storeUrl,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not publish." },
-      { status: 500 },
-    );
+    const message = error instanceof Error ? error.message : "Could not publish.";
+    const validation =
+      /shipping|stock|Stripe|support email|business address|store name|Raise the price|restricted|Supplements/i.test(
+        message,
+      );
+    return NextResponse.json({ error: message }, { status: validation ? 400 : 500 });
   }
 }

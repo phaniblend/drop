@@ -108,7 +108,18 @@ export default async function CatalogPage({
                     {pct(p.economics.margin)}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs">{p.stock}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  {p.outOfStock ? (
+                    <Badge tone="loss">Out of stock</Badge>
+                  ) : (
+                    <>
+                      {p.stock}
+                      {p.sellableVariants != null && p.variants?.length > 1
+                        ? ` · ${p.sellableVariants}/${p.variants.length} opts`
+                        : ""}
+                    </>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <StatusPill value={p.status} />
                 </td>

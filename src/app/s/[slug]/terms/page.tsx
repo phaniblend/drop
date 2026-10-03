@@ -6,5 +6,11 @@ export default async function SlugTermsPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const user = await getUserBySlug(slug);
   if (!user) notFound();
-  return <StoreTermsCopy storeName={user.storeName} />;
+  return (
+    <StoreTermsCopy
+      storeName={user.storeName}
+      email={user.supportEmail?.trim() || ""}
+      address={user.businessAddress ?? ""}
+    />
+  );
 }

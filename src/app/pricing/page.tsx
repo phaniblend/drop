@@ -1,0 +1,85 @@
+import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
+
+export const metadata = {
+  title: "Pricing — SetoStore",
+  description: "Plans for dropshippers who want product discovery, a store, and Margin Guard.",
+};
+
+const PLANS = [
+  {
+    name: "Free trial",
+    price: "$0",
+    blurb: "Explore the desk before you pay.",
+    points: [
+      "5 product imports to catalog",
+      "Built-in store preview",
+      "Sample Ads & Guard walkthrough",
+    ],
+  },
+  {
+    name: "Starter",
+    price: "$19/mo",
+    blurb: "For operators running one store and ads.",
+    points: [
+      "Higher monthly import quota",
+      "Live Margin Guard on connected Meta ads",
+      "Your own Stripe checkout",
+    ],
+  },
+  {
+    name: "Scaler",
+    price: "$39/mo",
+    blurb: "For higher volume and more campaigns watched.",
+    points: [
+      "Largest import quota",
+      "More ad sets under Guard",
+      "Priority when new supplier tools ship",
+    ],
+  },
+];
+
+export default function PricingPage() {
+  return (
+    <main className="min-h-dvh bg-bg text-ink">
+      <header className="border-b border-line px-4 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <Link href="/">
+            <BrandLogo />
+          </Link>
+          <Link href="/login" className="text-sm text-accent">
+            Sign in
+          </Link>
+        </div>
+      </header>
+      <div className="mx-auto max-w-5xl px-4 py-12">
+        <h1 className="text-3xl font-semibold tracking-tight">Simple plans</h1>
+        <p className="mt-2 max-w-xl text-sm text-muted">
+          You own Stripe, Meta, and TikTok. Seto helps you find products, sell, and pause losing ads.
+          Lens / visual match is not sold until it is live on your desk.
+        </p>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {PLANS.map((plan) => (
+            <section key={plan.name} className="rounded-2xl border border-line bg-surface p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">{plan.name}</p>
+              <p className="mt-2 text-3xl font-semibold">{plan.price}</p>
+              <p className="mt-2 text-sm text-muted">{plan.blurb}</p>
+              <ul className="mt-4 space-y-2 text-sm text-muted">
+                {plan.points.map((p) => (
+                  <li key={p}>· {p}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+        <p className="mt-8 text-sm text-muted">
+          Questions? Email{" "}
+          <a className="text-accent" href="mailto:support@seto.store">
+            support@seto.store
+          </a>
+          .
+        </p>
+      </div>
+    </main>
+  );
+}

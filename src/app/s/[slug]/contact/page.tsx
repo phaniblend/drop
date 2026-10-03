@@ -9,7 +9,7 @@ export default async function SlugContactPage({ params }: { params: Promise<{ sl
   return (
     <StoreContactCopy
       storeName={user.storeName}
-      email={user.supportEmail?.trim() || user.email}
+      email={user.supportEmail?.trim() || ""}
       address={user.businessAddress ?? ""}
     />
   );

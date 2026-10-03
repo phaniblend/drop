@@ -96,9 +96,21 @@ function labelFromSegment(segment: string, lookup?: VariantNameLookup) {
 export function humanizeVariantLabel(raw: string, lookup?: VariantNameLookup) {
   const value = raw?.trim() || "";
   if (!value || value === "Default") return "Default";
-  // Already humanized names from a prior import — keep them.
+  // Keep fully humanized multi-dimension names (already joined with ·).
+  if (value.includes(" · ") && !/\d+:\d+/.test(value) && value.length <= 80) {
+    return value;
+  }
+  // Prefer resolving propId:valueId segments when present (colour + capacity, etc.).
+  if (/\d+:\d+/.test(value) || value.includes(";")) {
+    const parts = value
+      .split(";")
+      .map((segment) => labelFromSegment(segment, lookup))
+      .filter(Boolean);
+    if (parts.length) return [...new Set(parts)].join(" · ");
+  }
+  // Single plain token like "1500mAh" — keep unless lookup can expand via raw elsewhere.
   if (!/\d+:\d+/.test(value) && /[A-Za-z]/.test(value) && value.length <= 64) {
-    if (!value.includes(";") || value.includes(" · ")) return value;
+    return cleanName(value) || value;
   }
   const parts = value
     .split(";")

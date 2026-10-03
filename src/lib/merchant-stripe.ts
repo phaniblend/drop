@@ -4,17 +4,13 @@ import { eq } from "drizzle-orm";
 import { ensureDb } from "./db";
 import { getUserById } from "./db/queries";
 import { settings } from "./db/schema";
-import { env } from "./env";
 import { stripeGet } from "./stripe";
 import { stripeKeyMode } from "./stripe-keys";
 
 export async function resolveMerchantStripeSecret(merchantId?: string | null) {
-  if (merchantId) {
-    const user = await getUserById(merchantId);
-    const key = user?.storeStripeSk?.trim();
-    if (key) return key;
-  }
-  return env.stripeSecretKey.trim();
+  if (!merchantId) return "";
+  const user = await getUserById(merchantId);
+  return user?.storeStripeSk?.trim() || "";
 }
 
 export function merchantHasLiveStripe(user?: { storeStripeSk?: string | null } | null) {
@@ -40,6 +36,25 @@ export async function loadCheckoutMerchant(sessionId: string) {
 }
 
 export async function verifyStripeSecret(secretKey: string) {
-  const account = await stripeGet<{ id?: string; livemode?: boolean }>("account", secretKey);
-  return { id: account.id ?? "", livemode: Boolean(account.livemode) };
+  const account = await stripeGet<{
+    id?: string;
+    livemode?: boolean;
+    business_profile?: { name?: string };
+    settings?: { dashboard?: { display_name?: string } };
+    country?: string;
+    charges_enabled?: boolean;
+    payouts_enabled?: boolean;
+  }>("account", secretKey);
+  return {
+    id: account.id ?? "",
+    livemode: Boolean(account.livemode),
+    businessName:
+      account.business_profile?.name ||
+      account.settings?.dashboard?.display_name ||
+      account.id ||
+      "",
+    country: account.country || "",
+    chargesEnabled: Boolean(account.charges_enabled),
+    payoutsEnabled: Boolean(account.payouts_enabled),
+  };
 }

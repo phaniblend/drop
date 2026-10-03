@@ -93,6 +93,27 @@ export async function saveStoreStripeKeys(input: { publishableKey: string; secre
       if (!account.livemode) {
         return { ok: false as const, error: "Those keys are not live. Use pk_live_… and sk_live_… from Stripe." };
       }
+      const db = await ensureDb();
+      await db
+        .update(users)
+        .set({
+          storeStripePk: input.publishableKey.trim(),
+          storeStripeSk: input.secretKey.trim(),
+        })
+        .where(eq(users.id, operator.id));
+      const { invalidateDeskShell } = await import("@/lib/desk-shell");
+      invalidateDeskShell();
+      revalidatePath("/settings");
+      revalidatePath("/");
+      const flags = [
+        account.chargesEnabled ? "charges on" : "charges off",
+        account.payoutsEnabled ? "payouts on" : "payouts off",
+      ].join(", ");
+      return {
+        ok: true as const,
+        mode: classified.mode,
+        message: `Live Stripe connected${account.businessName ? ` as ${account.businessName}` : ""}${account.country ? ` (${account.country})` : ""} — ${flags}.`,
+      };
     } catch (error) {
       return {
         ok: false as const,
@@ -115,10 +136,7 @@ export async function saveStoreStripeKeys(input: { publishableKey: string; secre
   return {
     ok: true as const,
     mode: classified.mode,
-    message:
-      classified.mode === "live"
-        ? "Live Stripe keys saved. Store checkout now takes real cards."
-        : "Test keys saved. Store checkout stays in Stripe sandbox until you add live keys.",
+    message: "Test keys saved. Store checkout stays in Stripe sandbox until you add live keys.",
   };
 }
 
@@ -163,4 +181,66 @@ export async function saveMarginGuardMode(input: {
           ? "Alert-only mode — Seto will warn but not pause."
           : "Margin Guard is off for this store.",
   };
+}
+
+export async function saveTikTokCredentials(input: { accessToken: string; advertiserId: string }) {
+  const operator = await requireOperator();
+  const token = input.accessToken.trim();
+  const advertiserId = input.advertiserId.trim().replace(/\D/g, "");
+  if (token.length < 20) throw new Error("Paste a TikTok Marketing API access token.");
+  if (advertiserId.length < 5) throw new Error("Paste your TikTok advertiser id.");
+  const db = await ensureDb();
+  await db
+    .update(users)
+    .set({
+      tiktokAccessToken: token,
+    })
+    .where(eq(users.id, operator.id));
+  // Advertiser id is host/env today; store on user notes via settings key until schema expands.
+  const { settings } = await import("@/lib/db/schema");
+  const key = `tiktok_advertiser_${operator.id}`;
+  await db.delete(settings).where(eq(settings.key, key));
+  await db.insert(settings).values({ key, value: advertiserId });
+  const { invalidateDeskShell } = await import("@/lib/desk-shell");
+  invalidateDeskShell();
+  revalidatePath("/settings");
+  revalidatePath("/ads");
+  return { ok: true as const, message: "TikTok ads credentials saved for this desk." };
+}
+
+export async function saveMetaAdAccount(adAccountId: string) {
+  const operator = await requireOperator();
+  const id = adAccountId.trim();
+  if (!id) throw new Error("Pick an ad account.");
+  const db = await ensureDb();
+  const { metaAdAccounts, metaConnections } = await import("@/lib/db/schema-guard");
+  const { and, eq: eq2 } = await import("drizzle-orm");
+  const rows = await db
+    .select({
+      id: metaAdAccounts.id,
+      connId: metaConnections.id,
+    })
+    .from(metaAdAccounts)
+    .innerJoin(metaConnections, eq2(metaAdAccounts.metaConnectionId, metaConnections.id))
+    .where(and(eq2(metaConnections.storeId, operator.id), eq2(metaAdAccounts.id, id)))
+    .limit(1);
+  if (!rows[0]) throw new Error("That ad account is not linked to this desk.");
+  const owned = await db
+    .select({ id: metaAdAccounts.id })
+    .from(metaAdAccounts)
+    .innerJoin(metaConnections, eq2(metaAdAccounts.metaConnectionId, metaConnections.id))
+    .where(eq2(metaConnections.storeId, operator.id));
+  for (const row of owned) {
+    await db
+      .update(metaAdAccounts)
+      .set({ guardEnabled: row.id === id })
+      .where(eq2(metaAdAccounts.id, row.id));
+  }
+  const { settings } = await import("@/lib/db/schema");
+  const key = `meta_ad_account_${operator.id}`;
+  await db.delete(settings).where(eq(settings.key, key));
+  await db.insert(settings).values({ key, value: id });
+  revalidatePath("/settings");
+  revalidatePath("/ads");
+  return { ok: true as const, message: `Margin Guard will use ${id}.` };
 }

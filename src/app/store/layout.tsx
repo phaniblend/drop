@@ -24,6 +24,11 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       homeHref={homeHref}
       metaPixelId={brand.metaPixelId}
     >
+      {brand.stripeMode !== "live" ? (
+        <div className="border-b border-warn/40 bg-warn/10 px-4 py-2 text-center text-xs text-warn">
+          Preview only — card checkout is not live until live Stripe keys are connected in Settings.
+        </div>
+      ) : null}
       {children}
       <StoreFooter storeName={brand.name} homeHref={homeHref} stripeMode={brand.stripeMode} />
     </StoreShell>
