@@ -187,6 +187,26 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
   sort_order INTEGER NOT NULL DEFAULT 0,
   for_date TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS daily_directives (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date_local TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  headline TEXT NOT NULL,
+  body TEXT NOT NULL,
+  action_type TEXT NOT NULL,
+  action_href TEXT,
+  action_label TEXT,
+  action_payload TEXT NOT NULL DEFAULT '{}',
+  spend_today REAL NOT NULL DEFAULT 0,
+  spend_cap REAL NOT NULL DEFAULT 0,
+  completed INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT,
+  evaluation_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_directives_user_date ON daily_directives(user_id, date_local);
+CREATE INDEX IF NOT EXISTS idx_daily_directives_user ON daily_directives(user_id);
 CREATE TABLE IF NOT EXISTS refunds (
   id TEXT PRIMARY KEY,
   order_id TEXT,

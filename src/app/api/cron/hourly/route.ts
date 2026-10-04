@@ -53,6 +53,12 @@ export async function GET(req: NextRequest) {
   }
 
   const { daypart, results } = await runAllGuards();
+  let desk: { operators: number; created: number } = { operators: 0, created: 0 };
+  try {
+    desk = await import("@/lib/operator-desk-run").then((m) => m.generateDirectivesForAllOperators());
+  } catch {
+    desk = { operators: 0, created: 0 };
+  }
   return NextResponse.json({
     ok: true,
     job: "hourly",
@@ -64,6 +70,7 @@ export async function GET(req: NextRequest) {
       results: dual.slice(0, 40),
     },
     daypart,
+    desk,
     checked: results.length,
     killed: results.filter((r) => r.actionTaken !== "MAINTAINED").length,
   });

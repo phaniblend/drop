@@ -12,9 +12,17 @@ import { StripeOnboardingGate } from "@/components/stripe-keys-form";
 import { maskStripeKey } from "@/lib/stripe-keys";
 import { customerDisplayName } from "@/lib/fulfillment-copy";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { OperatorDeskWidget } from "@/components/operator-desk-widget";
+import { getOrCreateTodayDirective } from "@/lib/operator-desk-run";
 
 export default async function CommandPage() {
   const data = await getDashboard();
+  let directive: Awaited<ReturnType<typeof getOrCreateTodayDirective>> = null;
+  try {
+    directive = await getOrCreateTodayDirective();
+  } catch {
+    directive = null;
+  }
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
   const maxBar = Math.max(
@@ -117,6 +125,8 @@ export default async function CommandPage() {
       </div>
 
       <SetupChecklist steps={setupSteps} />
+
+      <OperatorDeskWidget directive={directive} />
 
       <StripeOnboardingGate
         live={merchantStripe === "live"}

@@ -60,11 +60,12 @@ export const HELP_TOURS: HelpTour[] = [
   {
     id: "guard",
     title: "Configure Margin Guard",
-    blurb: "3 steps — pause ads that are losing money.",
+    blurb: "4 steps — pause ads that are losing money.",
     steps: [
       { id: "g1", label: "Open Ads & Guard", desc: "Connect Meta in Settings first, then open Ads & Guard.", href: "/ads" },
       { id: "g2", label: "Set the rules", desc: "Spend cap and min sales-per-ad-dollar live on each campaign card.", href: "/ads" },
       { id: "g3", label: "Check ads", desc: "Click Check ads. Hosted desks re-check on a timer — leave Command open.", href: "/ads" },
+      { id: "g4", label: "Do today’s one job", desc: "Command shows one directive from Guard and your catalog. Do that, then stop.", href: "/" },
     ],
   },
 ];
