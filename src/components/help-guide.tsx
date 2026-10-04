@@ -3,14 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { GripVertical, MessageCircle, X } from "lucide-react";
 import {
-  importSharedListing,
   loadCoachSession,
   markCoachStepDone,
   resetCoachToday,
   shareListingWithCoach,
 } from "@/app/actions/coach";
-import { COACH_STEPS, type CoachStepId } from "@/lib/coach-plan";
-import { emitPaywall, hasPaywall } from "@/lib/paywall";
+import { COACH_STEPS, coachStepMeta, type CoachStepId } from "@/lib/coach-plan";
 import { Button } from "./ui";
 import { DeskLink } from "./desk-link";
 import { cn } from "@/lib/utils";
@@ -141,12 +139,11 @@ export function HelpGuide({
   if (!open) return null;
 
   const step = (session?.stepId ?? "pick") as CoachStepId;
+  const meta = coachStepMeta(step);
   const href =
-    step === "clean" || step === "publish" || step === "angles"
-      ? session?.catalogProductId
-        ? `/catalog/${session.catalogProductId}`
-        : "/catalog"
-      : COACH_STEPS.find((s) => s.id === step)?.href ?? "/discover";
+    step === "publish" && session?.catalogProductId
+      ? `/catalog/${session.catalogProductId}`
+      : meta.href;
 
   return (
     <aside
@@ -178,6 +175,11 @@ export function HelpGuide({
           <X className="h-4 w-4" />
         </button>
       </div>
+      {step !== "done" ? (
+        <p className="border-b border-accent/20 bg-accent/[0.06] px-3 py-1.5 text-[11px] text-ink">
+          Paused — waiting on you to {meta.shareLabel.toLowerCase()}.
+        </p>
+      ) : null}
 
       <ol className="space-y-1 border-b border-line px-3 py-2">
         {COACH_STEPS.filter((s) => s.id !== "done").map((item, i) => {
@@ -257,42 +259,18 @@ export function HelpGuide({
         <div className="flex flex-wrap gap-2">
           <DeskLink href={href}>
             <Button tone="accent" className="h-8 px-2 text-xs" disabled={pending}>
-              {step === "pick"
+              {step === "pick" || step === "import"
                 ? "Open Discover"
-                : step === "import"
-                  ? "Open Discover"
-                  : step === "launch"
+                : step === "sale"
+                  ? "Open Fulfill"
+                  : step === "ads" || step === "kill"
                     ? "Open Ads & Guard"
                     : step === "done"
                       ? "Open Command"
                       : "Open listing"}
             </Button>
           </DeskLink>
-          {step === "import" ? (
-            <Button
-              tone="accent"
-              className="h-8 px-2 text-xs"
-              disabled={pending}
-              onClick={() =>
-                start(async () => {
-                  setError("");
-                  try {
-                    const result = await importSharedListing();
-                    if (hasPaywall(result)) {
-                      emitPaywall(result.paywall);
-                      return;
-                    }
-                    if ("session" in result) setSession(result.session);
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Import failed.");
-                  }
-                })
-              }
-            >
-              Import this listing
-            </Button>
-          ) : null}
-          {step !== "pick" && step !== "import" && step !== "done" ? (
+          {step !== "pick" && step !== "done" ? (
             <Button
               tone="line"
               className="h-8 px-2 text-xs"
@@ -302,18 +280,14 @@ export function HelpGuide({
                   setError("");
                   try {
                     const result = await markCoachStepDone();
-                    if (hasPaywall(result)) {
-                      emitPaywall(result.paywall);
-                      return;
-                    }
-                    if ("session" in result) setSession(result.session);
+                    setSession(result.session);
                   } catch (e) {
-                    setError(e instanceof Error ? e.message : "Not done yet.");
+                    setError(e instanceof Error ? e.message : "Not done yet. I’ll wait.");
                   }
                 })
               }
             >
-              {step === "publish" ? "I published it" : step === "launch" ? "I launched it" : "I’m done"}
+              {meta.shareLabel}
             </Button>
           ) : null}
           {step === "done" ? (

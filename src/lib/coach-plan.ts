@@ -1,6 +1,6 @@
-/** One tiny step at a time — the day’s plan for the coach chat. */
+/** One tiny step. Seto instructs and pauses until the operator shares that it worked. */
 
-export type CoachStepId = "pick" | "import" | "clean" | "publish" | "angles" | "launch" | "done";
+export type CoachStepId = "pick" | "import" | "publish" | "ads" | "sale" | "kill" | "done";
 
 export type CoachPick = {
   title: string;
@@ -16,15 +16,37 @@ export type CoachMessage = {
   text: string;
 };
 
-export const COACH_STEPS: Array<{ id: CoachStepId; title: string; href: string }> = [
-  { id: "pick", title: "Find this product", href: "/discover" },
-  { id: "import", title: "Import the listing you picked", href: "/discover" },
-  { id: "clean", title: "Clean the shopper title", href: "/catalog" },
-  { id: "publish", title: "Publish to your store", href: "/catalog" },
-  { id: "angles", title: "Write ad angles + UTM", href: "/catalog" },
-  { id: "launch", title: "Start one small paid test", href: "/ads" },
-  { id: "done", title: "That’s the plan for today", href: "/" },
+export type CoachFacts = {
+  imported: boolean;
+  published: boolean;
+  adLinked: boolean;
+  adPausedLoser: boolean;
+  adWinning: boolean;
+  hasCheckout: boolean;
+  orderPlaced: boolean;
+};
+
+export const COACH_STEPS: Array<{
+  id: CoachStepId;
+  title: string;
+  href: string;
+  shareLabel: string;
+}> = [
+  { id: "pick", title: "Find the product", href: "/discover", shareLabel: "Share with Seto" },
+  { id: "import", title: "Import to catalog", href: "/discover", shareLabel: "I imported it" },
+  { id: "publish", title: "Publish to the store", href: "/catalog", shareLabel: "I published it" },
+  { id: "ads", title: "Post the ad", href: "/ads", shareLabel: "The ad is live" },
+  { id: "sale", title: "Handle the sale", href: "/fulfillment", shareLabel: "I placed the supplier order" },
+  { id: "kill", title: "Kill a losing ad", href: "/ads", shareLabel: "The loser is paused" },
+  { id: "done", title: "Pipeline complete", href: "/", shareLabel: "Done" },
 ];
+
+export function normalizeCoachStep(id: string): CoachStepId {
+  if (id === "clean") return "import";
+  if (id === "angles" || id === "launch") return "ads";
+  if (COACH_STEPS.some((s) => s.id === id)) return id as CoachStepId;
+  return "pick";
+}
 
 export function nextCoachStep(id: CoachStepId): CoachStepId {
   const i = COACH_STEPS.findIndex((s) => s.id === id);
@@ -36,63 +58,98 @@ export function coachStepMeta(id: CoachStepId) {
   return COACH_STEPS.find((s) => s.id === id) ?? COACH_STEPS[0]!;
 }
 
+export function instructionFor(step: CoachStepId, ctx: { keyword?: string; why?: string; title?: string }): string {
+  const name = ctx.title || "this product";
+  switch (step) {
+    case "pick":
+      return `Find this product: “${ctx.keyword}”. ${ctx.why ?? ""} Search Discover, pick ONE listing, tap Share with Seto. I’ll wait.`.replace(/\s+/g, " ").trim();
+    case "import":
+      return `Import “${name}” on Discover (Preview → import). Clean the shopper title if it still looks wholesale. Then tap I imported it. I’ll wait.`;
+    case "publish":
+      return `Publish “${name}” to your live store (Shopify if you connected it, otherwise your Seto store). Then tap I published it. I’ll wait.`;
+    case "ads":
+      return `On the listing, generate ad angles with a UTM link. Then launch one small test in Ads & Guard. Keep spend under your Guard floor. Tap The ad is live. I’ll wait.`;
+    case "sale":
+      return `When a checkout lands, open Fulfill, buy it from the supplier, and mark placed. Tap I placed the supplier order. I’ll wait — even if the sale is not here yet.`;
+    case "kill":
+      return `If an ad hit the spend floor with no profit, pause it (or confirm Guard already did). Do not kill a winner. Tap The loser is paused when a loser is off. I’ll wait.`;
+    default:
+      return "Pipeline complete. Fill leftover orders, leave winning ads on, keep Guard armed.";
+  }
+}
+
+export function youSaid(step: CoachStepId, pickTitle?: string, facts?: CoachFacts): string {
+  const name = pickTitle || "the listing";
+  switch (step) {
+    case "pick":
+      return `Shared listing: ${name}`;
+    case "import":
+      return "Imported it into the catalog.";
+    case "publish":
+      return "Published it to the store.";
+    case "ads":
+      return "Ad test is live.";
+    case "sale":
+      return "Supplier order is placed.";
+    case "kill":
+      return facts?.adWinning && !facts.adPausedLoser
+        ? "Checked ads. Winner stays on. Guard stays armed."
+        : "Losing ad is paused.";
+    default:
+      return "Done.";
+  }
+}
+
+export function evaluateShare(step: CoachStepId, facts: CoachFacts): { ok: true } | { ok: false; wait: string } {
+  switch (step) {
+    case "pick":
+      return { ok: true };
+    case "import":
+      return facts.imported
+        ? { ok: true }
+        : { ok: false, wait: "I don’t see that listing in Catalog yet. Import it on Discover, then share again. I’ll wait." };
+    case "publish":
+      return facts.published
+        ? { ok: true }
+        : { ok: false, wait: "I don’t see it live on the store yet. Click Publish, then share again. I’ll wait." };
+    case "ads":
+      return facts.adLinked
+        ? { ok: true }
+        : { ok: false, wait: "I don’t see an ad set linked to this product. Launch it in Ads & Guard, then share again. I’ll wait." };
+    case "sale":
+      if (!facts.hasCheckout) {
+        return { ok: false, wait: "No checkout yet. I’ll wait. When one lands, place the supplier order, then share again." };
+      }
+      return facts.orderPlaced
+        ? { ok: true }
+        : { ok: false, wait: "Checkout is in Fulfill but not marked placed. Buy it from the supplier, mark placed, then share again. I’ll wait." };
+    case "kill":
+      if (facts.adPausedLoser) return { ok: true };
+      if (facts.adWinning) {
+        return { ok: true };
+      }
+      return {
+        ok: false,
+        wait: "No loser is paused yet, and this test is not a clear winner. Pause the burning ad in Ads & Guard, then share again. I’ll wait.",
+      };
+    default:
+      return { ok: true };
+  }
+}
+
 export function openingMessages(keyword: string, why: string): CoachMessage[] {
   return [
     {
       id: "m1",
       role: "seto",
-      text: "Here is today’s plan. We do one tiny step, then I wait until you finish it.",
+      text: "Today we walk the full pipeline, one step at a time: find → import → publish → ads → sale → kill losers. I instruct, then I pause until you share that it worked.",
     },
     {
       id: "m2",
       role: "seto",
-      text: `Step 1 — Find this product: “${keyword}”. ${why}`.trim(),
-    },
-    {
-      id: "m3",
-      role: "seto",
-      text: "Open Discover, search that phrase, pick ONE listing, then tap Share with Seto on the card. I’ll wait.",
+      text: instructionFor("pick", { keyword, why }),
     },
   ];
-}
-
-export function afterPickMessages(pick: CoachPick): CoachMessage[] {
-  return [
-    { id: "yp", role: "you", text: `I picked: ${pick.title}` },
-    {
-      id: "sp",
-      role: "seto",
-      text: "Got it. Next: import that listing into your catalog. Tap Import this listing here, or Import on Discover, then come back.",
-    },
-  ];
-}
-
-export function afterImportMessages(title: string): CoachMessage[] {
-  return [
-    {
-      id: "si",
-      role: "seto",
-      text: `Imported “${title}” as a draft. Open it, make the title sound like something a shopper would tap, then tap I’m done in this chat.`,
-    },
-  ];
-}
-
-export function promptForStep(id: CoachStepId, pickTitle?: string): string {
-  const name = pickTitle || "your product";
-  switch (id) {
-    case "clean":
-      return `Open the draft for “${name}”. Fix wholesale wording. Tap I’m done when the title looks shopper-ready.`;
-    case "publish":
-      return `Publish “${name}” to your Seto store. Come back and tap I published it.`;
-    case "angles":
-      return `On the same listing, generate ad angles with a UTM link. Tap I’m done when you have at least one angle.`;
-    case "launch":
-      return `Open Ads & Guard. Launch one small test for “${name}”. Keep spend under your Guard floor. Tap I launched it when the ad is live.`;
-    case "done":
-      return "That’s enough for today. Fill any waiting orders, then leave ads alone.";
-    default:
-      return "Finish this step, then come back here.";
-  }
 }
 
 export const KEYWORD_FALLBACKS = [

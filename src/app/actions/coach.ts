@@ -1,13 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  confirmCoachStep,
-  getOrCreateCoachSession,
-  importCoachPick,
-  restartCoachToday,
-  submitCoachPick,
-} from "@/lib/coach-run";
+import { confirmCoachStep, getOrCreateCoachSession, restartCoachToday, submitCoachPick } from "@/lib/coach-run";
 import type { CoachPick } from "@/lib/coach-plan";
 
 function bust() {
@@ -26,12 +20,6 @@ export async function shareListingWithCoach(pick: CoachPick) {
   const session = await submitCoachPick(pick);
   bust();
   return session;
-}
-
-export async function importSharedListing() {
-  const result = await importCoachPick();
-  bust();
-  return result;
 }
 
 export async function markCoachStepDone() {

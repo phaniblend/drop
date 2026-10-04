@@ -2,16 +2,19 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { ensureDb } from "./db";
-import { coachSessions } from "./db/schema";
-import { getOperator, getProduct } from "./db/queries";
+import { campaignTrackers, coachSessions, orderItems, orders, products } from "./db/schema";
+import { findProductBySupplierUrl, getOperator, getProduct } from "./db/queries";
 import { nid, nowIso, todayKey } from "./utils";
+import { isSampleCampaignId } from "./sample-campaigns";
 import { suggestWinningKeyword } from "./coach-keyword";
 import {
-  afterImportMessages,
-  afterPickMessages,
+  evaluateShare,
+  instructionFor,
   nextCoachStep,
+  normalizeCoachStep,
   openingMessages,
-  promptForStep,
+  youSaid,
+  type CoachFacts,
   type CoachMessage,
   type CoachPick,
   type CoachStepId,
@@ -40,7 +43,7 @@ function publicSession(row: typeof coachSessions.$inferSelect) {
   return {
     id: row.id,
     dateLocal: row.dateLocal,
-    stepId: row.stepId as CoachStepId,
+    stepId: normalizeCoachStep(row.stepId),
     keyword: row.keyword,
     keywordWhy: row.keywordWhy,
     pick: parsePick(row.pickJson),
@@ -78,6 +81,69 @@ function append(messages: CoachMessage[], extra: CoachMessage[]) {
   ];
 }
 
+async function collectFacts(
+  operatorId: string,
+  pick: CoachPick | null,
+  catalogProductId: string | null,
+): Promise<{ facts: CoachFacts; productId: string | null; title: string | null }> {
+  const db = await ensureDb();
+  let product = catalogProductId ? await getProduct(catalogProductId) : null;
+  if (!product && pick?.url) {
+    product = await findProductBySupplierUrl(pick.url);
+  }
+  if (!product && pick?.url) {
+    const catalog = await db.select().from(products).where(eq(products.userId, operatorId));
+    product =
+      catalog.find((p) => p.supplierUrl === pick.url || (pick.url && p.supplierUrl?.includes(pick.url))) ?? null;
+  }
+  const productId = product?.id ?? null;
+  const published = Boolean(
+    product && (product.status === "published" || product.status === "live" || product.status === "local_only"),
+  );
+
+  const live = productId
+    ? (await db.select().from(campaignTrackers).where(eq(campaignTrackers.productId, productId))).filter(
+        (c) => !isSampleCampaignId(c.id),
+      )
+    : [];
+  const adLinked = live.length > 0;
+  const adPausedLoser = live.some(
+    (c) =>
+      c.isPaused &&
+      (c.pauseSource === "margin_guard" || c.pauseSource === "guard" || c.pauseSource === "sentinel" || c.spendToday > 0),
+  );
+  const adWinning = live.some((c) => !c.isPaused && c.revenueToday > c.spendToday && c.ordersCount > 0);
+
+  let hasCheckout = false;
+  let orderPlaced = false;
+  if (productId) {
+    const lines = await db.select().from(orderItems).where(eq(orderItems.productId, productId));
+    const orderIds = [...new Set(lines.map((l) => l.orderId).filter(Boolean))] as string[];
+    if (orderIds.length) {
+      const rows = await db.select().from(orders).where(eq(orders.userId, operatorId));
+      const mine = rows.filter((o) => orderIds.includes(o.id));
+      hasCheckout = mine.length > 0;
+      orderPlaced = mine.some(
+        (o) => o.fulfillmentStatus === "ordered_supplier" || o.fulfillmentStatus === "shipped",
+      );
+    }
+  }
+
+  return {
+    facts: {
+      imported: Boolean(product),
+      published,
+      adLinked,
+      adPausedLoser,
+      adWinning,
+      hasCheckout,
+      orderPlaced,
+    },
+    productId,
+    title: product?.cleanTitle || product?.rawTitle || pick?.title || null,
+  };
+}
+
 export async function getOrCreateCoachSession() {
   const { operator, db, dateLocal, row } = await loadToday();
   if (row) return publicSession(row);
@@ -102,16 +168,20 @@ export async function getOrCreateCoachSession() {
 export async function submitCoachPick(pick: CoachPick) {
   const { db, row } = await loadToday();
   if (!row) throw new Error("Start today’s plan first.");
-  if (row.stepId !== "pick") {
-    return publicSession(row);
-  }
+  const step = normalizeCoachStep(row.stepId);
+  if (step !== "pick") return publicSession(row);
   const url = pick.url.trim();
   if (!url) throw new Error("That listing has no supplier link.");
-  const messages = append(parseMessages(row.messagesJson), afterPickMessages({ ...pick, url }));
+  const nextId = nextCoachStep("pick");
+  const title = pick.title || url;
+  const messages = append(parseMessages(row.messagesJson), [
+    { id: "y", role: "you", text: youSaid("pick", title) },
+    { id: "s", role: "seto", text: instructionFor(nextId, { title }) },
+  ]);
   await db
     .update(coachSessions)
     .set({
-      stepId: "import",
+      stepId: nextId,
       pickJson: JSON.stringify({ ...pick, url }),
       messagesJson: JSON.stringify(messages),
       updatedAt: nowIso(),
@@ -121,131 +191,42 @@ export async function submitCoachPick(pick: CoachPick) {
   return publicSession(next ?? row);
 }
 
-export async function importCoachPick() {
-  const { db, row } = await loadToday();
-  if (!row) throw new Error("Start today’s plan first.");
-  const pick = parsePick(row.pickJson);
-  if (!pick?.url) throw new Error("Share a listing first.");
-  const { importFromSupplierUrl, importLiveListing } = await import("@/app/actions/products");
-  const feed = {
-    id: pick.url,
-    title: pick.title,
-    cleanTitle: pick.title,
-    url: pick.url,
-    source: (pick.source === "cj" ? "cj" : "aliexpress") as "aliexpress" | "cj",
-    supplierName: pick.source === "cj" ? "CJ Dropshipping" : "AliExpress",
-    niche: "",
-    cost: pick.cost || 0,
-    shipping: 0,
-    shippingDays: 0,
-    stock: 0,
-    demand: 0,
-    live: true as const,
-    image: pick.image || "",
-    tags: [] as string[],
-    variants: [] as Array<{ skuId: string; attributes: string; cost: number; stock: number }>,
-  };
-  let imported: { id?: string; paywall?: unknown };
-  try {
-    imported = await importLiveListing(feed);
-  } catch {
-    imported = await importFromSupplierUrl(pick.url);
-  }
-  if ("paywall" in imported && imported.paywall) {
-    return { paywall: imported.paywall, session: publicSession(row) };
-  }
-  const productId = imported.id;
-  if (!productId) throw new Error("Import did not return a product.");
-  const product = await getProduct(productId);
-  const title = product?.cleanTitle || pick.title;
-  const messages = append(parseMessages(row.messagesJson), [
-    { id: "yi", role: "you", text: "Imported the listing." },
-    ...afterImportMessages(title),
-  ]);
-  await db
-    .update(coachSessions)
-    .set({
-      stepId: "clean",
-      catalogProductId: productId,
-      messagesJson: JSON.stringify(messages),
-      updatedAt: nowIso(),
-    })
-    .where(eq(coachSessions.id, row.id));
-  const [next] = await db.select().from(coachSessions).where(eq(coachSessions.id, row.id)).limit(1);
-  return { session: publicSession(next ?? row) };
-}
-
 export async function confirmCoachStep() {
-  const { db, row } = await loadToday();
+  const { operator, db, row } = await loadToday();
   if (!row) throw new Error("Start today’s plan first.");
-  const step = row.stepId as CoachStepId;
-  if (step === "pick") throw new Error("Share a listing first.");
-  if (step === "import") return importCoachPick();
+  const step = normalizeCoachStep(row.stepId);
+  if (step === "pick") throw new Error("Share a listing first. I’ll wait.");
+  if (step === "done") return { session: publicSession(row) };
 
-  const productId = row.catalogProductId;
-  const product = productId ? await getProduct(productId) : null;
   const pick = parsePick(row.pickJson);
-
-  if (step === "publish") {
-    if (!product || (product.status !== "published" && product.status !== "live" && product.status !== "local_only")) {
-      const messages = append(parseMessages(row.messagesJson), [
-        {
-          id: "wait",
-          role: "seto",
-          text: "I don’t see it live yet. Open the listing, click Publish, then tap I published it again.",
-        },
-      ]);
-      await db
-        .update(coachSessions)
-        .set({ messagesJson: JSON.stringify(messages), updatedAt: nowIso() })
-        .where(eq(coachSessions.id, row.id));
-      const [again] = await db.select().from(coachSessions).where(eq(coachSessions.id, row.id)).limit(1);
-      return { session: publicSession(again ?? row), blocked: true };
-    }
-  }
-
-  if (step === "angles") {
-    let hooks = 0;
-    try {
-      hooks = product?.adAnglesJson ? JSON.parse(product.adAnglesJson).length : 0;
-    } catch {
-      hooks = 0;
-    }
-    if (hooks < 1) {
-      const messages = append(parseMessages(row.messagesJson), [
-        {
-          id: "wait",
-          role: "seto",
-          text: "No ad angles yet. Open the listing, generate angles, then tap I’m done.",
-        },
-      ]);
-      await db
-        .update(coachSessions)
-        .set({ messagesJson: JSON.stringify(messages), updatedAt: nowIso() })
-        .where(eq(coachSessions.id, row.id));
-      const [again] = await db.select().from(coachSessions).where(eq(coachSessions.id, row.id)).limit(1);
-      return { session: publicSession(again ?? row), blocked: true };
-    }
+  const gathered = await collectFacts(operator.id, pick, row.catalogProductId);
+  const gate = evaluateShare(step, gathered.facts);
+  if (!gate.ok) {
+    const messages = append(parseMessages(row.messagesJson), [{ id: "w", role: "seto", text: gate.wait }]);
+    await db
+      .update(coachSessions)
+      .set({
+        stepId: step,
+        catalogProductId: gathered.productId,
+        messagesJson: JSON.stringify(messages),
+        updatedAt: nowIso(),
+      })
+      .where(eq(coachSessions.id, row.id));
+    const [again] = await db.select().from(coachSessions).where(eq(coachSessions.id, row.id)).limit(1);
+    return { session: publicSession(again ?? row), blocked: true };
   }
 
   const next = nextCoachStep(step);
-  const youLabel =
-    step === "clean"
-      ? "Title looks good."
-      : step === "publish"
-        ? "Published."
-        : step === "angles"
-          ? "Ad angles are in."
-          : "Test is live.";
-  const setoText = promptForStep(next, product?.cleanTitle || pick?.title);
+  const title = gathered.title || pick?.title;
   const messages = append(parseMessages(row.messagesJson), [
-    { id: "y", role: "you", text: youLabel },
-    { id: "s", role: "seto", text: setoText },
+    { id: "y", role: "you", text: youSaid(step, title, gathered.facts) },
+    { id: "s", role: "seto", text: instructionFor(next, { title: title ?? undefined }) },
   ]);
   await db
     .update(coachSessions)
     .set({
       stepId: next,
+      catalogProductId: gathered.productId,
       messagesJson: JSON.stringify(messages),
       updatedAt: nowIso(),
     })
@@ -255,11 +236,10 @@ export async function confirmCoachStep() {
 }
 
 export async function restartCoachToday() {
-  const { db, dateLocal, row } = await loadToday();
+  const { db, row } = await loadToday();
   if (row) {
     await db.delete(coachSessions).where(eq(coachSessions.id, row.id));
   }
-  void dateLocal;
   return getOrCreateCoachSession();
 }
 
