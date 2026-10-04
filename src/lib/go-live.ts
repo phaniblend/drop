@@ -4,6 +4,7 @@ import { env, integrationStatus } from "./env";
 import { stripeBillingHealth } from "./stripe-billing";
 import { getOperator } from "./db/queries";
 import { stripeKeyMode } from "./stripe-keys";
+import { sellerPublishGaps, sellerPublishHint } from "./storefront";
 
 export type GoLiveCheck = {
   id: string;
@@ -34,9 +35,8 @@ export async function getPlatformGoLive() {
   const metaConnected = Boolean(metaHealth.live || metaHealth.degraded);
   const merchantTest = stripeKeyMode(operator?.storeStripeSk) === "test";
   const merchantLive = stripeKeyMode(operator?.storeStripeSk) === "live";
-  const sellerReady = Boolean(
-    operator?.storeName?.trim() && operator?.supportEmail?.trim() && operator?.businessAddress?.trim(),
-  );
+  const sellerMissing = sellerPublishGaps(operator);
+  const sellerReady = sellerMissing.length === 0;
 
   const checks: GoLiveCheck[] = [
     {
@@ -102,7 +102,7 @@ export async function getPlatformGoLive() {
           : merchantTest
             ? "Seller profile + test Stripe — use a Stripe test card for one order."
             : "Add your own Stripe keys in Settings to run a store smoke order."
-        : "Add store name, support email, and business address in Settings.",
+        : sellerPublishHint(sellerMissing) || "Add a business address in Settings.",
       owner: sellerReady && (merchantTest || merchantLive) ? "you" : "you",
     },
   ];

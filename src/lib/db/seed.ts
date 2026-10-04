@@ -146,6 +146,9 @@ export async function provisionOperator(
     if (!mine.storeSlug) {
       await db.update(schema.users).set({ storeSlug: "seto" }).where(eq(schema.users.id, mine.id));
     }
+    if (!mine.supportEmail?.trim() && email && !email.endsWith("@setostore.local")) {
+      await db.update(schema.users).set({ supportEmail: email }).where(eq(schema.users.id, mine.id));
+    }
     return { ok: true, id: mine.id };
   }
 
@@ -181,6 +184,7 @@ export async function provisionOperator(
       displayName,
       storeName: first ? displayName : "SetoStore",
       storeSlug: slug,
+      supportEmail: email,
       createdAt: nowIso(),
     });
     await seedOperatorWorkspace(db);

@@ -4,6 +4,7 @@ import { ProductEditor } from "@/components/product-editor";
 import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 import { storeHomePath } from "@/lib/store-slug";
 import { stripeKeyMode } from "@/lib/stripe-keys";
+import { sellerPublishGaps, sellerPublishHint } from "@/lib/storefront";
 
 export default async function ProductPage({
   params,
@@ -14,9 +15,8 @@ export default async function ProductPage({
   const product = await getProduct(id);
   if (!product) notFound();
   const [storefrontHomeUrl, operator] = await Promise.all([shopifyStorefrontHomeUrl(), getOperator()]);
-  const sellerReady = Boolean(
-    operator?.supportEmail?.trim() && operator?.businessAddress?.trim() && operator?.storeName?.trim(),
-  );
+  const sellerMissing = sellerPublishGaps(operator);
+  const sellerReady = sellerMissing.length === 0;
   return (
     <ProductEditor
       product={product}
@@ -24,6 +24,7 @@ export default async function ProductPage({
       storeHref={storeHomePath(operator?.storeSlug)}
       stripeLive={stripeKeyMode(operator?.storeStripeSk) === "live"}
       sellerReady={sellerReady}
+      sellerHint={sellerPublishHint(sellerMissing)}
     />
   );
 }

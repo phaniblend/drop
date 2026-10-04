@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/status-pill";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
 import { storeHomePath } from "@/lib/store-slug";
+import { sellerPublishGaps } from "@/lib/storefront";
 import { stripeKeyMode } from "@/lib/stripe-keys";
 import { StripeOnboardingGate } from "@/components/stripe-keys-form";
 import { maskStripeKey } from "@/lib/stripe-keys";
@@ -32,9 +33,7 @@ export default async function CommandPage() {
   const adsLabel =
     meta.status === "connected" ? "Ready" : meta.status === "degraded" ? "Expired" : "Pending";
   const findFirst = data.pendingCount === 0;
-  const sellerReady = Boolean(
-    data.user?.supportEmail?.trim() && data.user?.businessAddress?.trim() && data.user?.storeName?.trim(),
-  );
+  const sellerReady = sellerPublishGaps(data.user).length === 0;
   const hasProduct = (data.catalog?.length ?? 0) > 0;
   const hasAngles = (data.catalog ?? []).some((p) => {
     try {
@@ -47,7 +46,7 @@ export default async function CommandPage() {
   const setupSteps = [
     {
       id: "business",
-      label: "Business name, support email, address",
+      label: "Support email and business address",
       done: sellerReady,
       href: "/settings",
     },

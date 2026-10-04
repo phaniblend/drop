@@ -30,6 +30,7 @@ export function ProductEditor({
   storeHref = "/store",
   stripeLive = false,
   sellerReady = false,
+  sellerHint = "",
 }: {
   product: Product & {
     variants: ProductVariant[];
@@ -40,6 +41,7 @@ export function ProductEditor({
   storeHref?: string;
   stripeLive?: boolean;
   sellerReady?: boolean;
+  sellerHint?: string;
 }) {
   const router = useRouter();
   const [savingPrice, startPrice] = useTransition();
@@ -140,7 +142,7 @@ export function ProductEditor({
       if (!sellerReady) {
         showPublish({
           tone: "warn",
-          text: "Add store name, support email, and business address in Settings, then publish again.",
+          text: sellerHint || "Add a business address in Settings, then publish again.",
         });
         return;
       }

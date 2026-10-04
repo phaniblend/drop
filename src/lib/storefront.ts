@@ -22,9 +22,28 @@ export function storeHomeUrl(slug?: string | null) {
   return `${appOrigin()}${storeHomePath(slug)}`;
 }
 
+export function sellerPublishGaps(user?: {
+  supportEmail?: string | null;
+  businessAddress?: string | null;
+} | null) {
+  const missing: string[] = [];
+  if (!user?.supportEmail?.trim()) missing.push("support email");
+  if (!user?.businessAddress?.trim()) missing.push("business address");
+  return missing;
+}
+
+export function sellerPublishHint(missing: string[]) {
+  if (!missing.length) return "";
+  if (missing.length === 1 && missing[0] === "business address") {
+    return "Add a business address in Settings so shoppers know who they are buying from. Your store name is already set.";
+  }
+  return `Add ${missing.join(" and ")} in Settings, then publish again. Your store name is already set.`;
+}
+
 export async function getStorefrontBrand(userId?: string) {
   const user = userId ? await getUserById(userId) : await getOperator();
   const merchantSk = user?.storeStripeSk?.trim() || "";
+  const missing = sellerPublishGaps(user);
   return {
     name: user?.storeName || "Your store",
     slug: user?.storeSlug || "",
@@ -34,7 +53,8 @@ export async function getStorefrontBrand(userId?: string) {
     supportEmail: user?.supportEmail?.trim() || "",
     businessAddress: user?.businessAddress?.trim() || "",
     metaPixelId: user?.metaPixelId?.trim() || "",
-    sellerReady: Boolean(user?.supportEmail?.trim() && user?.businessAddress?.trim() && user?.storeName?.trim()),
+    sellerReady: missing.length === 0,
+    sellerHint: sellerPublishHint(missing),
   };
 }
 
@@ -93,9 +113,7 @@ export async function publishLiveProduct(
   if (!product) throw new Error("Product not found.");
   const brand = await getStorefrontBrand(product.userId);
   if (!brand.sellerReady) {
-    throw new Error(
-      "Add store name, support email, and business address in Settings before publishing. Shoppers must see your business, not Seto.",
-    );
+    throw new Error(brand.sellerHint || "Add a business address in Settings before publishing.");
   }
   if (!brand.stripeReady || brand.stripeMode !== "live") {
     throw new Error(
