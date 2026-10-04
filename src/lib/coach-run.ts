@@ -87,7 +87,8 @@ async function collectFacts(
   catalogProductId: string | null,
 ): Promise<{ facts: CoachFacts; productId: string | null; title: string | null }> {
   const db = await ensureDb();
-  let product = catalogProductId ? await getProduct(catalogProductId) : null;
+  type Row = { id: string; status: string; cleanTitle: string | null; rawTitle: string; supplierUrl: string };
+  let product: Row | null = catalogProductId ? await getProduct(catalogProductId) : null;
   if (!product && pick?.url) {
     product = await findProductBySupplierUrl(pick.url);
   }
