@@ -13,15 +13,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Copy `env.example` to `.env.local` when you have credentials.
 
-## Go-live checklist
+## Go-live checklist (Seto platform)
 
-1. **Shopify** — Settings → Connect Shopify (or env fallback). Turn **storefront password off** (Admin → Online Store → Preferences).
-2. **Meta** — Settings → **Connect with Facebook** (or paste/`META_ACCESS_TOKEN` + Extend). Status must be **Connected**. For App Review: Valid OAuth Redirect URI `APP_URL/api/meta/callback`, Data Deletion Request URL `APP_URL/api/meta/data-deletion` (see `/privacy`).
-3. **One test order** through Shopify checkout → Orders → Fulfill → tracking → Command KPIs move.
-4. **One Preview pause** on Ads & Guard against a real campaign (Preview never calls pause APIs). Open **Why?** for dual-signal math.
-5. **Cron** — cron-job.org hourly `GET /api/cron/hourly` with `Authorization: Bearer CRON_SECRET` (reconcile + Meta insights + dual-signal + daypart).
-6. **Margin Guard auto-pause** — Settings → Margin Guard mode → Auto-pause (opt-in). Host kill switch: `MARGIN_GUARD_AUTOPAUSE_ENABLED=false`.
-7. **Railway** — health check path `/api/health`; prefer min replicas = 1 to avoid ~8s cold starts.
+See **Settings → Seto launch** for live status. Soft launch does **not** require merchant Stripe.
+
+1. **Railway env** — `AUTH_*`, `APP_URL`, `CRON_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `ENCRYPTION_KEY`.
+2. **Cron** — cron-job.org hourly `GET /api/cron/hourly` with `Authorization: Bearer CRON_SECRET`.
+3. **Meta** — Settings → Connect with Facebook (testers OK in Development). App Review only when public customers need Login. URLs: `/privacy`, `/api/meta/callback`, `/api/meta/data-deletion`.
+4. **Platform Stripe (paid Seto plans)** — live `STRIPE_SECRET_KEY` (`sk_live_…`), `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_SCALER`, webhook → `/api/webhooks/stripe`. Soft launch can skip this.
+5. **Smoke path** — Settings → **Create practice order** → Fulfill → add tracking. Optional: seller test Stripe + one Stripe test-card checkout on `/s/{slug}`.
+6. **Health** — `GET /api/health` returns `softLaunchOk` / `chargePlansOk` (no secrets).
 
 ## Env vars (Railway / `.env.local`)
 

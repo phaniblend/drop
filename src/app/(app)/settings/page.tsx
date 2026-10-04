@@ -18,7 +18,7 @@ export default async function SettingsPage({
   }>;
 }) {
   const params = await searchParams;
-  const [user, status, billing, gemini, meta, storefrontUrl, shopifyLive] = await Promise.all([
+  const [user, status, billing, gemini, meta, storefrontUrl, shopifyLive, goLive] = await Promise.all([
     getOperator(),
     Promise.resolve(integrationStatus()),
     getBillingSummary(),
@@ -26,6 +26,7 @@ export default async function SettingsPage({
     import("@/lib/meta-health").then((m) => m.getMetaHealth(true)),
     shopifyStorefrontHomeUrl(),
     shopifyIsConnected(),
+    import("@/lib/go-live").then((m) => m.getPlatformGoLive()),
   ]);
   if (!user) {
     return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
@@ -132,6 +133,12 @@ export default async function SettingsPage({
         publishableMasked: maskStripeKey(user.storeStripePk),
         secretMasked: maskStripeKey(user.storeStripeSk),
         mode: stripeKeyMode(user.storeStripeSk),
+      }}
+      goLive={{
+        softLaunchOk: goLive.softLaunchOk,
+        chargeOk: goLive.chargeOk,
+        checks: goLive.checks,
+        metaReviewUrls: goLive.metaReviewUrls,
       }}
     />
   );

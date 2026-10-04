@@ -19,6 +19,7 @@ import { friendlyMetaError } from "@/lib/meta-status";
 import { StripeKeysForm } from "./stripe-keys-form";
 import { BillingPortalButton } from "./billing-portal-button";
 import { MetaAdAccountPicker } from "./meta-ad-account-picker";
+import { GoLiveCard } from "./go-live-card";
 
 type Status = {
   store?: boolean;
@@ -67,6 +68,7 @@ export function SettingsDesk({
   guardMode = "ALERT_ONLY",
   metaAccounts = [],
   stripeKeys,
+  goLive = null,
 }: {
   status: Status;
   billing: BillingSummary;
@@ -80,6 +82,23 @@ export function SettingsDesk({
   guardMode?: "OFF" | "ALERT_ONLY" | "AUTO_PAUSE";
   metaAccounts?: Array<{ id: string; name: string; currency: string; guardEnabled?: boolean }>;
   stripeKeys?: { publishableMasked: string; secretMasked: string; mode: "off" | "test" | "live" };
+  goLive?: {
+    softLaunchOk: boolean;
+    chargeOk: boolean;
+    checks: Array<{
+      id: string;
+      label: string;
+      ok: boolean;
+      detail: string;
+      owner: "ready" | "railway" | "meta" | "you";
+    }>;
+    metaReviewUrls: {
+      privacy: string;
+      terms: string;
+      oauthRedirect: string;
+      dataDeletion: string;
+    };
+  } | null;
   user: {
     displayName: string;
     storeName: string;
@@ -212,6 +231,15 @@ export function SettingsDesk({
           <PwaInstallButton />
         </div>
       </div>
+
+      {goLive ? (
+        <GoLiveCard
+          softLaunchOk={goLive.softLaunchOk}
+          chargeOk={goLive.chargeOk}
+          checks={goLive.checks}
+          metaReviewUrls={goLive.metaReviewUrls}
+        />
+      ) : null}
 
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
