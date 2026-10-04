@@ -205,6 +205,29 @@ export const dailyDirectives = sqliteTable(
   ],
 );
 
+export const coachSessions = sqliteTable(
+  "coach_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dateLocal: text("date_local").notNull(),
+    stepId: text("step_id").notNull().default("pick"),
+    keyword: text("keyword").notNull().default(""),
+    keywordWhy: text("keyword_why").notNull().default(""),
+    pickJson: text("pick_json").notNull().default("{}"),
+    catalogProductId: text("catalog_product_id"),
+    messagesJson: text("messages_json").notNull().default("[]"),
+    updatedAt: text("updated_at").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("idx_coach_sessions_user_date").on(t.userId, t.dateLocal),
+    index("idx_coach_sessions_user").on(t.userId),
+  ],
+);
+
 export const refunds = sqliteTable("refunds", {
   id: text("id").primaryKey(),
   orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
@@ -255,6 +278,7 @@ export type Supplier = typeof suppliers.$inferSelect;
 export type CsMacro = typeof csMacros.$inferSelect;
 export type DailyTask = typeof dailyTasks.$inferSelect;
 export type DailyDirective = typeof dailyDirectives.$inferSelect;
+export type CoachSession = typeof coachSessions.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
 export type Activity = typeof activityLog.$inferSelect;
 export type SavedListing = typeof savedListings.$inferSelect;

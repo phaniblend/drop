@@ -21,6 +21,7 @@ import type { FeedProduct } from "@/lib/supplier-feed";
 import { isAliExpressItemUrl } from "@/lib/aliexpress-url";
 import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 import { emitPaywall, hasPaywall, type PaywallPayload } from "@/lib/paywall";
+import { shareListingWithCoach } from "@/app/actions/coach";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { Thumb } from "./thumb";
 import { CompetitorAdsPanel } from "./competitor-ads-panel";
@@ -83,6 +84,25 @@ export function DiscoverDesk({
   const [pricedOnly, setPricedOnly] = useState(true);
   const [minRating4, setMinRating4] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [coachStep, setCoachStep] = useState("");
+
+  useEffect(() => {
+    const onKeyword = (e: Event) => {
+      const keyword = (e as CustomEvent<{ keyword?: string }>).detail?.keyword?.trim();
+      if (!keyword) return;
+      setShowSaved(false);
+      setQuery(keyword);
+    };
+    const onStep = (e: Event) => {
+      setCoachStep((e as CustomEvent<{ step?: string }>).detail?.step ?? "");
+    };
+    window.addEventListener("seto-coach-keyword", onKeyword);
+    window.addEventListener("seto-coach-step", onStep);
+    return () => {
+      window.removeEventListener("seto-coach-keyword", onKeyword);
+      window.removeEventListener("seto-coach-step", onStep);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -488,6 +508,33 @@ export function DiscoverDesk({
                 </div>
                 {licensed ? <p className="text-xs text-loss">{licensed}</p> : null}
                 {screen && !screen.ok ? <p className="text-xs text-warn">{screen.reason}</p> : null}
+                <div className="flex flex-col gap-2">
+                  {coachStep === "pick" ? (
+                    <Button
+                      className="w-full"
+                      tone="accent"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          setError("");
+                          try {
+                            await shareListingWithCoach({
+                              title: p.cleanTitle || p.title,
+                              url: p.url,
+                              image: p.image,
+                              cost: displayCost,
+                              source: p.source,
+                            });
+                            window.dispatchEvent(new Event("seto-coach-shared"));
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : "Could not share that listing.");
+                          }
+                        })
+                      }
+                    >
+                      Share with Seto
+                    </Button>
+                  ) : null}
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
@@ -535,6 +582,7 @@ export function DiscoverDesk({
                   >
                     {savingKey === listingKey ? "…" : isSaved ? "Saved" : "Save"}
                   </Button>
+                </div>
                 </div>
               </div>
             </Card>

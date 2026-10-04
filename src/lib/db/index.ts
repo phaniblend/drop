@@ -207,6 +207,21 @@ CREATE TABLE IF NOT EXISTS daily_directives (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_directives_user_date ON daily_directives(user_id, date_local);
 CREATE INDEX IF NOT EXISTS idx_daily_directives_user ON daily_directives(user_id);
+CREATE TABLE IF NOT EXISTS coach_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date_local TEXT NOT NULL,
+  step_id TEXT NOT NULL DEFAULT 'pick',
+  keyword TEXT NOT NULL DEFAULT '',
+  keyword_why TEXT NOT NULL DEFAULT '',
+  pick_json TEXT NOT NULL DEFAULT '{}',
+  catalog_product_id TEXT,
+  messages_json TEXT NOT NULL DEFAULT '[]',
+  updated_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_sessions_user_date ON coach_sessions(user_id, date_local);
+CREATE INDEX IF NOT EXISTS idx_coach_sessions_user ON coach_sessions(user_id);
 CREATE TABLE IF NOT EXISTS refunds (
   id TEXT PRIMARY KEY,
   order_id TEXT,

@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, CircleHelp, GripVertical, X } from "lucide-react";
-import { HELP_TOURS, type HelpTour } from "@/lib/help-steps";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { GripVertical, MessageCircle, X } from "lucide-react";
+import {
+  importSharedListing,
+  loadCoachSession,
+  markCoachStepDone,
+  resetCoachToday,
+  shareListingWithCoach,
+} from "@/app/actions/coach";
+import { COACH_STEPS, type CoachStepId } from "@/lib/coach-plan";
+import { emitPaywall, hasPaywall } from "@/lib/paywall";
 import { Button } from "./ui";
+import { DeskLink } from "./desk-link";
 import { cn } from "@/lib/utils";
 
-const TOUR_KEY = "dropshipos-help-tour-v4";
-const STEP_KEY = "dropshipos-help-step-v4";
-const OPEN_KEY = "dropshipos-help-open";
-const POS_KEY = "dropshipos-help-pos-v3";
-const CARD_MAX = 300;
+const OPEN_KEY = "seto-coach-open";
+const POS_KEY = "seto-coach-pos-v1";
+const CARD_MAX = 340;
+
+type Session = Awaited<ReturnType<typeof loadCoachSession>>;
 
 function cardWidth() {
   if (typeof window === "undefined") return CARD_MAX;
@@ -32,7 +41,7 @@ function clampPos(next: { x: number; y: number }) {
   const width = cardWidth();
   const mobile = window.innerWidth < 768;
   const maxX = Math.max(8, window.innerWidth - width - 8);
-  const maxY = Math.max(8, window.innerHeight - (mobile ? 220 : 96));
+  const maxY = Math.max(8, window.innerHeight - (mobile ? 280 : 120));
   return {
     x: Math.min(maxX, Math.max(8, next.x)),
     y: Math.min(maxY, Math.max(8, next.y)),
@@ -46,46 +55,53 @@ export function HelpGuide({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [tourId, setTourId] = useState<string | null>(null);
-  const [index, setIndex] = useState(0);
+  const [session, setSession] = useState<Session>(null);
+  const [paste, setPaste] = useState("");
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [ready, setReady] = useState(false);
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
-  const tour = HELP_TOURS.find((item) => item.id === tourId) ?? null;
+  const scroller = useRef<HTMLDivElement>(null);
+
+  function refresh() {
+    start(async () => {
+      const next = await loadCoachSession();
+      setSession(next);
+      if (next?.keyword && next.stepId === "pick") {
+        window.dispatchEvent(new CustomEvent("seto-coach-keyword", { detail: { keyword: next.keyword } }));
+      }
+      window.dispatchEvent(new CustomEvent("seto-coach-step", { detail: { step: next?.stepId ?? "pick" } }));
+    });
+  }
 
   useEffect(() => {
-    const savedTour = window.sessionStorage.getItem(TOUR_KEY);
-    if (savedTour && HELP_TOURS.some((item) => item.id === savedTour)) setTourId(savedTour);
-    const saved = Number(window.sessionStorage.getItem(STEP_KEY) ?? "0");
-    if (Number.isFinite(saved) && saved >= 0) setIndex(saved);
     const rawPos = window.sessionStorage.getItem(POS_KEY);
     if (rawPos) {
       try {
         const parsed = JSON.parse(rawPos) as { x: number; y: number };
         if (Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) setPos(clampPos(parsed));
       } catch {
-        /* use CSS default */
+        /* default */
       }
     }
-    if (window.sessionStorage.getItem(OPEN_KEY) === "1") {
-      onOpenChange(true);
-    }
+    if (window.sessionStorage.getItem(OPEN_KEY) !== "0") onOpenChange(true);
     setReady(true);
     const onResize = () => setPos((p) => (p ? clampPos(p) : p));
+    const onShared = () => refresh();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-    // Restore once on mount.
+    window.addEventListener("seto-coach-shared", onShared);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("seto-coach-shared", onShared);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (tourId) window.sessionStorage.setItem(TOUR_KEY, tourId);
-    else window.sessionStorage.removeItem(TOUR_KEY);
-  }, [tourId]);
-
-  useEffect(() => {
-    window.sessionStorage.setItem(STEP_KEY, String(index));
-  }, [index]);
+    if (open) refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     window.sessionStorage.setItem(OPEN_KEY, open ? "1" : "0");
@@ -96,13 +112,12 @@ export function HelpGuide({
     window.sessionStorage.setItem(POS_KEY, JSON.stringify(pos));
   }, [pos, ready]);
 
-  function pickTour(next: HelpTour) {
-    setTourId(next.id);
-    setIndex(0);
-  }
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+  }, [session?.messages.length]);
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if ((e.target as HTMLElement).closest("button")) return;
+    if ((e.target as HTMLElement).closest("button,input,a,textarea")) return;
     const rect = e.currentTarget.parentElement?.getBoundingClientRect();
     const current = pos ?? (rect ? { x: rect.left, y: rect.top } : defaultPos());
     drag.current = { px: e.clientX, py: e.clientY, x: current.x, y: current.y };
@@ -125,22 +140,26 @@ export function HelpGuide({
 
   if (!open) return null;
 
-  const step = tour?.steps[index];
-  const last = Boolean(tour && index === tour.steps.length - 1);
-  const first = index === 0;
+  const step = (session?.stepId ?? "pick") as CoachStepId;
+  const href =
+    step === "clean" || step === "publish" || step === "angles"
+      ? session?.catalogProductId
+        ? `/catalog/${session.catalogProductId}`
+        : "/catalog"
+      : COACH_STEPS.find((s) => s.id === step)?.href ?? "/discover";
 
   return (
     <aside
-      className="fixed top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))] right-3 z-[100] w-[min(18.75rem,calc(100vw-1rem))] rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(15,18,34,0.12)] md:right-6"
+      className="fixed top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))] right-3 z-[100] flex w-[min(21.25rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(15,18,34,0.12)] md:right-6"
       style={pos ? { left: pos.x, top: pos.y, right: "auto" } : undefined}
       role="dialog"
-      aria-label="Help tours"
+      aria-label="Today’s plan"
       aria-modal="false"
     >
       <div
         className="flex cursor-grab items-center justify-between border-b border-line px-3 py-2 active:cursor-grabbing"
         role="toolbar"
-        aria-label="Move help"
+        aria-label="Move coach"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -148,84 +167,172 @@ export function HelpGuide({
       >
         <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
           <GripVertical className="h-3.5 w-3.5 text-faint" />
-          Help
+          Today’s plan
         </p>
         <button
           type="button"
           className="rounded-md p-1 text-muted hover:bg-black/[0.04] hover:text-ink"
           onClick={() => onOpenChange(false)}
-          aria-label="Hide help"
+          aria-label="Hide coach"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
-      {!tour || !step ? (
-        <div className="space-y-2 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">Pick a tour</p>
-          <p className="text-xs text-muted">
-            Please follow these 5 steps in sequence; each step is divided into 3–5 substeps.
-          </p>
-          <ul className="space-y-2">
-            {HELP_TOURS.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className="w-full cursor-pointer rounded-xl border border-line px-3 py-2 text-left hover:border-line-strong"
-                  onClick={() => pickTour(item)}
-                >
-                  <p className="text-sm font-semibold text-ink">{item.title}</p>
-                  <p className="mt-0.5 text-xs text-muted">{item.blurb}</p>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <>
-          <div className="px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
-              {tour.title} · Step {index + 1} of {tour.steps.length}
+
+      <ol className="space-y-1 border-b border-line px-3 py-2">
+        {COACH_STEPS.filter((s) => s.id !== "done").map((item, i) => {
+          const current = item.id === step;
+          const done =
+            COACH_STEPS.findIndex((s) => s.id === step) > i || step === "done";
+          return (
+            <li
+              key={item.id}
+              className={cn(
+                "text-[11px] leading-4",
+                current ? "font-semibold text-ink" : done ? "text-faint line-through" : "text-muted",
+              )}
+            >
+              {i + 1}. {item.title}
+              {item.id === "pick" && session?.keyword ? ` — ${session.keyword}` : ""}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div ref={scroller} className="max-h-[min(22rem,46vh)] space-y-2 overflow-y-auto px-3 py-3">
+        {(session?.messages ?? []).map((m) => (
+          <div
+            key={m.id}
+            className={cn(
+              "rounded-xl px-2.5 py-2 text-xs leading-5",
+              m.role === "seto" ? "bg-black/[0.04] text-ink" : "ml-6 bg-accent/10 text-ink",
+            )}
+          >
+            <p className="mb-0.5 font-mono text-[9px] uppercase tracking-wider text-faint">
+              {m.role === "seto" ? "Seto" : "You"}
             </p>
-            <h2 className="mt-1 text-sm font-semibold text-ink">{step.label}</h2>
-            <p className="mt-2 text-xs leading-5 text-muted">{step.desc}</p>
-            {step.href ? (
-              <a href={step.href} className="mt-2 inline-block text-xs text-accent">
-                Open this screen →
-              </a>
-            ) : null}
+            {m.text}
           </div>
-          <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+        ))}
+        {!session ? (
+          <p className="text-xs text-muted">{pending ? "Loading today’s plan…" : "Sign in to get today’s plan."}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2 border-t border-line px-3 py-3">
+        {error ? <p className="text-xs text-loss">{error}</p> : null}
+        {step === "pick" ? (
+          <div className="flex gap-2">
+            <input
+              className="h-8 min-w-0 flex-1 rounded-lg border border-line px-2 text-xs"
+              placeholder="Or paste a supplier URL"
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+            />
             <Button
               tone="line"
-              className="h-8 flex-1 px-2 text-xs"
-              disabled={first}
-              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+              className="h-8 px-2 text-xs"
+              disabled={pending || paste.trim().length < 8}
+              onClick={() =>
+                start(async () => {
+                  setError("");
+                  try {
+                    const next = await shareListingWithCoach({
+                      title: paste.trim(),
+                      url: paste.trim(),
+                    });
+                    setSession(next);
+                    setPaste("");
+                    window.dispatchEvent(new Event("seto-coach-shared"));
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Could not save that link.");
+                  }
+                })
+              }
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Prev
-            </Button>
-            <Button
-              tone="accent"
-              className="h-8 flex-1 px-2 text-xs"
-              disabled={last}
-              onClick={() => setIndex((i) => Math.min(tour.steps.length - 1, i + 1))}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
+              Share
             </Button>
           </div>
-          <button
-            type="button"
-            className="w-full border-t border-line px-3 py-2 text-left text-xs text-accent"
-            onClick={() => {
-              setTourId(null);
-              setIndex(0);
-            }}
-          >
-            All tours
-          </button>
-        </>
-      )}
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <DeskLink href={href}>
+            <Button tone="accent" className="h-8 px-2 text-xs" disabled={pending}>
+              {step === "pick"
+                ? "Open Discover"
+                : step === "import"
+                  ? "Open Discover"
+                  : step === "launch"
+                    ? "Open Ads & Guard"
+                    : step === "done"
+                      ? "Open Command"
+                      : "Open listing"}
+            </Button>
+          </DeskLink>
+          {step === "import" ? (
+            <Button
+              tone="accent"
+              className="h-8 px-2 text-xs"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  setError("");
+                  try {
+                    const result = await importSharedListing();
+                    if (hasPaywall(result)) {
+                      emitPaywall(result.paywall);
+                      return;
+                    }
+                    if ("session" in result) setSession(result.session);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Import failed.");
+                  }
+                })
+              }
+            >
+              Import this listing
+            </Button>
+          ) : null}
+          {step !== "pick" && step !== "import" && step !== "done" ? (
+            <Button
+              tone="line"
+              className="h-8 px-2 text-xs"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  setError("");
+                  try {
+                    const result = await markCoachStepDone();
+                    if (hasPaywall(result)) {
+                      emitPaywall(result.paywall);
+                      return;
+                    }
+                    if ("session" in result) setSession(result.session);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Not done yet.");
+                  }
+                })
+              }
+            >
+              {step === "publish" ? "I published it" : step === "launch" ? "I launched it" : "I’m done"}
+            </Button>
+          ) : null}
+          {step === "done" ? (
+            <Button
+              tone="line"
+              className="h-8 px-2 text-xs"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const next = await resetCoachToday();
+                  setSession(next);
+                })
+              }
+            >
+              New plan
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </aside>
   );
 }
@@ -244,7 +351,7 @@ export function HelpMenuButton({
       <button
         type="button"
         onClick={onClick}
-        aria-label="Open help"
+        aria-label="Open today’s plan"
         aria-pressed={active}
         className={cn(
           "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition",
@@ -253,8 +360,8 @@ export function HelpMenuButton({
             : "border-line text-muted hover:border-line-strong hover:text-ink",
         )}
       >
-        <CircleHelp className={cn("h-3.5 w-3.5", active ? "text-accent" : "text-faint")} />
-        <span className="hidden sm:inline">Help</span>
+        <MessageCircle className={cn("h-3.5 w-3.5", active ? "text-accent" : "text-faint")} />
+        <span className="hidden sm:inline">Coach</span>
       </button>
     );
   }
@@ -264,13 +371,11 @@ export function HelpMenuButton({
       onClick={onClick}
       className={cn(
         "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition",
-        active
-          ? "bg-accent/10 text-ink"
-          : "text-muted hover:bg-black/[0.04] hover:text-ink",
+        active ? "bg-accent/10 text-ink" : "text-muted hover:bg-black/[0.04] hover:text-ink",
       )}
     >
-      <CircleHelp className={cn("h-4 w-4", active ? "text-accent" : "text-faint")} />
-      Help
+      <MessageCircle className={cn("h-4 w-4", active ? "text-accent" : "text-faint")} />
+      Coach
     </button>
   );
 }

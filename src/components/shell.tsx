@@ -196,7 +196,7 @@ export function Shell({
             <HelpMenuButton
               placement="topbar"
               active={helpOpen}
-              onClick={() => setHelpOpen(true)}
+              onClick={() => setHelpOpen((open) => !open)}
             />
             <DeskLink
               href="/discover"
