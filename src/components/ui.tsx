@@ -1,5 +1,6 @@
 import type { ClassValue } from "clsx";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 export function Card({
   className,
@@ -64,19 +65,25 @@ export function Button({
   tone = "default",
   type = "button",
   disabled,
+  busy,
+  children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; busy?: boolean }) {
   return (
     <button
       type={type}
-      disabled={disabled}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       className={cn(
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 md:min-h-0",
         btnTone[tone],
         className,
       )}
       {...props}
-    />
+    >
+      {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : null}
+      {children}
+    </button>
   );
 }
 

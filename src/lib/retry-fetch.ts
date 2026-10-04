@@ -6,7 +6,12 @@ function isBusy(status: number) {
   return status === 502 || status === 503 || status === 504;
 }
 
-export async function postJson<T>(url: string, body: unknown): Promise<T> {
+export async function postJson<T>(url: string, body: unknown, opts?: { busy?: string }): Promise<T> {
+  if (opts?.busy) {
+    const { beginProcessing } = await import("./processing");
+    beginProcessing(opts.busy);
+  }
+  try {
   let last: Error | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -31,4 +36,10 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
     }
   }
   throw last ?? new Error("Request failed. Try again.");
+  } finally {
+    if (opts?.busy) {
+      const { endProcessing } = await import("./processing");
+      endProcessing();
+    }
+  }
 }

@@ -28,6 +28,8 @@ export function ProductEditor({
   product,
   storefrontHomeUrl = "",
   storeHref = "/store",
+  stripeLive = false,
+  sellerReady = false,
 }: {
   product: Product & {
     variants: ProductVariant[];
@@ -36,6 +38,8 @@ export function ProductEditor({
   };
   storefrontHomeUrl?: string;
   storeHref?: string;
+  stripeLive?: boolean;
+  sellerReady?: boolean;
 }) {
   const router = useRouter();
   const [savingPrice, startPrice] = useTransition();
@@ -86,6 +90,13 @@ export function ProductEditor({
     }
   }
 
+  function showPublish(msg: { tone: "profit" | "warn" | "loss"; text: string; href?: string }) {
+    setPublishMsg(msg);
+    requestAnimationFrame(() => {
+      document.getElementById("publish-feedback")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
   function runPublish() {
     startPublish(async () => {
       const screen = screenListing({
@@ -93,15 +104,15 @@ export function ProductEditor({
         description: product.descriptionHtml ?? "",
       });
       if (!screen.ok && screen.level === "block") {
-        setPublishMsg({ tone: "loss", text: screen.reason });
+        showPublish({ tone: "loss", text: screen.reason });
         return;
       }
       if (!screen.ok && screen.level === "review" && !allowRestricted) {
-        setPublishMsg({ tone: "warn", text: `${screen.reason} Check the box to publish anyway.` });
+        showPublish({ tone: "warn", text: `${screen.reason} Check the box to publish anyway.` });
         return;
       }
       if (shipUnknown && !allowUnknownShipping) {
-        setPublishMsg({
+        showPublish({
           tone: "warn",
           text: "Enter ship cost, or check the box to publish with shipping unknown.",
         });
@@ -113,31 +124,59 @@ export function ProductEditor({
       }
       const sellable = product.variants.reduce((s, v) => s + Math.max(0, v.inventoryCount), 0);
       if (sellable <= 0) {
-        setPublishMsg({
+        showPublish({
           tone: "loss",
           text: "No variant has stock. Fix stock before publishing — shoppers would have nothing to buy.",
         });
         return;
       }
       if (retailNum > 0 && retailNum < MIN_PUBLISH_PRICE) {
-        setPublishMsg({
+        showPublish({
           tone: "warn",
-          text: `Price under $${MIN_PUBLISH_PRICE.toFixed(2)} rarely covers ads. Raise it before publishing.`,
+          text: `Price is $${retailNum.toFixed(2)}. Raise selling price to at least $${MIN_PUBLISH_PRICE.toFixed(2)} so ads can cover cost, then click Publish again.`,
         });
         return;
       }
-      setPublishMsg({ tone: "warn", text: "Publishing to your store…" });
+      if (!sellerReady) {
+        showPublish({
+          tone: "warn",
+          text: "Add store name, support email, and business address in Settings, then publish again.",
+        });
+        return;
+      }
+      if (!stripeLive) {
+        showPublish({
+          tone: "warn",
+          text: "Connect your own live Stripe keys in Settings before publishing. Checkout cannot use a Seto account.",
+        });
+        return;
+      }
+      showPublish({ tone: "warn", text: "Publishing to your store…" });
       try {
+        await postJson(
+          "/api/catalog/pricing",
+          {
+            productId: product.id,
+            retailPrice: Number(retail),
+            markupMultiplier: Number(markup),
+            shippingCost: Number(shipping),
+          },
+          { busy: "Saving price…" },
+        );
         const res = await postJson<{
           storeUrl?: string;
           storefrontUrl?: string;
           firstShop?: boolean;
-        }>("/api/catalog/publish", {
-          productId: product.id,
-          allowUnknownShipping,
-          allowRestricted,
-        });
-        setPublishMsg({
+        }>(
+          "/api/catalog/publish",
+          {
+            productId: product.id,
+            allowUnknownShipping,
+            allowRestricted,
+          },
+          { busy: "Publishing to your store…" },
+        );
+        showPublish({
           tone: "profit",
           text: res.firstShop
             ? "Your shop is open. This product is live."
@@ -146,7 +185,7 @@ export function ProductEditor({
         });
         router.refresh();
       } catch (e) {
-        setPublishMsg({
+        showPublish({
           tone: "loss",
           text: e instanceof Error ? e.message : "Publish failed. Product stays Draft.",
         });
@@ -431,7 +470,7 @@ export function ProductEditor({
             <Button
               className="mt-3"
               tone="line"
-              disabled={savingPrice}
+              busy={savingPrice}
               onClick={() =>
                 startPrice(async () => {
                   setPriceMsg("");
@@ -446,7 +485,7 @@ export function ProductEditor({
                       retailPrice: Number(retail),
                       markupMultiplier: Number(markup),
                       shippingCost: Number(shipping),
-                    });
+                    }, { busy: "Saving price…" });
                     setRetail(String(saved.retailPrice));
                     setMarkup(String(saved.markupMultiplier));
                     setShipping(String(saved.shippingCost));
@@ -466,15 +505,38 @@ export function ProductEditor({
                 {priceMsg}
               </p>
             ) : null}
-            <Button className="mt-3 w-full" tone="accent" disabled={publishing} onClick={runPublish}>
-              {publishing
-                ? product.shopifyProductId
-                  ? "Updating…"
-                  : "Publishing…"
-                : product.status === "published"
-                  ? "Update on your store"
-                  : "Publish to your store"}
-            </Button>
+            <div id="publish-feedback" className="mt-3 scroll-mt-24">
+              {publishMsg ? (
+                <p
+                  className={`mb-2 rounded-xl border px-3 py-2 text-sm ${
+                    publishMsg.tone === "profit"
+                      ? "border-profit/30 bg-profit/5 text-profit"
+                      : publishMsg.tone === "loss"
+                        ? "border-loss/30 bg-loss/5 text-loss"
+                        : "border-warn/30 bg-warn/5 text-warn"
+                  }`}
+                >
+                  {publishMsg.text}
+                  {publishMsg.href ? (
+                    <>
+                      {" "}
+                      <a href={publishMsg.href} target="_blank" rel="noreferrer" className="underline">
+                        Open store page
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+              <Button className="w-full" tone="accent" busy={publishing} onClick={runPublish}>
+                {publishing
+                  ? product.shopifyProductId
+                    ? "Updating…"
+                    : "Publishing…"
+                  : product.status === "published"
+                    ? "Update on your store"
+                    : "Publish to your store"}
+              </Button>
+            </div>
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-faint">Supplier</p>

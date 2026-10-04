@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "./ui";
 import { HelpGuide, HelpMenuButton } from "./help-guide";
+import { ProcessingToast } from "./processing-toast";
 import { BrandLogo, BrandMark } from "./brand-logo";
 import { TrialBadge } from "./trial-badge";
 import { UpgradeModal } from "./upgrade-modal";
@@ -258,6 +259,7 @@ export function Shell({
       </nav>
 
       <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
+      <ProcessingToast />
       <UpgradeModal />
     </div>
   );

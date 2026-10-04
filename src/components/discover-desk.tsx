@@ -22,6 +22,7 @@ import { isAliExpressItemUrl } from "@/lib/aliexpress-url";
 import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 import { emitPaywall, hasPaywall, type PaywallPayload } from "@/lib/paywall";
 import { shareListingWithCoach, loadCoachSession } from "@/app/actions/coach";
+import { beginProcessing, endProcessing } from "@/lib/processing";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { Thumb } from "./thumb";
 import { CompetitorAdsPanel } from "./competitor-ads-panel";
@@ -224,6 +225,7 @@ export function DiscoverDesk({
       return;
     }
 
+    beginProcessing("Importing listing…");
     if (isCj) {
       setScraping(true);
       try {
@@ -233,10 +235,12 @@ export function DiscoverDesk({
           return;
         }
         router.push(`/catalog/${res.id}`);
+        window.dispatchEvent(new Event("seto-coach-shared"));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
       } finally {
         setScraping(false);
+        endProcessing();
       }
       return;
     }
@@ -281,6 +285,7 @@ export function DiscoverDesk({
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {
       setScraping(false);
+      endProcessing();
     }
   }
 
@@ -547,7 +552,7 @@ export function DiscoverDesk({
                   <Button
                     className="w-full"
                     tone={coachStep === "import" ? "accent" : "line"}
-                    disabled={pending || scraping}
+                    busy={pending || scraping}
                     onClick={() =>
                       start(async () => {
                         await runImportUrl(p.url);
@@ -816,10 +821,11 @@ export function DiscoverDesk({
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 tone="accent"
-                disabled={pending}
+                busy={pending}
                 onClick={() =>
                   start(async () => {
                     setError("");
+                    beginProcessing("Importing listing…");
                     try {
                       const res = await importFromSupplierUrl(preview.supplierUrl);
                       if (hasPaywall(res)) {
@@ -838,6 +844,8 @@ export function DiscoverDesk({
                       router.push(`/catalog/${res.id}`);
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Import failed");
+                    } finally {
+                      endProcessing();
                     }
                   })
                 }
