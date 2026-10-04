@@ -36,9 +36,12 @@ export async function exchangeMetaLongLivedToken(shortLived?: string): Promise<{
     );
   }
 
-  const input = (shortLived || env.metaToken || "").trim();
+  const operatorToken = (await getOperator())?.metaAccessToken?.trim() || "";
+  const input = (shortLived || operatorToken || env.metaToken || "").trim();
   if (!input) {
-    throw new Error("No META_ACCESS_TOKEN to exchange. Paste a fresh Graph Explorer token on Railway first.");
+    throw new Error(
+      "No Meta token to exchange. Use Connect with Facebook in Settings, or set META_ACCESS_TOKEN on Railway.",
+    );
   }
 
   const url = `${GRAPH}/oauth/access_token?${new URLSearchParams({

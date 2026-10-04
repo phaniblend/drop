@@ -102,6 +102,7 @@ export function SettingsDesk({
   const [consentAuto, setConsentAuto] = useState(false);
   const [tiktokToken, setTiktokToken] = useState("");
   const [tiktokAdv, setTiktokAdv] = useState("");
+  const [metaExtendMsg, setMetaExtendMsg] = useState("");
 
   const [clearConfirm, setClearConfirm] = useState("");
   const [repairMsg, setRepairMsg] = useState("");
@@ -378,24 +379,30 @@ export function SettingsDesk({
             ) : null}
             {"metaExtend" in c && c.metaExtend && status.metaStatus === "connected" ? (
               metaAppReady ? (
-                <Button
-                  className="mt-3 h-8 px-3 text-xs"
-                  tone="line"
-                  disabled={pending || !canExtendMeta}
-                  onClick={() =>
-                    start(async () => {
-                      setMsg("");
-                      try {
-                        const res = await extendMetaAccessToken();
-                        setMsg(res.message);
-                      } catch (e) {
-                        setMsg(e instanceof Error ? e.message : "Could not extend Meta token.");
-                      }
-                    })
-                  }
-                >
-                  Extend Meta token (~60d)
-                </Button>
+                <div className="mt-3 space-y-1">
+                  <Button
+                    className="h-8 px-3 text-xs"
+                    tone="line"
+                    disabled={pending || !canExtendMeta}
+                    onClick={() =>
+                      start(async () => {
+                        setMetaExtendMsg("");
+                        try {
+                          const res = await extendMetaAccessToken();
+                          setMetaExtendMsg(res.message);
+                          setMsg(res.message);
+                        } catch (e) {
+                          const text = e instanceof Error ? e.message : "Could not extend Meta token.";
+                          setMetaExtendMsg(text);
+                          setMsg(text);
+                        }
+                      })
+                    }
+                  >
+                    {pending ? "Extending…" : "Extend Meta token (~60d)"}
+                  </Button>
+                  {metaExtendMsg ? <p className="text-xs text-muted">{metaExtendMsg}</p> : null}
+                </div>
               ) : null
             ) : null}
             {"tiktokConnect" in c && c.tiktokConnect && !c.ok ? (

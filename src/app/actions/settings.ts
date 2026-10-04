@@ -63,10 +63,9 @@ export async function repairCatalog() {
 export async function extendMetaAccessToken() {
   const { exchangeMetaLongLivedToken } = await import("@/lib/integrations/meta-token");
   const result = await exchangeMetaLongLivedToken();
-  revalidatePath("/settings");
-  revalidatePath("/ads");
   const days =
     result.expiresIn != null ? Math.max(1, Math.round(result.expiresIn / 86_400)) : null;
+  // Don't revalidate here — it remounts Settings and wipes the on-screen result message.
   return {
     ok: true as const,
     saved: result.saved,
