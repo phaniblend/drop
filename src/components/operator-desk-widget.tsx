@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { completeDailyDirective, restoreDailyDirective } from "@/app/actions/operator-desk";
 import { Badge, Button, Card } from "./ui";
 import { DeskLink } from "./desk-link";
@@ -25,15 +25,17 @@ export function OperatorDeskWidget({
   } | null;
 }) {
   const [pending, start] = useTransition();
-  if (!directive) return null;
+  const [hidden, setHidden] = useState(false);
+  if (!directive || hidden) return null;
   const stage = directive.stage as PipelineStage;
+  const ephemeral = directive.id === "dir_local_today";
 
   return (
-    <Card className="p-5">
+    <Card className="mb-6 border-accent/30 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">
-            Today’s one job
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">
+            Daily operator desk
           </p>
           <p className="mt-1 text-xs text-muted">
             Pipeline: <span className="font-medium text-ink">{stageLabel(stage)}</span>
@@ -43,7 +45,7 @@ export function OperatorDeskWidget({
           </p>
         </div>
         <Badge tone={directive.completed ? "line" : stage === "CULLING" ? "loss" : "profit"}>
-          {directive.completed ? "Done" : directive.dateLocal}
+          {directive.completed ? "Done" : "Today’s one job"}
         </Badge>
       </div>
       <h2 className="mt-3 text-base font-semibold text-ink">{directive.headline}</h2>
@@ -61,8 +63,15 @@ export function OperatorDeskWidget({
           disabled={pending}
           onClick={() =>
             start(async () => {
+              if (ephemeral) {
+                setHidden(true);
+                return;
+              }
               if (directive.completed) await restoreDailyDirective(directive.id);
-              else await completeDailyDirective(directive.id);
+              else {
+                await completeDailyDirective(directive.id);
+                setHidden(true);
+              }
             })
           }
         >

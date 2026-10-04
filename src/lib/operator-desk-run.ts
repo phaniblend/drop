@@ -135,11 +135,43 @@ async function persistDirective(userId: string, tz: string) {
   }
 }
 
+function ephemeralDirective(
+  userId: string,
+  tz: string,
+  signals: Awaited<ReturnType<typeof collectDeskSignals>>,
+) {
+  const built = buildDailyDirective(signals);
+  return {
+    id: "dir_local_today",
+    userId,
+    dateLocal: todayKey(tz),
+    stage: built.stage,
+    headline: built.headline,
+    body: built.body,
+    actionType: built.actionType,
+    actionHref: built.actionHref,
+    actionLabel: built.actionLabel,
+    actionPayload: "{}",
+    spendToday: signals.spendToday,
+    spendCap: signals.spendCap,
+    completed: false,
+    completedAt: null as string | null,
+    evaluationId: null as string | null,
+    createdAt: nowIso(),
+  };
+}
+
 export async function getOrCreateTodayDirective() {
   const operator = await getOperator();
   if (!operator) return null;
-  const { row } = await persistDirective(operator.id, operator.timezone || "America/Chicago");
-  return row;
+  const tz = operator.timezone || "America/Chicago";
+  try {
+    const { row } = await persistDirective(operator.id, tz);
+    return row;
+  } catch {
+    const signals = await collectDeskSignals(operator.id, tz);
+    return ephemeralDirective(operator.id, tz, signals);
+  }
 }
 
 export async function generateDirectivesForAllOperators() {

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { env } from "@/lib/env";
 import { loadDeskShell } from "@/lib/desk-shell";
 import { Shell } from "@/components/shell";
+import { OperatorDeskSlot } from "@/components/operator-desk-slot";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       operatorName={desk.displayName}
       operatorImage={session?.user?.image}
     >
+      <OperatorDeskSlot />
       {children}
     </Shell>
   );
