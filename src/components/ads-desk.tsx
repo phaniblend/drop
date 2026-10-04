@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  linkCampaignProduct,
   previewCampaignGuard,
   runAllGuards,
   runCampaignGuard,
@@ -21,6 +22,7 @@ type CampaignRow = {
   adSetId: string;
   adSetName: string | null;
   platform: string;
+  productId?: string | null;
   spendToday: number;
   revenueToday: number;
   ordersCount: number;
@@ -46,6 +48,8 @@ type CampaignRow = {
   } | null;
 };
 
+type CatalogOption = { id: string; title: string; status: string };
+
 type WhyEval = {
   verdict: string;
   reasonCodes: string[];
@@ -56,6 +60,7 @@ type WhyEval = {
 
 export function AdsDesk({
   campaigns,
+  catalogProducts = [],
   sentinelRaw,
   daypartingEnabled,
   adsLive = false,
@@ -69,6 +74,7 @@ export function AdsDesk({
   guardLog = [],
 }: {
   campaigns: CampaignRow[];
+  catalogProducts?: CatalogOption[];
   sentinelRaw: string;
   daypartingEnabled: boolean;
   adsLive?: boolean;
@@ -89,6 +95,7 @@ export function AdsDesk({
   const [preview, setPreview] = useState<Record<string, string>>({});
   const [checkMsg, setCheckMsg] = useState("");
   const [whyOpen, setWhyOpen] = useState<Record<string, boolean>>({});
+  const [linkMsg, setLinkMsg] = useState<Record<string, string>>({});
 
   return (
     <div className="space-y-6">
@@ -294,7 +301,9 @@ export function AdsDesk({
                 <div>
                   <p className="text-xs uppercase tracking-wider text-faint">{c.platform}</p>
                   <h2 className="mt-1 text-base font-semibold">{c.adSetName}</h2>
-                  <p className="text-xs text-muted">{c.product?.cleanTitle ?? c.product?.rawTitle ?? "No product linked"}</p>
+                  <p className="text-xs text-muted">
+                    {c.product?.cleanTitle ?? c.product?.rawTitle ?? "No product linked — pick one so Guard knows cost"}
+                  </p>
                   {c.sample ? <Badge tone="warn">DEMO</Badge> : null}
                 </div>
                 {c.isPaused ? (
@@ -309,6 +318,36 @@ export function AdsDesk({
                 <p className="mt-3 rounded-lg border border-warn/30 bg-[rgba(232,168,56,0.08)] px-3 py-2 text-xs text-warn">
                   Paid launch locked — finish the 3-video organic test on Command.
                 </p>
+              ) : null}
+              {!c.sample && catalogProducts.length ? (
+                <label className="mt-3 block text-xs">
+                  <span className="text-faint">Link product (cost for Guard)</span>
+                  <select
+                    className={`${inputClass} mt-1`}
+                    value={c.productId ?? ""}
+                    disabled={pending}
+                    onChange={(e) =>
+                      start(async () => {
+                        setLinkMsg((prev) => ({ ...prev, [c.id]: "" }));
+                        const res = await linkCampaignProduct(c.id, e.target.value || null);
+                        if ("error" in res && res.error) {
+                          setLinkMsg((prev) => ({ ...prev, [c.id]: res.error }));
+                          return;
+                        }
+                        setLinkMsg((prev) => ({ ...prev, [c.id]: "Linked." }));
+                      })
+                    }
+                  >
+                    <option value="">No product linked</option>
+                    {catalogProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                        {p.status === "published" ? "" : ` (${p.status})`}
+                      </option>
+                    ))}
+                  </select>
+                  {linkMsg[c.id] ? <p className="mt-1 text-muted">{linkMsg[c.id]}</p> : null}
+                </label>
               ) : null}
               <dl className="mt-4 grid grid-cols-2 gap-3 font-mono text-sm">
                 <div>
@@ -376,7 +415,9 @@ export function AdsDesk({
                 </div>
               ) : whyOpen[c.id] ? (
                 <p className="mt-3 text-xs text-muted">
-                  No dual-signal evaluation yet — it runs on the hourly cron after Meta insights sync.
+                  {c.sample
+                    ? "Sample ads show Preview pause for the rule text. Live Why? needs a connected Meta ad set after the hourly check."
+                    : "No Guard check yet for this ad. Tap Check ads, or wait for the next hourly sync after Meta is connected."}
                 </p>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
@@ -412,7 +453,7 @@ export function AdsDesk({
                   Check ads
                 </Button>
                 <Button
-                  tone={c.isPaused ? "profit" : "loss"}
+                  tone={c.isPaused ? "profit" : c.atRisk ? "loss" : "line"}
                   disabled={pending || (c.isPaused && locked)}
                   onClick={() =>
                     start(async () => {

@@ -1,20 +1,20 @@
-/** Human copy for dual-signal reason codes (Ads & Guard Why? panel). */
+/** Plain-English copy for dual-signal reason codes (Ads & Guard Why? panel). */
 
 const REASON_COPY: Record<string, string> = {
-  META_TOKEN: "Meta token is missing or expired — reconnect in Settings.",
-  INSIGHTS_STALE: "Meta insights are older than 90 minutes — waiting for the next sync.",
-  SHOPIFY_STALE: "Shopify order sync is stale — Guard will not pause until orders catch up.",
-  ADSET_INACTIVE: "This ad set is not active in Meta.",
-  COSTS_UNKNOWN: "Product costs are unknown — import COGS or set a default margin.",
-  EXEMPT: "This ad set is marked exempt from auto-pause.",
-  SNOOZED: "Guard is snoozed for this ad set.",
-  BELOW_FLOOR: "Spend is still below the break-even floor — still learning.",
-  NO_SALES: "Spend crossed the floor with zero Meta and zero Shopify sales.",
-  BOTH_NEGATIVE: "Both Meta and Shopify net contribution are below the loss tolerance.",
-  UTM_GAP_LIKELY: "Shopify looks negative but Meta still looks healthy — likely a UTM gap; holding.",
-  PASS: "Best-of Meta/Shopify net is within tolerance.",
-  WAIT_HITS: "Waiting for consecutive losing checks before pause.",
-  WAIT_LAG: "Waiting out the attribution lag window before pause.",
+  META_TOKEN: "Reconnect Meta in Settings — Guard can’t see spend until the token works.",
+  INSIGHTS_STALE: "Meta numbers are a bit old. Guard waits for the next sync before pausing.",
+  SHOPIFY_STALE: "Store order sync is behind. Guard won’t pause until sales catch up.",
+  ADSET_INACTIVE: "This ad set is already off in Meta.",
+  COSTS_UNKNOWN: "Set product cost so Guard knows your real margin.",
+  EXEMPT: "You marked this ad set exempt from auto-pause.",
+  SNOOZED: "Guard is snoozed on this ad set for now.",
+  BELOW_FLOOR: "Still learning — spend hasn’t hit your safety floor yet.",
+  NO_SALES: "Spend crossed the floor with no sales from Meta or your store.",
+  BOTH_NEGATIVE: "Meta and your store both show this ad losing money.",
+  UTM_GAP_LIKELY: "Store looks soft but Meta still looks fine — likely a tracking gap, so Guard holds.",
+  PASS: "Best of Meta / store profit is still within your tolerance.",
+  WAIT_HITS: "Needs a few losing checks in a row before a pause.",
+  WAIT_LAG: "Waiting a short attribution window before pausing.",
 };
 
 export function explainReasonCode(code: string) {
@@ -24,20 +24,20 @@ export function explainReasonCode(code: string) {
 export function explainVerdict(verdict: string) {
   switch (verdict) {
     case "HOLD_LEARNING":
-      return "Still learning — spend has not crossed the floor yet.";
+      return "Still learning — spend has not crossed your floor yet.";
     case "HOLD_DISAGREE":
-      return "Signals disagree — one channel looks fine, so Guard holds.";
+      return "Signals disagree — one channel still looks fine, so Guard holds.";
     case "HOLD_LAG":
-      return "Holding for attribution lag before any pause.";
+      return "Holding briefly so late sales can show up.";
     case "HEALTHY":
-      return "Healthy — best net contribution is within tolerance.";
+      return "Healthy — this ad is covering cost within your rules.";
     case "CANDIDATE_NO_SALE":
-      return "Pause candidate — spend with no sales.";
+      return "Would pause — spend with no sales.";
     case "CANDIDATE_NEGATIVE_NET":
-      return "Pause candidate — both nets are losing money.";
+      return "Would pause — both Meta and store show a loss.";
     case "BLOCKED_DATA":
-      return "Blocked — missing or stale data; Guard will not pause.";
+      return "Waiting on better data — Guard will not pause yet.";
     default:
-      return verdict;
+      return verdict.replace(/_/g, " ").toLowerCase();
   }
 }

@@ -45,22 +45,6 @@ export function ProductEditor({
   const [markup, setMarkup] = useState(String(product.markupMultiplier));
   const [shipping, setShipping] = useState(String(product.shippingCost));
   const baseCost = product.variants[0]?.variantCost ?? product.baseCost;
-
-  function onRetailChange(value: string) {
-    setRetail(value);
-    const price = Number(value);
-    if (baseCost > 0 && Number.isFinite(price) && price > 0) {
-      setMarkup((price / baseCost).toFixed(2));
-    }
-  }
-
-  function onMarkupChange(value: string) {
-    setMarkup(value);
-    const m = Number(value);
-    if (baseCost > 0 && Number.isFinite(m) && m > 0) {
-      setRetail((baseCost * m).toFixed(2));
-    }
-  }
   const [copyReason, setCopyReason] = useState("");
   const [suggestion, setSuggestion] = useState<{ title: string; descriptionHtml: string } | null>(null);
   const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
@@ -72,10 +56,27 @@ export function ProductEditor({
   const [allowUnknownShipping, setAllowUnknownShipping] = useState(false);
   const [allowRestricted, setAllowRestricted] = useState(false);
   const shipNum = Number(shipping) || 0;
+  const landedCost = baseCost + (shipNum > 0 ? shipNum : 0);
   const retailNum = Number(retail) || 0;
   const liveEcon = unitMargin(retailNum, baseCost, shipNum);
   const beRoas = breakevenRoas(retailNum, baseCost, shipNum);
   const shipUnknown = shipNum <= 0;
+
+  function onRetailChange(value: string) {
+    setRetail(value);
+    const price = Number(value);
+    if (landedCost > 0 && Number.isFinite(price) && price > 0) {
+      setMarkup((price / landedCost).toFixed(2));
+    }
+  }
+
+  function onMarkupChange(value: string) {
+    setMarkup(value);
+    const m = Number(value);
+    if (landedCost > 0 && Number.isFinite(m) && m > 0) {
+      setRetail((landedCost * m).toFixed(2));
+    }
+  }
 
   function runPublish() {
     startPublish(async () => {
@@ -334,7 +335,7 @@ export function ProductEditor({
               <Field label="Selling price">
                 <input className={inputClass} value={retail} onChange={(e) => onRetailChange(e.target.value)} />
               </Field>
-              <Field label="Markup (sell ÷ item cost, ship separate)">
+              <Field label="Markup (sell ÷ landed cost)">
                 <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
               <Field label="Ship $">
@@ -379,7 +380,7 @@ export function ProductEditor({
                         checked={allowRestricted}
                         onChange={(e) => setAllowRestricted(e.target.checked)}
                       />
-                      I checked this listing is allowed (health/brand risk)
+                      {screen.reason || "I checked this listing is allowed (health/brand risk)"}
                     </label>
                   ) : null;
                 })()

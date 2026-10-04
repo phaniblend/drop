@@ -2,6 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import { discoverCardTitle } from "../copy-local";
 import { normalizeSupplierStock, normalizeVariantStocks } from "../supplier-stock";
 import { humanizeVariantLabel, labeledVariantName } from "../variant-label";
 import { nowIso } from "../utils";
@@ -9,14 +10,17 @@ import * as schema from "./schema";
 
 type DB = LibSQLDatabase<typeof schema>;
 
+const REPAIR_KEY = "catalog_repair_v4";
+
 /**
- * Caps fake inventory and humanizes "Option" variant names.
+ * Caps fake inventory, humanizes "Option" variant names, and cleans titles.
  * Never overwrites a sell price the operator already set.
  */
 export async function repairCatalogData(db: DB): Promise<{
   variantsFixed: number;
   productsPriced: number;
   suppliersLinked: number;
+  titlesFixed: number;
 }> {
   const variants = await db.select().from(schema.productVariants);
   const products = await db.select().from(schema.products);
@@ -30,6 +34,7 @@ export async function repairCatalogData(db: DB): Promise<{
 
   let variantsFixed = 0;
   let productsPriced = 0;
+  let titlesFixed = 0;
 
   for (const [productId, rows] of byProduct) {
     const product = products.find((p) => p.id === productId);
@@ -60,6 +65,21 @@ export async function repairCatalogData(db: DB): Promise<{
     }
   }
 
+  for (const p of products) {
+    const source = (p.cleanTitle || p.rawTitle || "").trim();
+    if (!source) continue;
+    const next = discoverCardTitle(source);
+    if (!next || next === p.cleanTitle) continue;
+    // Only rewrite when the current title still looks like supplier junk or is empty.
+    const looksJunk =
+      !p.cleanTitle?.trim() ||
+      /\b(20\d{2}|hot selling|top rated|local stock|wholesale|dropship)\b/i.test(p.cleanTitle) ||
+      /\b(for|with|and|or|the|a|an|of|to|in|on)\s*$/i.test(p.cleanTitle.trim());
+    if (!looksJunk && p.cleanTitle && p.cleanTitle.length <= 60) continue;
+    await db.update(schema.products).set({ cleanTitle: next }).where(eq(schema.products.id, p.id));
+    titlesFixed += 1;
+  }
+
   let suppliersLinked = 0;
   const names = new Set<string>();
   for (const p of products) {
@@ -86,15 +106,15 @@ export async function repairCatalogData(db: DB): Promise<{
 
   try {
     await db.insert(schema.settings).values({
-      key: "catalog_repair_v3",
+      key: REPAIR_KEY,
       value: nowIso(),
     });
   } catch {
     await db
       .update(schema.settings)
       .set({ value: nowIso() })
-      .where(eq(schema.settings.key, "catalog_repair_v3"));
+      .where(eq(schema.settings.key, REPAIR_KEY));
   }
 
-  return { variantsFixed, productsPriced, suppliersLinked };
+  return { variantsFixed, productsPriced, suppliersLinked, titlesFixed };
 }

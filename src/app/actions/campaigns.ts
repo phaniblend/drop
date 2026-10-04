@@ -212,6 +212,32 @@ export async function updateThresholds(
   revalidatePath("/ads");
 }
 
+/** Manual fallback when UTM / naming does not match a catalog product. */
+export async function linkCampaignProduct(campaignId: string, productId: string | null) {
+  const { isSampleCampaignId } = await import("@/lib/sample-campaigns");
+  if (isSampleCampaignId(campaignId)) {
+    return { error: "Sample ads cannot be linked. Connect Meta or TikTok for live campaigns." };
+  }
+  const operator = await getOperator();
+  if (!operator) throw new Error("Sign in with Google first.");
+  const db = await ensureDb();
+  const [row] = await db.select().from(campaignTrackers).where(eq(campaignTrackers.id, campaignId)).limit(1);
+  if (!row) throw new Error("Campaign not found.");
+  if (productId) {
+    const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+    if (!product || product.userId !== operator.id) {
+      return { error: "Pick a product from your catalog." };
+    }
+  }
+  await db
+    .update(campaignTrackers)
+    .set({ productId: productId || null, lastPolledAt: new Date().toISOString() })
+    .where(eq(campaignTrackers.id, campaignId));
+  revalidatePath("/ads");
+  revalidatePath("/");
+  return { ok: true as const };
+}
+
 export async function saveSentinelSettings(input: Partial<SentinelSettings> & { enabled?: boolean }) {
   const operator = await getOperator();
   if (!operator) throw new Error("Sign in with Google first.");

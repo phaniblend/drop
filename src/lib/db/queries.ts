@@ -748,6 +748,7 @@ export async function writeProductPricing(
     retailPrice: Number(input.retailPrice),
     markupMultiplier: Number(input.markupMultiplier),
     firstVariantCost: firstCost,
+    shippingCost,
   });
   const { scaleVariantPrices } = await import("../variant-pricing");
   const scaled = scaleVariantPrices(

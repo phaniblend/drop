@@ -47,7 +47,13 @@ export default async function StoreProductPage({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeProductJsonLd(product)) }} />
-      <StoreProductMedia title={product.title} imageUrl={product.imageUrl} variants={product.variants} priority />
+      <StoreProductMedia
+        title={product.title}
+        imageUrl={product.imageUrl}
+        gallery={product.gallery}
+        variants={product.variants}
+        priority
+      />
       <div className="space-y-4">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">For sale</p>
         <h1 className="text-2xl font-semibold sm:text-3xl">{product.title}</h1>

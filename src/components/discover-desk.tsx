@@ -361,7 +361,11 @@ export function DiscoverDesk({
       ) : null}
 
       {!showSaved && (query.trim().length >= 2 || niche !== "all") && !searching && rows.length === 0 && !searchError ? (
-        <p className="text-sm text-muted">No listings matched. Try two or three simple words, or All.</p>
+        <p className="text-sm text-muted">
+          {pricedOnly && sorted.length > 0
+            ? `${sorted.length} listing${sorted.length === 1 ? "" : "s"} hid because cost was missing — turn off “Priced only” to see them, or open a card to refresh the offer price.`
+            : "No listings matched. Try two or three simple words, or All."}
+        </p>
       ) : null}
 
       {rows.length > 0 ? (

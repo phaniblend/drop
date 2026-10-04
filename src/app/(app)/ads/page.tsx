@@ -1,4 +1,4 @@
-import { getOperator, listActivity, listCampaigns } from "@/lib/db/queries";
+import { getOperator, listActivity, listCampaigns, listProducts } from "@/lib/db/queries";
 import { env, integrationStatus } from "@/lib/env";
 import { AdsDesk } from "@/components/ads-desk";
 
@@ -28,10 +28,11 @@ export default async function AdsPage() {
     }
   }
 
-  const [campaigns, operator, activity] = await Promise.all([
+  const [campaigns, operator, activity, catalog] = await Promise.all([
     listCampaigns(),
     getOperator(),
     listActivity(8),
+    listProducts(),
   ]);
 
   const finance = operator
@@ -50,9 +51,18 @@ export default async function AdsPage() {
 
   const adsLive = Boolean(metaHealth.live || integrations.tiktok);
 
+  const catalogOptions = catalog
+    .filter((p) => p.status !== "archived")
+    .map((p) => ({
+      id: p.id,
+      title: p.cleanTitle || p.rawTitle,
+      status: p.status,
+    }));
+
   return (
     <AdsDesk
       campaigns={campaigns}
+      catalogProducts={catalogOptions}
       sentinelRaw={operator?.sentinelSettings ?? ""}
       daypartingEnabled={Boolean(operator?.daypartingEnabled)}
       adsLive={adsLive}

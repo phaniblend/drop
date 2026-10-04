@@ -5,6 +5,7 @@ import { formatGeminiFallback } from "./copy-local";
 import { recordGeminiCall } from "./gemini-health";
 import { extractProductBeats, spokenProductName } from "./product-title";
 import { normalizeHookScript } from "./format-script";
+import { isHealthClaimLine } from "./shopper-copy";
 import { env } from "./env";
 
 export type AdHookAngle = {
@@ -52,13 +53,21 @@ function localHooks(input: { title: string; description: string; benefits: strin
   ];
 }
 
+function scrubHealthClaims(text: string) {
+  if (!text || !isHealthClaimLine(text)) return text;
+  return text
+    .replace(/\b(alleviate|discomfort|spinal\s+alignment|pain\s+relief|cure[sd]?|treats?|fda\s+approved|prescription|medical\s+device|clinically\s+proven|heal(?:s|ing)?)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function normalizeHooks(raw: Array<Partial<AdHookAngle> & { script?: unknown }>): AdHookAngle[] {
   return raw
     .map((h) => ({
       id: h.id as AdHookAngle["id"],
       label: String(h.label || h.id || "Angle"),
-      hook: String(h.hook || "").trim(),
-      script: normalizeHookScript(h.script),
+      hook: scrubHealthClaims(String(h.hook || "").trim()),
+      script: scrubHealthClaims(normalizeHookScript(h.script)),
     }))
     .filter((h) => h.hook && h.script && ["pain", "curiosity", "price"].includes(h.id));
 }
@@ -87,7 +96,7 @@ export async function generateAdHooks(input: {
     const result = await geminiGenerate({
       temperature: 0.75,
       system:
-        "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is an array of 4-7 short lines (or a single string with newlines). Use the short product name from Short name — never invent a different product noun and never paste long wholesale titles. Ground every angle in real benefits.",
+        "You write short-form paid social scripts for dropshippers. Return JSON only: {hooks:[{id,label,hook,script}]}. ids must be pain, curiosity, price. hook is one spoken sentence. script is an array of 4-7 short lines (or a single string with newlines). Use the short product name from Short name — never invent a different product noun and never paste long wholesale titles. Ground every angle in real benefits. Never write medical or health claims (cure, treat, pain relief, alleviate, spinal, FDA).",
       user: `Short name (use this noun): ${spoken}\nFinal title: ${input.title}\nPrice: ${input.price}\nBenefits: ${beats.join("; ")}\nDescription: ${input.description.slice(0, 800)}`,
     });
     await recordGeminiCall(result);

@@ -1,6 +1,10 @@
 const OPERATOR_LINE =
   /you pay about|room for ads|creative angle|doesn['’]t land|impulse-friendly|positioned for shoppers|supplier cost|markup|cogs|wholesale/i;
 
+/** Meta/TikTok-sensitive medical phrasing — strip from shopper HTML. */
+const HEALTH_CLAIM =
+  /\b(alleviate|discomfort|spinal\s+alignment|pain\s+relief|cure[sd]?|treats?|fda\s+approved|prescription|medical\s+device|clinically\s+proven|heal(?:s|ing)?)\b/i;
+
 const SHIP_FROM =
   /^(united states|china(\s+mainland)?|mainland china|ships?\s*from.*|ship to|warehouse|us|cn|uk|spain|france|russia|brazil|korea|japan)$/i;
 
@@ -15,6 +19,10 @@ export function isOperatorShopperLine(text: string) {
   return OPERATOR_LINE.test(text);
 }
 
+export function isHealthClaimLine(text: string) {
+  return HEALTH_CLAIM.test(text);
+}
+
 export function sanitizeShopperHtml(html: string, title: string) {
   const source = html?.trim() || "";
   if (!source) return shopperFallbackHtml(title);
@@ -22,11 +30,13 @@ export function sanitizeShopperHtml(html: string, title: string) {
   const withoutBadItems = source
     .replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, (item) => {
       const text = item.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      return isOperatorShopperLine(text) || /you pay about\s*\$/i.test(text) ? "" : item;
+      return isOperatorShopperLine(text) || isHealthClaimLine(text) || /you pay about\s*\$/i.test(text)
+        ? ""
+        : item;
     })
     .replace(/<p\b[^>]*>[\s\S]*?<\/p>/gi, (block) => {
       const text = block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      return isOperatorShopperLine(text) ? "" : block;
+      return isOperatorShopperLine(text) || isHealthClaimLine(text) ? "" : block;
     });
 
   const text = withoutBadItems.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -34,6 +44,7 @@ export function sanitizeShopperHtml(html: string, title: string) {
   if (
     !text ||
     isOperatorShopperLine(text) ||
+    isHealthClaimLine(text) ||
     /you pay about\s*\$/i.test(text) ||
     (titleHint.length >= 4 && !text.toLowerCase().includes(titleHint))
   ) {
@@ -79,10 +90,22 @@ export type PublicStoreProduct = {
   title: string;
   descriptionHtml: string;
   imageUrl: string | null;
+  gallery: string[];
   shippingDays: number;
   price: number;
   variants: PublicStoreVariant[];
 };
+
+function parseGalleryJson(raw?: string | null): string[] {
+  if (!raw?.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.map((u) => String(u ?? "").trim()).filter(Boolean))];
+  } catch {
+    return [];
+  }
+}
 
 export function toPublicProduct(input: {
   id: string;
@@ -91,6 +114,8 @@ export function toPublicProduct(input: {
   rawTitle: string;
   descriptionHtml?: string | null;
   imageUrl?: string | null;
+  galleryJson?: string | null;
+  gallery?: string[] | null;
   shippingDays: number;
   retailPrice: number;
   variants: Array<{
@@ -113,12 +138,15 @@ export function toPublicProduct(input: {
     stock: Math.max(0, variant.inventoryCount),
     imageUrl: variant.cleanImageUrl || variant.supplierImageUrl || null,
   }));
+  const fromField = (input.gallery ?? []).map((u) => String(u ?? "").trim()).filter(Boolean);
+  const gallery = [...new Set([...fromField, ...parseGalleryJson(input.galleryJson)])];
   return {
     id: input.id,
     userId: input.userId,
     title,
     descriptionHtml: sanitizeShopperHtml(input.descriptionHtml ?? "", title),
     imageUrl: input.imageUrl ?? null,
+    gallery,
     shippingDays: input.shippingDays,
     price: variants[0]?.price || input.retailPrice,
     variants,

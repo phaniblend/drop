@@ -44,6 +44,7 @@ describe("shopper copy", () => {
       title: "Gravity Car Phone Holder",
       descriptionHtml: pub.descriptionHtml,
       imageUrl: "https://example.com/p.jpg",
+      gallery: [],
       shippingDays: 14,
       price: 22.41,
       variants: [{ id: "v1", name: "black", price: 22.41, stock: 15, imageUrl: null }],
@@ -79,5 +80,29 @@ describe("shopper copy", () => {
     expect(html).not.toMatch(/you pay about|room for ads|creative angle|doesn['’]t land/i);
     expect(html).not.toMatch(/united states/i);
     expect(html).toContain("22.41");
+  });
+
+  it("exposes gallery images for the storefront media strip", () => {
+    const pub = toPublicProduct({
+      id: "prod_g",
+      cleanTitle: "Neck Fan",
+      rawTitle: "Neck Fan",
+      descriptionHtml: "<p>Neck Fan keeps you cool.</p>",
+      imageUrl: "https://example.com/hero.jpg",
+      galleryJson: JSON.stringify(["https://example.com/a.jpg", "https://example.com/b.jpg"]),
+      shippingDays: 10,
+      retailPrice: 29,
+      variants: [],
+    });
+    expect(pub.gallery).toEqual(["https://example.com/a.jpg", "https://example.com/b.jpg"]);
+  });
+
+  it("strips health-claim lines from shopper HTML", () => {
+    const html = sanitizeShopperHtml(
+      "<p>Posture belt helps alleviate discomfort from slouching.</p><ul><li>Encourages proper spinal alignment</li><li>Tracked shipping</li></ul>",
+      "Posture Support Belt",
+    );
+    expect(html).not.toMatch(/alleviate|spinal alignment|discomfort/i);
+    expect(html.toLowerCase()).toMatch(/posture|tracked shipping|ships with tracking/);
   });
 });

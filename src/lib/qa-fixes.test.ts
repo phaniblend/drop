@@ -14,6 +14,17 @@ describe("explicit selling price", () => {
     expect(saved.retailPrice).toBe(12.99);
     expect(saved.markupMultiplier).toBe(6.8368);
   });
+
+  it("derives markup from landed cost when ship is present", () => {
+    const saved = applyExplicitRetailPrice({
+      retailPrice: 24.98,
+      markupMultiplier: 3,
+      firstVariantCost: 3.47,
+      shippingCost: 2.5,
+    });
+    expect(saved.retailPrice).toBe(24.98);
+    expect(saved.markupMultiplier).toBe(4.1843);
+  });
 });
 
 describe("formatScript", () => {

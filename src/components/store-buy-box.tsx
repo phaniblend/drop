@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addStoreCartLine } from "@/lib/store-cart";
+import { money } from "@/lib/utils";
 import { Button } from "./ui";
 
 function shopperStockLabel(stock: number) {
@@ -18,7 +19,7 @@ export function StoreBuyBox({
   cartHref = "/store/cart",
 }: {
   productId: string;
-  variants: Array<{ id: string; name: string; stock: number; imageUrl?: string | null }>;
+  variants: Array<{ id: string; name: string; stock: number; price?: number; imageUrl?: string | null }>;
   storeId?: string;
   cartHref?: string;
 }) {
@@ -28,6 +29,8 @@ export function StoreBuyBox({
   const selected = variants.find((variant) => variant.id === variantId) ?? variants[0];
   const soldOut = !selected || selected.stock <= 0;
   const showOptions = variants.length > 1;
+  const prices = variants.map((v) => v.price).filter((p): p is number => typeof p === "number" && p > 0);
+  const showVariantPrice = prices.length > 1 && Math.max(...prices) - Math.min(...prices) > 0.01;
 
   return (
     <div className="space-y-3">
@@ -42,11 +45,15 @@ export function StoreBuyBox({
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
                 {variant.name}
+                {showVariantPrice && variant.price ? ` — ${money(variant.price)}` : ""}
                 {variant.stock <= 0 ? " — sold out" : ""}
               </option>
             ))}
           </select>
         </label>
+      ) : null}
+      {showVariantPrice && selected?.price ? (
+        <p className="text-lg font-medium">{money(selected.price)}</p>
       ) : null}
       <p className="text-xs text-muted">{selected ? shopperStockLabel(selected.stock) : "Sold out"}</p>
       <Button

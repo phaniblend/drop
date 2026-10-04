@@ -657,7 +657,7 @@ export function SettingsDesk({
             start(async () => {
               const result = await repairCatalog();
               setRepairMsg(
-                `Repaired ${result.variantsFixed} variants and added ${result.suppliersLinked} suppliers.`,
+                `Repaired ${result.variantsFixed} variants, cleaned ${result.titlesFixed ?? 0} titles, added ${result.suppliersLinked} suppliers.`,
               );
             })
           }

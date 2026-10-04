@@ -6,16 +6,21 @@ import { Thumb } from "./thumb";
 export function StoreProductMedia({
   title,
   imageUrl,
+  gallery: galleryProp = [],
   variants,
   priority = false,
 }: {
   title: string;
   imageUrl: string | null;
+  gallery?: string[];
   variants: Array<{ id: string; imageUrl?: string | null }>;
   priority?: boolean;
 }) {
-  const extras = [...new Set(variants.map((variant) => variant.imageUrl).filter(Boolean))] as string[];
-  const gallery = [imageUrl, ...extras.filter((src) => src !== imageUrl)].filter(Boolean) as string[];
+  const extras = [
+    ...galleryProp,
+    ...variants.map((variant) => variant.imageUrl).filter(Boolean),
+  ] as string[];
+  const gallery = [imageUrl, ...extras.filter((src) => src && src !== imageUrl)].filter(Boolean) as string[];
   const [active, setActive] = useState(gallery[0] ?? "");
 
   return (
