@@ -64,7 +64,7 @@ export function instructionFor(step: CoachStepId, ctx: { keyword?: string; why?:
     case "pick":
       return `Find this product: “${ctx.keyword}”. ${ctx.why ?? ""} Search Discover, pick ONE listing, tap Share with Seto. I’ll wait.`.replace(/\s+/g, " ").trim();
     case "import":
-      return `Import “${name}” on Discover (Preview → import). Clean the shopper title if it still looks wholesale. Then tap I imported it. I’ll wait.`;
+      return `Import “${name}”. Tap Import on the Discover card (or Import in the preview). Clean the shopper title if it still looks wholesale. Then tap I imported it. I’ll wait.`;
     case "publish":
       return `Publish “${name}” to your live store (Shopify if you connected it, otherwise your Seto store). Then tap I published it. I’ll wait.`;
     case "ads":

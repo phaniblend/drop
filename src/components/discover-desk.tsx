@@ -276,6 +276,7 @@ export function DiscoverDesk({
         setError("Already in your catalog — opening the existing draft.");
       }
       router.push(`/catalog/${saved.id}`);
+      window.dispatchEvent(new Event("seto-coach-shared"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {
@@ -543,6 +544,18 @@ export function DiscoverDesk({
                   >
                     Share with Seto
                   </Button>
+                  <Button
+                    className="w-full"
+                    tone={coachStep === "import" ? "accent" : "line"}
+                    disabled={pending || scraping}
+                    onClick={() =>
+                      start(async () => {
+                        await runImportUrl(p.url);
+                      })
+                    }
+                  >
+                    {scraping ? "Importing…" : "Import"}
+                  </Button>
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
@@ -798,7 +811,7 @@ export function DiscoverDesk({
               ))}
             </ul>
             <p className="mt-3 text-xs text-faint">
-              Preview is free. Adding to catalog uses 1 import credit.
+              Preview is free. Import uses 1 catalog credit.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
@@ -816,11 +829,12 @@ export function DiscoverDesk({
                       if ("costWas" in res && res.costWas != null && res.costNow != null) {
                         setError(
                           Math.abs(Number(res.costWas) - Number(res.costNow)) > 0.05
-                            ? `Added. Cost was $${Number(res.costWas).toFixed(2)}, now $${Number(res.costNow).toFixed(2)}.`
-                            : "Added to catalog.",
+                            ? `Imported. Cost was $${Number(res.costWas).toFixed(2)}, now $${Number(res.costNow).toFixed(2)}.`
+                            : "Imported into catalog.",
                         );
                       }
                       setPreview(null);
+                      window.dispatchEvent(new Event("seto-coach-shared"));
                       router.push(`/catalog/${res.id}`);
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Import failed");
@@ -828,7 +842,7 @@ export function DiscoverDesk({
                   })
                 }
               >
-                Add to catalog
+                Import
               </Button>
               <Button tone="line" onClick={() => setPreview(null)}>
                 Cancel
