@@ -19,19 +19,21 @@ export default async function SettingsPage({
   }>;
 }) {
   const params = await searchParams;
-  const [user, status, billing, gemini, meta, storefrontUrl, shopifyLive, goLive] = await Promise.all([
-    getOperator(),
+  const user = await getOperator();
+  if (!user) {
+    return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
+  }
+  const superuser = isSuperuser(user.email);
+
+  const [status, billing, gemini, meta, storefrontUrl, shopifyLive, goLive] = await Promise.all([
     Promise.resolve(integrationStatus()),
     getBillingSummary(),
     import("@/lib/gemini-health").then((m) => m.getGeminiHealth(true)),
     import("@/lib/meta-health").then((m) => m.getMetaHealth(true)),
     shopifyStorefrontHomeUrl(),
     shopifyIsConnected(),
-    import("@/lib/go-live").then((m) => m.getPlatformGoLive()),
+    superuser ? import("@/lib/go-live").then((m) => m.getPlatformGoLive()) : Promise.resolve(null),
   ]);
-  if (!user) {
-    return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
-  }
 
   const finance = await import("@/lib/margin-guard-v2/finance-config").then((m) =>
     m.getOrCreateFinanceConfig(user.id),
@@ -136,7 +138,7 @@ export default async function SettingsPage({
         mode: stripeKeyMode(user.storeStripeSk),
       }}
       goLive={
-        isSuperuser(user.email)
+        superuser && goLive
           ? {
               softLaunchOk: goLive.softLaunchOk,
               chargeOk: goLive.chargeOk,
@@ -145,7 +147,7 @@ export default async function SettingsPage({
             }
           : null
       }
-      isSuperuser={isSuperuser(user.email)}
+      superuser={superuser}
     />
   );
 }

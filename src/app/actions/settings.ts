@@ -44,6 +44,8 @@ export async function saveOperatorSettings(input: {
 
 export async function resetDemoData() {
   const operator = await requireOperator();
+  const { isSuperuser } = await import("@/lib/superuser");
+  if (!isSuperuser(operator.email)) throw new Error("Only the desk owner can clear a workspace.");
   const db = await ensureDb();
   await clearWorkspaceKeepOperator(db, operator.id);
   resetReadyCache();
@@ -51,6 +53,9 @@ export async function resetDemoData() {
 }
 
 export async function repairCatalog() {
+  const operator = await requireOperator();
+  const { isSuperuser } = await import("@/lib/superuser");
+  if (!isSuperuser(operator.email)) throw new Error("Only the desk owner can run catalog repair.");
   const db = await ensureDb();
   const { repairCatalogData } = await import("@/lib/db/repair-catalog");
   const result = await repairCatalogData(db);

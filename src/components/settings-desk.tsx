@@ -69,7 +69,7 @@ export function SettingsDesk({
   metaAccounts = [],
   stripeKeys,
   goLive = null,
-  isSuperuser = false,
+  superuser = false,
 }: {
   status: Status;
   billing: BillingSummary;
@@ -100,7 +100,7 @@ export function SettingsDesk({
       dataDeletion: string;
     };
   } | null;
-  isSuperuser?: boolean;
+  superuser?: boolean;
   user: {
     displayName: string;
     storeName: string;
@@ -127,8 +127,6 @@ export function SettingsDesk({
 
   const [clearConfirm, setClearConfirm] = useState("");
   const [repairMsg, setRepairMsg] = useState("");
-  const [previewOperator, setPreviewOperator] = useState(false);
-  const operatorView = !isSuperuser || previewOperator;
 
   const connections = [
     {
@@ -219,26 +217,21 @@ export function SettingsDesk({
     },
   ];
 
-  const shownConnections = !operatorView
-    ? connections
-    : connections.filter(
-        (c) =>
-          c.name === "Your store" ||
-          c.name === "Meta ads" ||
-          c.name === "TikTok ads" ||
-          (c.name === "Shopify" && shopifyOAuth?.connected),
-      );
+  const operatorOnly = !superuser;
+  const visibleConnections = operatorOnly
+    ? connections.filter((c) => c.name === "Your store" || c.name === "Meta ads" || c.name === "TikTok ads")
+    : connections;
 
   return (
     <div className="space-y-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Settings</p>
         <h1 className="mt-1 text-xl font-semibold sm:text-2xl">
-          {operatorView ? "Your store" : "Store + integrations"}
+          {operatorOnly ? "Your store" : "Store + integrations"}
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          {operatorView
-            ? "Your shop, checkout keys, ads, and how Guard should pause losers. Seto already runs suppliers and listing copy."
+          {operatorOnly
+            ? "Your checkout, ads, and shopper contact details. Open My store anytime to see what buyers see."
             : `Connected means that account is live (${status.liveCount} live APIs in the sidebar). Listing import and Billing use Ready / Needs you and are not counted as live APIs.`}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -246,15 +239,10 @@ export function SettingsDesk({
             Open your store
           </a>
           <PwaInstallButton />
-          {isSuperuser ? (
-            <Button tone="line" className="h-11" onClick={() => setPreviewOperator((v) => !v)}>
-              {previewOperator ? "Show platform tools" : "Preview operator view"}
-            </Button>
-          ) : null}
         </div>
       </div>
 
-      {!operatorView && goLive ? (
+      {!operatorOnly && goLive ? (
         <GoLiveCard
           softLaunchOk={goLive.softLaunchOk}
           chargeOk={goLive.chargeOk}
@@ -277,11 +265,15 @@ export function SettingsDesk({
               {Number.isFinite(billing.campaignsLimit) ? billing.campaignsLimit : "∞"} campaigns.
             </p>
             <p className="mt-2 text-xs text-faint">
-              {billing.health?.liveReady
-                ? "Live subscription checkout is ready."
-                : billing.health?.testReady
-                  ? "Stripe is in test mode — upgrades will not take real cards."
-                  : "Subscription checkout is not connected yet."}
+              {operatorOnly
+                ? billing.tier === "trial_5"
+                  ? "Free trial on this desk. Upgrade when you need more imports."
+                  : "Your Seto plan on this desk."
+                : billing.health?.liveReady
+                  ? "Live subscription checkout is ready."
+                  : billing.health?.testReady
+                    ? "Stripe is in test mode — upgrades will not take real cards."
+                    : "Subscription checkout is not connected yet."}
             </p>
           </div>
           <div className="flex flex-col items-stretch gap-2">
@@ -310,7 +302,7 @@ export function SettingsDesk({
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {shownConnections.map((c) => (
+        {visibleConnections.map((c) => (
           <Card key={c.name} id={c.name === "Meta ads" ? "meta" : undefined} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-semibold">{c.name}</h2>
@@ -693,7 +685,7 @@ export function SettingsDesk({
         </form>
       </Card>
 
-      {!operatorView ? (
+      {!operatorOnly ? (
       <Card className="p-5">
         <h2 className="text-sm font-semibold">Repair catalog data</h2>
         <p className="mt-1 text-sm text-muted">
@@ -717,7 +709,9 @@ export function SettingsDesk({
         </Button>
         {repairMsg ? <p className="mt-3 text-sm text-profit">{repairMsg}</p> : null}
       </Card>
+      ) : null}
 
+      {!operatorOnly ? (
       <Card className="p-5">
         <h2 className="text-sm font-semibold">Clear workspace</h2>
         <p className="mt-1 text-sm text-muted">
