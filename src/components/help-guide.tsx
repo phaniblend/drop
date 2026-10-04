@@ -170,7 +170,7 @@ export function HelpGuide({
               <li key={item.id}>
                 <button
                   type="button"
-                  className="w-full rounded-xl border border-line px-3 py-2 text-left hover:border-line-strong"
+                  className="w-full cursor-pointer rounded-xl border border-line px-3 py-2 text-left hover:border-line-strong"
                   onClick={() => pickTour(item)}
                 >
                   <p className="text-sm font-semibold text-ink">{item.title}</p>
