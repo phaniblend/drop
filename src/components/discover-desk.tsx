@@ -21,7 +21,7 @@ import type { FeedProduct } from "@/lib/supplier-feed";
 import { isAliExpressItemUrl } from "@/lib/aliexpress-url";
 import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 import { emitPaywall, hasPaywall, type PaywallPayload } from "@/lib/paywall";
-import { shareListingWithCoach } from "@/app/actions/coach";
+import { shareListingWithCoach, loadCoachSession } from "@/app/actions/coach";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { Thumb } from "./thumb";
 import { CompetitorAdsPanel } from "./competitor-ads-panel";
@@ -98,6 +98,16 @@ export function DiscoverDesk({
     };
     window.addEventListener("seto-coach-keyword", onKeyword);
     window.addEventListener("seto-coach-step", onStep);
+    void loadCoachSession()
+      .then((s) => {
+        if (!s) return;
+        setCoachStep(s.stepId);
+        if (s.stepId === "pick" && s.keyword) {
+          setShowSaved(false);
+          setQuery((q) => (q.trim().length >= 2 ? q : s.keyword));
+        }
+      })
+      .catch(() => {});
     return () => {
       window.removeEventListener("seto-coach-keyword", onKeyword);
       window.removeEventListener("seto-coach-step", onStep);
@@ -445,7 +455,7 @@ export function DiscoverDesk({
           const listingKey = savedListingKey(p);
           const isSaved = savedKeys.has(listingKey);
           return (
-            <Card key={`${listingKey}-${p.id}`} className="overflow-hidden">
+            <Card key={`${listingKey}-${p.id}`} className={coachStep === "pick" ? "overflow-hidden border-accent/50" : "overflow-hidden"}>
               <Thumb src={p.image} alt={p.cleanTitle} className="aspect-square w-full rounded-none" />
               <div className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -509,36 +519,34 @@ export function DiscoverDesk({
                 {licensed ? <p className="text-xs text-loss">{licensed}</p> : null}
                 {screen && !screen.ok ? <p className="text-xs text-warn">{screen.reason}</p> : null}
                 <div className="flex flex-col gap-2">
-                  {coachStep === "pick" ? (
-                    <Button
-                      className="w-full"
-                      tone="accent"
-                      disabled={pending}
-                      onClick={() =>
-                        start(async () => {
-                          setError("");
-                          try {
-                            await shareListingWithCoach({
-                              title: p.cleanTitle || p.title,
-                              url: p.url,
-                              image: p.image,
-                              cost: displayCost,
-                              source: p.source,
-                            });
-                            window.dispatchEvent(new Event("seto-coach-shared"));
-                          } catch (e) {
-                            setError(e instanceof Error ? e.message : "Could not share that listing.");
-                          }
-                        })
-                      }
-                    >
-                      Share with Seto
-                    </Button>
-                  ) : null}
+                  <Button
+                    className="w-full"
+                    tone="accent"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        setError("");
+                        try {
+                          await shareListingWithCoach({
+                            title: p.cleanTitle || p.title,
+                            url: p.url,
+                            image: p.image,
+                            cost: displayCost,
+                            source: p.source,
+                          });
+                          window.dispatchEvent(new Event("seto-coach-shared"));
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Could not share that listing.");
+                        }
+                      })
+                    }
+                  >
+                    Share with Seto
+                  </Button>
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
-                    tone="accent"
+                    tone="line"
                     disabled={pending || previewLoading === p.url}
                     onClick={() =>
                       start(async () => {
