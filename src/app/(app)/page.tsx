@@ -1,9 +1,8 @@
 import { DeskLink } from "@/components/desk-link";
 import { getDashboard } from "@/lib/db/queries";
 import { money, pct } from "@/lib/utils";
-import { Badge, Button, Card, CardHeader, Kpi } from "@/components/ui";
+import { Button, Card, CardHeader, Kpi } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
-import { TaskToggle } from "@/components/task-toggle";
 import { Thumb } from "@/components/thumb";
 import { OrganicLaunchCard } from "@/components/organic-launch-card";
 import { storeHomePath } from "@/lib/store-slug";
@@ -154,35 +153,8 @@ export default async function CommandPage() {
         />
       </div>
 
-      {data.alerts.length > 0 ? (
-        <Card>
-          <CardHeader eyebrow="Triage" title="What will lose money if you ignore it" />
-          <ul className="divide-y divide-line">
-            {data.alerts.map((alert) => (
-              <li key={alert.title + alert.detail} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink">{alert.title}</p>
-                  <p className="text-xs text-muted">{alert.detail}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Badge
-                    tone={alert.tone === "loss" ? "loss" : alert.tone === "line" ? "line" : "warn"}
-                  >
-                    {alert.tone === "line" ? "optional" : alert.tone}
-                  </Badge>
-                  <DeskLink href={alert.href} className="text-xs text-accent">
-                    Open
-                  </DeskLink>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader eyebrow="7 days" title="Revenue vs net" />
+      <Card>
+        <CardHeader eyebrow="7 days" title="Revenue vs net" />
           <div className="overflow-hidden px-5 py-4">
             {data.last7.every((d) => d.revenue <= 0 && Math.abs(d.profit) <= 0) ? (
               <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
@@ -225,21 +197,6 @@ export default async function CommandPage() {
             )}
           </div>
         </Card>
-        <Card>
-          <CardHeader eyebrow="Today" title="Daily checklist" />
-          <div className="space-y-2 px-4 py-4">
-            {data.tasks.map((task) => (
-              <TaskToggle
-                key={task.id}
-                id={task.id}
-                done={task.done}
-                title={task.title}
-                detail={task.detail}
-              />
-            ))}
-          </div>
-        </Card>
-      </div>
 
       <OrganicLaunchCard products={data.organicQueue} catalogCount={data.catalog.length} />
 
