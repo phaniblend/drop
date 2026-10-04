@@ -69,6 +69,7 @@ export function SettingsDesk({
   metaAccounts = [],
   stripeKeys,
   goLive = null,
+  isSuperuser = false,
 }: {
   status: Status;
   billing: BillingSummary;
@@ -99,6 +100,7 @@ export function SettingsDesk({
       dataDeletion: string;
     };
   } | null;
+  isSuperuser?: boolean;
   user: {
     displayName: string;
     storeName: string;
@@ -125,6 +127,8 @@ export function SettingsDesk({
 
   const [clearConfirm, setClearConfirm] = useState("");
   const [repairMsg, setRepairMsg] = useState("");
+  const [previewOperator, setPreviewOperator] = useState(false);
+  const operatorView = !isSuperuser || previewOperator;
 
   const connections = [
     {
@@ -215,24 +219,42 @@ export function SettingsDesk({
     },
   ];
 
+  const shownConnections = !operatorView
+    ? connections
+    : connections.filter(
+        (c) =>
+          c.name === "Your store" ||
+          c.name === "Meta ads" ||
+          c.name === "TikTok ads" ||
+          (c.name === "Shopify" && shopifyOAuth?.connected),
+      );
+
   return (
     <div className="space-y-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Settings</p>
-        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Store + integrations</h1>
+        <h1 className="mt-1 text-xl font-semibold sm:text-2xl">
+          {operatorView ? "Your store" : "Store + integrations"}
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Connected means that account is live ({status.liveCount} live APIs in the sidebar). Listing import and
-          Billing use Ready / Needs you and are not counted as live APIs.
+          {operatorView
+            ? "Your shop, checkout keys, ads, and how Guard should pause losers. Seto already runs suppliers and listing copy."
+            : `Connected means that account is live (${status.liveCount} live APIs in the sidebar). Listing import and Billing use Ready / Needs you and are not counted as live APIs.`}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <a href={storeHref} className="inline-flex min-h-11 items-center rounded-xl border border-line px-3.5 py-2 text-sm">
             Open your store
           </a>
           <PwaInstallButton />
+          {isSuperuser ? (
+            <Button tone="line" className="h-11" onClick={() => setPreviewOperator((v) => !v)}>
+              {previewOperator ? "Show platform tools" : "Preview operator view"}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {goLive ? (
+      {!operatorView && goLive ? (
         <GoLiveCard
           softLaunchOk={goLive.softLaunchOk}
           chargeOk={goLive.chargeOk}
@@ -288,7 +310,7 @@ export function SettingsDesk({
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {connections.map((c) => (
+        {shownConnections.map((c) => (
           <Card key={c.name} id={c.name === "Meta ads" ? "meta" : undefined} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-semibold">{c.name}</h2>
@@ -671,6 +693,7 @@ export function SettingsDesk({
         </form>
       </Card>
 
+      {!operatorView ? (
       <Card className="p-5">
         <h2 className="text-sm font-semibold">Repair catalog data</h2>
         <p className="mt-1 text-sm text-muted">
@@ -726,6 +749,11 @@ export function SettingsDesk({
           <SignOutButton />
         </div>
       </Card>
+      ) : (
+        <div>
+          <SignOutButton />
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 import { storeHomePath } from "@/lib/store-slug";
 import { shopifyAppCredentialsReady, shopifyIsConnected } from "@/lib/shopify-oauth";
 import { maskStripeKey, stripeKeyMode } from "@/lib/stripe-keys";
+import { isSuperuser } from "@/lib/superuser";
 
 export default async function SettingsPage({
   searchParams,
@@ -134,12 +135,17 @@ export default async function SettingsPage({
         secretMasked: maskStripeKey(user.storeStripeSk),
         mode: stripeKeyMode(user.storeStripeSk),
       }}
-      goLive={{
-        softLaunchOk: goLive.softLaunchOk,
-        chargeOk: goLive.chargeOk,
-        checks: goLive.checks,
-        metaReviewUrls: goLive.metaReviewUrls,
-      }}
+      goLive={
+        isSuperuser(user.email)
+          ? {
+              softLaunchOk: goLive.softLaunchOk,
+              chargeOk: goLive.chargeOk,
+              checks: goLive.checks,
+              metaReviewUrls: goLive.metaReviewUrls,
+            }
+          : null
+      }
+      isSuperuser={isSuperuser(user.email)}
     />
   );
 }
