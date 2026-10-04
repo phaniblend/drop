@@ -222,9 +222,12 @@ export async function listCampaigns() {
   if (mine.length > 0) return mine;
 
   // Empty desk + no ad accounts yet → show sample rows so Guard UX is visible.
+  // Desk OAuth token counts too (not only Railway META_ACCESS_TOKEN).
   const { integrationStatus } = await import("../env");
   const live = integrationStatus();
-  if (live.meta || live.tiktok) return mine;
+  const deskMeta = Boolean(operator?.metaAccessToken?.trim());
+  const deskTiktok = Boolean(operator?.tiktokAccessToken?.trim());
+  if (live.meta || live.tiktok || deskMeta || deskTiktok) return mine;
 
   const { sampleCampaignRows } = await import("../sample-campaigns");
   const productId = catalog[0]?.id;
@@ -410,7 +413,9 @@ export async function getDashboard() {
   const revenue = round2(todaysOrders.reduce((s, o) => s + o.totalRevenue, 0));
   const cogs = round2(todaysOrders.reduce((s, o) => s + o.totalCogs, 0));
   const fees = round2(todaysOrders.reduce((s, o) => s + o.paymentFee, 0));
-  const adSpend = round2(campaignRows.reduce((s, c) => s + c.spendToday, 0));
+  // Sample Guard preview rows must never hit Command P&L.
+  const liveCampaigns = campaignRows.filter((c) => !c.sample);
+  const adSpend = round2(liveCampaigns.reduce((s, c) => s + c.spendToday, 0));
   const profit = round2(revenue - cogs - fees - adSpend);
 
   const pending = orderRows.filter((o) => o.fulfillmentStatus === "pending_batch");
@@ -421,7 +426,7 @@ export async function getDashboard() {
   const lowStock = catalog.filter(
     (p) => isLowStock(p.stock) && (p.status === "published" || p.status === "local_only" || p.status === "ready"),
   );
-  const atRiskAds = campaignRows.filter((c) => c.atRisk);
+  const atRiskAds = liveCampaigns.filter((c) => c.atRisk);
 
   const last7 = Array.from({ length: 7 }).map((_, i) => {
     const day = new Date();

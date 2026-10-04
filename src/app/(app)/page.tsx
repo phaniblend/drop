@@ -17,7 +17,12 @@ export default async function CommandPage() {
   const data = await getDashboard();
   const { kpis } = data;
   const profitTone = kpis.profit >= 0 ? "profit" : "loss";
-  const maxBar = Math.max(...data.last7.map((d) => Math.abs(d.revenue)), 1);
+  const maxBar = Math.max(
+    1,
+    ...data.last7.flatMap((d) => [Math.abs(d.revenue), Math.abs(d.profit)]),
+  );
+  const barHeight = (value: number) =>
+    `${Math.min(100, Math.max(value > 0 ? 4 : 0, (Math.abs(value) / maxBar) * 100))}%`;
   const storeHref = storeHomePath(data.user?.storeSlug);
   const merchantStripe = stripeKeyMode(data.user?.storeStripeSk);
   const stripeLabel =
@@ -159,24 +164,26 @@ export default async function CommandPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader eyebrow="7 days" title="Revenue vs net" />
-          <div className="flex h-48 items-end gap-3 px-5 py-4">
-            {data.last7.map((d) => (
-              <div key={d.key} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex h-32 w-full items-end justify-center gap-1">
-                  <div
-                    className="w-3 rounded-sm bg-accent/70"
-                    style={{ height: `${Math.max(8, (d.revenue / maxBar) * 100)}%` }}
-                    title={`Revenue ${money(d.revenue)}`}
-                  />
-                  <div
-                    className={`w-3 rounded-sm ${d.profit >= 0 ? "bg-profit/80" : "bg-loss/80"}`}
-                    style={{ height: `${Math.max(8, (Math.abs(d.profit) / maxBar) * 100)}%` }}
-                    title={`Profit ${money(d.profit)}`}
-                  />
+          <div className="overflow-hidden px-5 py-4">
+            <div className="flex h-40 items-end gap-3">
+              {data.last7.map((d) => (
+                <div key={d.key} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                  <div className="flex h-28 w-full max-h-28 items-end justify-center gap-1 overflow-hidden">
+                    <div
+                      className="w-3 max-h-full rounded-sm bg-accent/70"
+                      style={{ height: barHeight(d.revenue) }}
+                      title={`Revenue ${money(d.revenue)}`}
+                    />
+                    <div
+                      className={`w-3 max-h-full rounded-sm ${d.profit >= 0 ? "bg-profit/80" : "bg-loss/80"}`}
+                      style={{ height: barHeight(d.profit) }}
+                      title={`Profit ${money(d.profit)}`}
+                    />
+                  </div>
+                  <p className="text-[11px] text-faint">{d.label}</p>
                 </div>
-                <p className="text-[11px] text-faint">{d.label}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </Card>
         <Card>
