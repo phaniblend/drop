@@ -190,12 +190,9 @@ export function Shell({
               <Menu className="h-5 w-5" />
             </button>
             <BrandMark className="hidden h-7 w-7 text-xs md:inline-flex" />
-            <span className="truncate">
-              <span className="md:hidden font-medium text-ink">SetoStore</span>
-              <span className="hidden md:inline">Operator desk</span>
-            </span>
+            <span className="shrink-0 font-medium text-ink">Seto</span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
             <HelpMenuButton
               placement="topbar"
               active={helpOpen}
@@ -218,10 +215,12 @@ export function Shell({
               />
             ) : null}
             {operatorName ? (
-              <span className="hidden max-w-[10rem] truncate text-xs text-muted sm:inline">{operatorName}</span>
+              <span className="hidden max-w-[7rem] truncate text-xs text-muted lg:inline">{operatorName}</span>
             ) : null}
             <TrialBadge billing={billing} />
-            <Badge tone={liveCount ? "profit" : "accent"}>{liveCount ? "Connected" : "Local"}</Badge>
+            <Badge tone={liveCount ? "profit" : "accent"}>
+              {liveCount ? `${liveCount} live` : "Setup"}
+            </Badge>
             <SignOutButton className="hidden h-8 px-2.5 text-xs md:inline-flex" />
           </div>
         </header>

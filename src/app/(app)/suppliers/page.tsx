@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { Thumb } from "@/components/thumb";
 import { deliveryWindow } from "@/lib/delivery";
 import { RemoveProductButton } from "@/components/remove-product-button";
+import { StatusPill } from "@/components/status-pill";
 
 export default async function SuppliersPage() {
   const vendors = await listSuppliers();
@@ -84,9 +85,10 @@ export default async function SuppliersPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{p.cleanTitle ?? p.rawTitle}</p>
                     <p className="text-xs text-muted">
-                      Your cost {money(p.baseCost + p.shippingCost)} · {deliveryWindow(p.shippingDays).short}
+                      Landed cost {money(p.baseCost + p.shippingCost)} · {deliveryWindow(p.shippingDays).short}
                     </p>
                   </div>
+                  <StatusPill value={p.status} />
                   <span className={`font-mono text-sm ${isLowStock(p.stock) ? "text-loss" : "text-muted"}`}>
                     {p.stock} pcs
                   </span>

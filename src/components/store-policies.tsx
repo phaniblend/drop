@@ -12,7 +12,7 @@ export function StoreShippingCopy({
     <article className="prose-sm max-w-2xl space-y-3 text-sm text-muted">
       <h1 className="text-2xl font-semibold text-ink">Shipping</h1>
       <p>
-        {storeName ? `${storeName} buys` : "We buy"} from the supplier after you pay and sends tracking when
+        {storeName ? `${storeName} buys` : "We buy"} from the supplier after you pay and send tracking when
         the parcel ships.
       </p>
       <p>

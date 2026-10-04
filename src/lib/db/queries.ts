@@ -268,9 +268,12 @@ export async function listSuppliers() {
   const catalog = await listProducts();
   const vendorByName = new Map(vendorRows.map((s) => [s.name.trim().toLowerCase(), s]));
 
-  // Always derive from catalog so the page never looks empty when products exist.
+  // Sellable / published first — drafts should not look like live inventory.
+  const sellable = catalog.filter(
+    (p) => p.status === "published" || p.status === "local_only" || p.status === "ready",
+  );
   const byName = new Map<string, typeof catalog>();
-  for (const p of catalog) {
+  for (const p of sellable) {
     const name = p.supplierName?.trim() || "AliExpress";
     const list = byName.get(name) ?? [];
     list.push(p);
@@ -281,7 +284,8 @@ export async function listSuppliers() {
 
   return [...byName.entries()].map(([name, skus], index) => {
     const meta = vendorByName.get(name.toLowerCase());
-    const lowStock = skus.filter((p) => isLowStock(p.stock));
+    const published = skus.filter((p) => p.status === "published");
+    const lowStock = published.filter((p) => isLowStock(p.stock));
     const avgShip =
       skus.length > 0
         ? Math.round(skus.reduce((s, p) => s + p.shippingDays, 0) / skus.length)
@@ -293,7 +297,9 @@ export async function listSuppliers() {
       storeUrl: meta?.storeUrl ?? skus[0]?.supplierUrl ?? null,
       avgShippingDays: meta?.avgShippingDays ?? avgShip,
       reliability: meta?.reliability ?? 0.9,
-      notes: meta?.notes || `${skus.length} product${skus.length === 1 ? "" : "s"} in your catalog`,
+      notes: meta?.notes?.includes("catalog repair")
+        ? `${skus.length} product${skus.length === 1 ? "" : "s"} linked from your catalog`
+        : meta?.notes || `${skus.length} product${skus.length === 1 ? "" : "s"} in your catalog`,
       skus,
       lowStock,
     };
@@ -372,10 +378,13 @@ export async function listActivity(limit = 12) {
     if (productId) return mineIds.has(productId);
     return !row.userId || row.userId === operator.id;
   });
-  return mine.slice(0, limit).map((row) => ({
-    ...row,
-    message: sanitizeActivityMessage(row.message, shopifyOAuth),
-  }));
+  return mine
+    .filter((row) => !/buyer@example\.com/i.test(row.message))
+    .slice(0, limit)
+    .map((row) => ({
+      ...row,
+      message: sanitizeActivityMessage(row.message, shopifyOAuth),
+    }));
 }
 
 export function agingHours(order: Pick<Order, "createdAt">) {
@@ -506,7 +515,11 @@ export async function getDashboard() {
           href: "/ops#refunds",
         })),
       ...catalog
-        .filter((p) => p.organicStatus === "pending")
+        .filter(
+          (p) =>
+            p.status === "published" &&
+            (p.organicStatus || "pending") === "pending",
+        )
         .slice(0, 4)
         .map((p) => ({
           tone: "warn" as const,
@@ -524,7 +537,9 @@ export async function getDashboard() {
     activity,
     campaignRows,
     catalog,
-    organicQueue: catalog.filter((p) => (p.organicStatus || "pending") === "pending"),
+    organicQueue: catalog.filter(
+      (p) => p.status === "published" && (p.organicStatus || "pending") === "pending",
+    ),
     refunds: refundRows,
     staleOrders,
     orders: orderRows,

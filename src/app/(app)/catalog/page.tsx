@@ -2,6 +2,7 @@ import { DeskLink } from "@/components/desk-link";
 import { getOperator, listProducts } from "@/lib/db/queries";
 import { storeHomePath } from "@/lib/store-slug";
 import { money, pct } from "@/lib/utils";
+import { breakevenRoas } from "@/lib/money";
 import { Badge, Button, Card } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
 import { Thumb } from "@/components/thumb";
@@ -77,7 +78,7 @@ export default async function CatalogPage({
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
               <th className="px-4 py-3 font-medium">Product</th>
-              <th className="px-4 py-3 font-medium">Your cost</th>
+              <th className="px-4 py-3 font-medium">Landed cost</th>
               <th className="px-4 py-3 font-medium">Selling price</th>
               <th className="px-4 py-3 font-medium">Margin</th>
               <th className="px-4 py-3 font-medium">Stock</th>
@@ -104,9 +105,15 @@ export default async function CatalogPage({
                 </td>
                 <td className="px-4 py-3 font-mono text-xs">{money(p.retailPrice)}</td>
                 <td className="px-4 py-3">
-                  <Badge tone={p.economics.margin >= 0.45 ? "profit" : "warn"}>
-                    {pct(p.economics.margin)}
-                  </Badge>
+                  {(() => {
+                    const be = breakevenRoas(p.retailPrice, p.baseCost, p.shippingCost);
+                    const hard = Number.isFinite(be) && be > 2.5;
+                    return (
+                      <Badge tone={hard ? "loss" : p.economics.margin >= 0.45 ? "profit" : "warn"}>
+                        {hard ? `BE ${be.toFixed(1)}x` : pct(p.economics.margin)}
+                      </Badge>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs">
                   {p.outOfStock ? (

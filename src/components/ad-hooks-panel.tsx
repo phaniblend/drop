@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
 import { formatScript } from "@/lib/format-script";
+import { withLivePrice } from "@/lib/live-price";
 
 type AdHookAngle = {
   id: string;
@@ -25,8 +26,8 @@ async function copyAndOpen(text: string, url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function fullScript(hook: AdHookAngle, productUrl?: string) {
-  const body = formatScript([hook.hook, hook.script]);
+function fullScript(hook: AdHookAngle, price: number, productUrl?: string) {
+  const body = withLivePrice(formatScript([hook.hook, hook.script]), price);
   if (!productUrl) return body;
   const tagged = `${productUrl}${productUrl.includes("?") ? "&" : "?"}utm_source=seto&utm_medium=paid&utm_campaign=${encodeURIComponent(hook.label)}&utm_content=${encodeURIComponent(hook.id)}`;
   return `${body}\n\nShop: ${tagged}`;
@@ -125,18 +126,20 @@ export function AdHooksPanel({
         {posted ? <p className="text-xs text-profit">{posted}</p> : null}
         {open && hooks.length > 0
           ? hooks.map((hook) => {
-              const full = fullScript(hook, productUrl);
+              const liveHook = withLivePrice(hook.hook, price);
+              const liveScript = withLivePrice(formatScript(hook.script), price);
+              const full = fullScript(hook, price, productUrl);
               return (
                 <div key={hook.id} className="rounded-xl border border-line bg-bg p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] uppercase tracking-wider text-faint">{hook.label}</p>
-                      <p className="mt-1 text-sm font-semibold">{hook.hook}</p>
+                      <p className="mt-1 text-sm font-semibold">{liveHook}</p>
                     </div>
                     <CopyButton text={full} label="Copy script" />
                   </div>
                   <pre className="mt-3 whitespace-pre-wrap font-sans text-sm text-muted">
-                    {formatScript(hook.script)}
+                    {liveScript}
                   </pre>
                   {productUrl ? (
                     <p className="mt-2 break-all font-mono text-[10px] text-faint">

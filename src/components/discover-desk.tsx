@@ -79,7 +79,7 @@ export function DiscoverDesk({
     feedCost?: number;
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState("");
-  const [pricedOnly, setPricedOnly] = useState(false);
+  const [pricedOnly, setPricedOnly] = useState(true);
   const [minRating4, setMinRating4] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
 
@@ -437,37 +437,40 @@ export function DiscoverDesk({
               <div className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold">{p.cleanTitle}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-muted" title={p.title}>
-                      {p.title}
+                    <p className="text-sm font-semibold" title={p.title}>
+                      {p.cleanTitle}
                     </p>
                     <p className="mt-1 text-[10px] uppercase tracking-wider text-faint">
                       {p.source === "cj" ? "CJ Dropshipping" : "AliExpress"}
                       {p.rating ? ` · ${p.rating.toFixed(1)}★` : ""}
                       {p.orders30d ? ` · ${p.orders30d.toLocaleString()} sold/30d` : ""}
-                      {p.shippingDays > 0 ? ` · ${p.shippingDays}d` : ""}
-                      {p.stockKnown === false ? " · confirm stock on import" : ""}
+                      {p.shippingDays > 0 ? ` · ${p.shippingDays}d ship` : ""}
+                      {p.stockKnown === false
+                        ? " · confirm stock on import"
+                        : p.stock > 0
+                          ? ` · ${p.stock} pcs`
+                          : ""}
                     </p>
                   </div>
                   <span
                     title={
                       score > 0
-                        ? `Score from ${metrics.scoreDrivers?.join(", ") || "margin"}`
+                        ? `Score /100 from ${metrics.scoreDrivers?.join(", ") || "margin"}`
                         : "Needs a priced listing"
                     }
                   >
                     <Badge tone={score >= 75 ? "profit" : score >= 50 ? "warn" : "line"}>
-                      {score > 0 ? score : "—"}
+                      {score > 0 ? `${score}/100` : "—"}
                     </Badge>
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-faint">Your cost</p>
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Landed cost est.</p>
                     <p className="mt-0.5 text-muted">{costLabel}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (3×)</p>
+                    <p className="text-[10px] uppercase tracking-wider text-faint">Suggested sell (cost+ship)×3</p>
                     <p className="mt-0.5 font-semibold text-ink">{displayCost > 0 ? money(retail) : "—"}</p>
                   </div>
                   <span className="text-profit">

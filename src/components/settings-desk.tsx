@@ -235,6 +235,9 @@ export function SettingsDesk({
             </p>
           </div>
           <div className="flex flex-col items-stretch gap-2">
+          <a href="/pricing" className="text-xs text-accent">
+            View plan comparison →
+          </a>
           {billing.hasCustomer ? <BillingPortalButton /> : null}
           {billing.tier === "trial_5" ? (
             <Button
@@ -465,8 +468,8 @@ export function SettingsDesk({
         <CardHeader title="Margin Guard mode" eyebrow="Ads & Guard" />
         <div className="space-y-4 p-5">
           <p className="text-sm text-muted">
-            Dual-signal Guard (Meta + Shopify contribution) runs hourly. Choose whether Seto only alerts or can
-            pause losing ad sets.
+            Guard reads Meta (or TikTok) spend and matches contribution from your Seto store orders — or Shopify if
+            you connect it. Runs hourly. Choose alert-only or auto-pause.
           </p>
           <div className="flex flex-wrap gap-2">
             {(

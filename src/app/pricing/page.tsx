@@ -12,9 +12,9 @@ const PLANS = [
     price: "$0",
     blurb: "Explore the desk before you pay.",
     points: [
-      "5 product imports to catalog",
+      "5 product imports (lifetime trial)",
       "Built-in store preview",
-      "Sample Ads & Guard walkthrough",
+      "Sample Ads & Guard walkthrough (clearly marked)",
     ],
   },
   {
@@ -22,8 +22,8 @@ const PLANS = [
     price: "$19/mo",
     blurb: "For operators running one store and ads.",
     points: [
-      "Higher monthly import quota",
-      "Live Margin Guard on connected Meta ads",
+      "30 product imports / month",
+      "Margin Guard on up to 5 ad sets",
       "Your own Stripe checkout",
     ],
   },
@@ -32,8 +32,8 @@ const PLANS = [
     price: "$39/mo",
     blurb: "For higher volume and more campaigns watched.",
     points: [
-      "Largest import quota",
-      "More ad sets under Guard",
+      "120 product imports / month",
+      "Unlimited Margin Guard campaigns",
       "Priority when new supplier tools ship",
     ],
   },

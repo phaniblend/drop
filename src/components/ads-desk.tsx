@@ -98,8 +98,13 @@ export function AdsDesk({
           <h1 className="mt-1 text-2xl font-semibold">Kill losers before they eat the store</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Pauses ads that are losing money, and watches the first clicks before anyone buys. Quiet hours
-            {daypartingEnabled ? " are on" : " are off"} in Settings. Dual-signal mode:{" "}
+            {daypartingEnabled ? " are on" : " are off"} in Settings. Guard mode:{" "}
             <span className="font-medium text-ink">{guardMode.replace(/_/g, " ").toLowerCase()}</span>.
+          </p>
+          <p className="mt-2 max-w-2xl text-xs text-muted">
+            How matching works: create the ad set in Meta Ads Manager with a UTM link from Catalog → Ad creatives
+            (utm_campaign / utm_content). Guard reads Meta spend and matches sales from your Seto store orders (or
+            Shopify if connected). Link a product on each campaign row when names do not match.
           </p>
           {metaFullyConnected ? (
             <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>

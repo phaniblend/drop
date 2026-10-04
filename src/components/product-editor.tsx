@@ -297,7 +297,7 @@ export function ProductEditor({
             <p className="text-xs uppercase tracking-wider text-faint">Cost vs profit</p>
             <dl className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm">
               <div>
-                <dt className="text-faint">Your cost</dt>
+                <dt className="text-faint">Landed cost (item + ship)</dt>
                 <dd>{money(liveEcon.cogs)}</dd>
               </div>
               <div>
@@ -334,7 +334,7 @@ export function ProductEditor({
               <Field label="Selling price">
                 <input className={inputClass} value={retail} onChange={(e) => onRetailChange(e.target.value)} />
               </Field>
-              <Field label="Markup">
+              <Field label="Markup (sell ÷ item cost, ship separate)">
                 <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
               <Field label="Ship $">
@@ -366,22 +366,30 @@ export function ProductEditor({
                 Publish without a ship cost
               </label>
             ) : null}
-            {(() => {
-              const screen = screenListing({
-                title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
-                description: product.descriptionHtml ?? "",
-              });
-              return !screen.ok && screen.level === "review" ? (
-                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={allowRestricted}
-                    onChange={(e) => setAllowRestricted(e.target.checked)}
-                  />
-                  I checked this listing is allowed
-                </label>
-              ) : null;
-            })()}
+            {product.status !== "published"
+              ? (() => {
+                  const screen = screenListing({
+                    title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+                    description: product.descriptionHtml ?? "",
+                  });
+                  return !screen.ok && screen.level === "review" ? (
+                    <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                      <input
+                        type="checkbox"
+                        checked={allowRestricted}
+                        onChange={(e) => setAllowRestricted(e.target.checked)}
+                      />
+                      I checked this listing is allowed (health/brand risk)
+                    </label>
+                  ) : null;
+                })()
+              : null}
+            {Number.isFinite(beRoas) && beRoas > 2.5 ? (
+              <p className="mt-2 text-xs text-warn">
+                Break-even ROAS is {beRoas.toFixed(1)}x — hard to advertise profitably. Raise price or cut cost before
+                spending on ads.
+              </p>
+            ) : null}
             <Button
               className="mt-3"
               tone="line"
@@ -438,13 +446,15 @@ export function ProductEditor({
             </a>
             <p className="mt-2 text-xs text-muted">{deliveryWindow(product.shippingDays).text}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                tone="line"
-                disabled={statusPending}
-                onClick={() => startStatus(() => setProductStatus(product.id, "ready"))}
-              >
-                Mark ready
-              </Button>
+              {product.status !== "published" && product.status !== "ready" ? (
+                <Button
+                  tone="line"
+                  disabled={statusPending}
+                  onClick={() => startStatus(() => setProductStatus(product.id, "ready"))}
+                >
+                  Mark ready
+                </Button>
+              ) : null}
               <RemoveProductButton
                 productId={product.id}
                 productTitle={product.cleanTitle || product.rawTitle}

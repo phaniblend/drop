@@ -165,25 +165,45 @@ export default async function CommandPage() {
         <Card className="lg:col-span-2">
           <CardHeader eyebrow="7 days" title="Revenue vs net" />
           <div className="overflow-hidden px-5 py-4">
-            <div className="flex h-40 items-end gap-3">
-              {data.last7.map((d) => (
-                <div key={d.key} className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                  <div className="flex h-28 w-full max-h-28 items-end justify-center gap-1 overflow-hidden">
-                    <div
-                      className="w-3 max-h-full rounded-sm bg-accent/70"
-                      style={{ height: barHeight(d.revenue) }}
-                      title={`Revenue ${money(d.revenue)}`}
-                    />
-                    <div
-                      className={`w-3 max-h-full rounded-sm ${d.profit >= 0 ? "bg-profit/80" : "bg-loss/80"}`}
-                      style={{ height: barHeight(d.profit) }}
-                      title={`Profit ${money(d.profit)}`}
-                    />
-                  </div>
-                  <p className="text-[11px] text-faint">{d.label}</p>
+            {data.last7.every((d) => d.revenue <= 0 && Math.abs(d.profit) <= 0) ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
+                <p className="text-sm text-muted">No sales in the last 7 days</p>
+                <p className="text-xs text-faint">Bars appear when checkouts or tracked ad spend land.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-2 flex flex-wrap gap-3 text-[11px] text-faint">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-accent/70" /> Revenue
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-profit/80" /> Profit
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-loss/80" /> Loss
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div className="flex h-40 items-end gap-3">
+                  {data.last7.map((d) => (
+                    <div key={d.key} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                      <div className="flex h-28 w-full max-h-28 items-end justify-center gap-1 overflow-hidden">
+                        <div
+                          className="w-3 max-h-full rounded-sm bg-accent/70"
+                          style={{ height: barHeight(d.revenue) }}
+                          title={`Revenue ${money(d.revenue)}`}
+                        />
+                        <div
+                          className={`w-3 max-h-full rounded-sm ${d.profit >= 0 ? "bg-profit/80" : "bg-loss/80"}`}
+                          style={{ height: barHeight(d.profit) }}
+                          title={`Profit ${money(d.profit)}`}
+                        />
+                      </div>
+                      <p className="text-[11px] text-faint">{d.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </Card>
         <Card>

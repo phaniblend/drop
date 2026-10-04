@@ -5,27 +5,54 @@ const JUNK = [
   /\bdropshipping\b/gi,
   /\bdropship\b/gi,
   /\bhot sale\b/gi,
+  /\bhot selling(?:\s+items?)?\b/gi,
+  /\btop rated(?:\s+20\d{2})?\b/gi,
+  /\blocal stock\b/gi,
   /\bnew 20\d{2}\b/gi,
   /\b20\d{2} new\b/gi,
+  /\b20\d{2}\b/g,
   /\bfactory\b/gi,
   /\bfree shipping\b/gi,
   /\bready to ship\b/gi,
   /\bgarvee\b/gi,
   /\bcorrectpor\b/gi,
   /\b\d+x\d+\s*inch\b/gi,
-  /\b\d+mah\b/gi,
 ];
+
+const TRAILING_STOP =
+  /\b(for|with|and|or|the|a|an|of|to|in|on|by|from|at|as|\d+)\s*$/i;
 
 function stripJunk(raw: string) {
   let next = raw;
   for (const re of JUNK) next = next.replace(re, " ");
-  return next.replace(/[|/]+/g, " ").replace(/\s+/g, " ").trim();
+  next = next.replace(/[|/]+/g, " ").replace(/\s+/g, " ").trim();
+  // Normalise common tokens after strip.
+  next = next
+    .replace(/\busb\b/gi, "USB")
+    .replace(/\b(\d+)\s*mah\b/gi, "$1mAh")
+    .replace(/\bpc\b/gi, "PC");
+  return next;
+}
+
+/** Short card title: word-boundary truncate, no dangling preposition/number. */
+export function discoverCardTitle(raw: string, maxWords = 8) {
+  const cleaned = stripJunk(raw);
+  let words = cleaned.split(/\s+/).filter(Boolean).slice(0, maxWords);
+  while (words.length > 2 && TRAILING_STOP.test(words[words.length - 1] || "")) {
+    words = words.slice(0, -1);
+  }
+  return titleCaseWords(words) || cleaned || "Product";
 }
 
 function titleCaseWords(words: string[]) {
   return words
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map((w) => {
+      if (/^usb$/i.test(w)) return "USB";
+      if (/^(\d+)mah$/i.test(w)) return w.replace(/mah$/i, "mAh");
+      if (/^pc$/i.test(w)) return "PC";
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(" ");
 }
 

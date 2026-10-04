@@ -2,7 +2,7 @@ const BLOCKED =
   /\b(omega\s*3|fish oil|dietary supplement|cbd|thc|cannabis|vape|e-?cig|weapon|firearm|ammunition|viagra|cialis)\b/i;
 
 const REVIEW =
-  /\b(jessup|scoliosis|pain relief|medical device|cure|treats?|alleviate|fda approved|prescription)\b/i;
+  /\b(jessup|zingpeng|jpnpl|scoliosis|pain relief|medical device|cure|treats?|alleviate|discomfort|spinal|alignment|wellness|supplement|vitamin|collagen|fda approved|prescription)\b/i;
 
 const LICENSED =
   /\b(hello kitty|kuromi|my melody|cinnamoroll|sanrio|disney|marvel|pokemon|nintendo|nike|adidas|gucci|louis vuitton|supreme|off-white|licensed)\b/i;

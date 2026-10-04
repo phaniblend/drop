@@ -16,6 +16,7 @@ import {
   titleMatches,
   type HtmlListing,
 } from "../aliexpress-search-html";
+import { discoverCardTitle } from "../copy-local";
 
 type AliParams = Record<string, string>;
 
@@ -207,13 +208,18 @@ function pickFeeds(names: string[], query: string) {
 function toFeedProduct(item: RecommendProduct): FeedProduct | null {
   const id = String(item.product_id ?? "");
   if (!id) return null;
-  const cost = num(item.target_sale_price);
+  // Feed "sale" price is often the consumer list price, not dropship offer cost.
+  // Prefer the lower of sale/original when both exist; enrichOfferCosts replaces with offer_sale_price.
+  const sale = num(item.target_sale_price);
+  const original = num(item.target_original_price);
+  const cost =
+    sale > 0 && original > 0 ? Math.min(sale, original) : sale > 0 ? sale : original;
   const orders = num(item.lastest_volume);
   const title = item.product_title || "AliExpress listing";
   return {
     id: `ali_${id}`,
     title,
-    cleanTitle: title.split(" ").slice(0, 8).join(" "),
+    cleanTitle: discoverCardTitle(title),
     url: `https://www.aliexpress.com/item/${id}.html`,
     source: "aliexpress",
     supplierName: "AliExpress",
@@ -237,6 +243,41 @@ function toFeedProduct(item: RecommendProduct): FeedProduct | null {
     live: true,
     variants: [{ skuId: id, attributes: "Default", cost, stock: 0 }],
   };
+}
+
+/** Replace feed list prices with real dropship offer costs from product.get. */
+async function enrichOfferCosts(items: FeedProduct[]): Promise<FeedProduct[]> {
+  if (!env.aliexpressAppKey || !env.aliexpressAppSecret || items.length === 0) return items;
+  const targets = items.slice(0, 14);
+  const updated = await Promise.all(
+    targets.map(async (item) => {
+      try {
+        const parsed = await Promise.race([
+          fetchAliExpressProduct(item.url),
+          new Promise<null>((resolve) => {
+            setTimeout(() => resolve(null), 2800);
+          }),
+        ]);
+        if (!parsed) return item;
+        const costs = parsed.variants.map((v) => v.cost).filter((c) => c > 0);
+        const offer = costs.length ? Math.min(...costs) : parsed.baseCost;
+        if (!(offer > 0.2)) return item;
+        const shipDays = parsed.shippingDays > 0 ? parsed.shippingDays : item.shippingDays;
+        return {
+          ...item,
+          cost: offer,
+          shippingDays: shipDays,
+          stock: parsed.variants.reduce((s, v) => s + Math.max(0, v.stock), 0),
+          stockKnown: true as const,
+          variants: [{ skuId: item.id.replace(/^ali_/, ""), attributes: "Default", cost: offer, stock: 0 }],
+        };
+      } catch {
+        return item;
+      }
+    }),
+  );
+  const byId = new Map(updated.map((row) => [row.id, row]));
+  return items.map((item) => byId.get(item.id) ?? item);
 }
 
 function collectProducts(pages: Array<Record<string, unknown> | null>, seen: Set<string>) {
@@ -283,6 +324,7 @@ async function searchAliExpressInner(keyword: string, niche: string): Promise<Fe
   const words = queryWords(searchText);
   const feedQuery = [searchText, niche !== "all" && keyword.trim() ? niche : ""].filter(Boolean).join(" ");
   const seen = new Set<string>();
+  let raw: FeedProduct[] = [];
 
   try {
     const htmlHits = await searchAliExpressHtml(searchText);
@@ -290,16 +332,17 @@ async function searchAliExpressInner(keyword: string, niche: string): Promise<Fe
       .map(toFeedProduct)
       .filter((p): p is FeedProduct => Boolean(p && titleMatches(p.title, words) && !seen.has(p.id)));
     for (const product of fromHtml) seen.add(product.id);
-    if (fromHtml.length >= 6) return applyNiche(fromHtml.slice(0, 24), niche);
-    if (fromHtml.length) {
+    if (fromHtml.length >= 6) raw = applyNiche(fromHtml.slice(0, 24), niche);
+    else if (fromHtml.length) {
       const extra = await searchFromFeeds(feedQuery, words, seen);
-      return applyNiche([...fromHtml, ...extra].slice(0, 24), niche);
+      raw = applyNiche([...fromHtml, ...extra].slice(0, 24), niche);
     }
   } catch {
     // Feed search still runs if the public listing page is blocked.
   }
 
-  return applyNiche(await searchFromFeeds(feedQuery, words, seen), niche);
+  if (!raw.length) raw = applyNiche(await searchFromFeeds(feedQuery, words, seen), niche);
+  return enrichOfferCosts(raw);
 }
 
 export async function searchAliExpress(keyword: string, niche = "all"): Promise<FeedProduct[]> {

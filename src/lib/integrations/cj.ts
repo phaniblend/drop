@@ -5,6 +5,7 @@ import { matchesNiche, queryWords, titleMatches } from "../aliexpress-search-htm
 import type { FeedProduct } from "../supplier-feed";
 import { normalizeSupplierStock } from "../supplier-stock";
 import { parseSupplierRating } from "../discover-sort";
+import { discoverCardTitle } from "../copy-local";
 
 const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
 
@@ -79,7 +80,7 @@ function toFeedProduct(item: CjProduct): FeedProduct | null {
   return {
     id: `cj_${id}`,
     title,
-    cleanTitle: title.split(/\s+/).slice(0, 8).join(" "),
+    cleanTitle: discoverCardTitle(title),
     url,
     source: "cj",
     supplierName: "CJ Dropshipping",
