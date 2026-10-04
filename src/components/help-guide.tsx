@@ -162,7 +162,9 @@ export function HelpGuide({
       {!tour || !step ? (
         <div className="space-y-2 px-3 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">Pick a tour</p>
-          <p className="text-xs text-muted">Short walkthroughs — not a 40-step overlay.</p>
+          <p className="text-xs text-muted">
+            Please follow these 5 steps in sequence; each step is divided into 3–5 substeps.
+          </p>
           <ul className="space-y-2">
             {HELP_TOURS.map((item) => (
               <li key={item.id}>
