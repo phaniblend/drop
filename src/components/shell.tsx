@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Sparkles,
   Truck,
+  Store,
   Warehouse,
   ClipboardCheck,
   X,
@@ -53,6 +54,8 @@ function isActive(pathname: string, href: string) {
 export function Shell({
   children,
   storeName,
+  storeHref = "/store",
+  storeSlug = "",
   liveCount,
   stripeMode = "off",
   billing,
@@ -61,6 +64,8 @@ export function Shell({
 }: {
   children: React.ReactNode;
   storeName: string;
+  storeHref?: string;
+  storeSlug?: string;
   liveCount: number;
   stripeMode?: "off" | "test" | "live";
   billing: BillingSummary;
@@ -162,6 +167,28 @@ export function Shell({
               </DeskLink>
             );
           })}
+          <a
+            href={storeHref}
+            className={cn(
+              "flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition",
+              pathname.startsWith("/s/") || pathname.startsWith("/store")
+                ? "bg-accent/10 text-ink"
+                : "text-muted hover:bg-black/[0.04] hover:text-ink",
+            )}
+          >
+            <Store
+              className={cn(
+                "h-4 w-4 shrink-0",
+                pathname.startsWith("/s/") || pathname.startsWith("/store") ? "text-accent" : "text-faint",
+              )}
+            />
+            <span className="min-w-0">
+              <span className="block">My store</span>
+              {storeSlug ? (
+                <span className="block truncate font-mono text-[10px] text-faint">/s/{storeSlug}</span>
+              ) : null}
+            </span>
+          </a>
         </nav>
         <div className="mt-3 rounded-xl border border-line bg-surface px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3">
           <p className="text-[11px] uppercase tracking-wider text-faint">Setup</p>
@@ -207,6 +234,14 @@ export function Shell({
               <Search className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Discover</span>
             </DeskLink>
+            <a
+              href={storeHref}
+              aria-label="Open public store"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-xs text-muted hover:border-line-strong hover:text-ink"
+            >
+              <Store className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">My store</span>
+            </a>
             {operatorImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

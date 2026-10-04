@@ -6,10 +6,13 @@ import { getOperator, getUserByEmail } from "./db/queries";
 import { provisionOperator } from "./db/seed";
 import { getBillingSummary, type BillingSummary } from "./billing";
 import { stripeCheckoutMode } from "./stripe-mode";
+import { storeHomePath } from "./store-slug";
 
 export type DeskShell = {
   storeName: string;
   displayName: string;
+  storeSlug: string;
+  storeHref: string;
   billing: BillingSummary;
   liveCount: number;
   stripeMode: "off" | "test" | "live";
@@ -49,6 +52,8 @@ export async function loadDeskShell(input: {
   if (hit && hit.email === email && Date.now() - hit.at < TTL_MS) {
     return {
       ...hit.shell,
+      storeSlug: hit.shell.storeSlug || "seto",
+      storeHref: hit.shell.storeHref || storeHomePath(hit.shell.storeSlug || "seto"),
       liveCount: await liveApiCount(),
       stripeMode: hit.shell.stripeMode ?? stripeCheckoutMode(""),
     };
@@ -68,9 +73,12 @@ export async function loadDeskShell(input: {
   const user = sessionUser ?? (await getUserByEmail(email));
   if (!user) return { denied: true };
 
+  const slug = user.storeSlug?.trim() || "seto";
   const shell: DeskShell = {
     storeName: user.storeName,
     displayName: user.displayName,
+    storeSlug: slug,
+    storeHref: storeHomePath(slug),
     billing,
     liveCount: await liveApiCount(),
     stripeMode: stripeCheckoutMode(user.storeStripeSk),

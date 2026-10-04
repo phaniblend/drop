@@ -20,6 +20,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <Shell
       storeName={desk.storeName}
+      storeHref={desk.storeHref}
+      storeSlug={desk.storeSlug}
       liveCount={desk.liveCount}
       stripeMode={desk.stripeMode}
       billing={desk.billing}
