@@ -6,6 +6,7 @@ import { Button, Card, CardHeader } from "./ui";
 import { CopyButton } from "./copy-button";
 import { formatScript } from "@/lib/format-script";
 import { withLivePrice } from "@/lib/live-price";
+import { isHealthClaimLine } from "@/lib/shopper-copy";
 
 type AdHookAngle = {
   id: string;
@@ -26,8 +27,20 @@ async function copyAndOpen(text: string, url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function scrubHealth(text: string) {
+  if (!text || !isHealthClaimLine(text)) return text;
+  return text
+    .replace(
+      /\b(alleviate|discomfort|spinal\s+alignment|pain\s+relief|cure[sd]?|treats?|fda\s+approved|prescription|medical\s+device|clinically\s+proven|heal(?:s|ing)?)\b/gi,
+      "",
+    )
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.])/g, "$1")
+    .trim();
+}
+
 function fullScript(hook: AdHookAngle, price: number, productUrl?: string) {
-  const body = withLivePrice(formatScript([hook.hook, hook.script]), price);
+  const body = withLivePrice(formatScript([scrubHealth(hook.hook), scrubHealth(hook.script)]), price);
   if (!productUrl) return body;
   const tagged = `${productUrl}${productUrl.includes("?") ? "&" : "?"}utm_source=seto&utm_medium=paid&utm_campaign=${encodeURIComponent(hook.label)}&utm_content=${encodeURIComponent(hook.id)}`;
   return `${body}\n\nShop: ${tagged}`;
@@ -126,8 +139,8 @@ export function AdHooksPanel({
         {posted ? <p className="text-xs text-profit">{posted}</p> : null}
         {open && hooks.length > 0
           ? hooks.map((hook) => {
-              const liveHook = withLivePrice(hook.hook, price);
-              const liveScript = withLivePrice(formatScript(hook.script), price);
+              const liveHook = withLivePrice(scrubHealth(hook.hook), price);
+              const liveScript = withLivePrice(formatScript(scrubHealth(hook.script)), price);
               const full = fullScript(hook, price, productUrl);
               return (
                 <div key={hook.id} className="rounded-xl border border-line bg-bg p-4">

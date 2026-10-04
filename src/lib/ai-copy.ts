@@ -25,13 +25,25 @@ export function localDescription(input: {
     niche: input.niche,
   });
   // beats are noun-phrase / clause fragments — lead with a full sentence.
-  const lead = `${input.title} is built for everyday use — ${beats[0]}.`;
-  const bullets = [
-    beats[1],
-    beats[2],
-    beats[3] ?? "Tracked shipping and simple returns if you need them",
-  ];
-  return `<p>${lead}</p><ul>${bullets.map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`).join("")}</ul>`;
+  const niche = (input.niche || "").toLowerCase();
+  const blob = `${input.title} ${input.rawTitle} ${input.descriptionHint ?? ""}`.toLowerCase();
+  const leadBeat = beats[0] || "ready for everyday use";
+  const lead = `${input.title} is made for daily use — ${leadBeat}.`;
+  const fallbackBullet = /brush|makeup|cosmetic|sign|light|fan|belt|bag/.test(blob)
+    ? "Tracked shipping and simple returns if you need them"
+    : niche === "beauty"
+      ? "Soft feel and easy cleanup after use"
+      : "Tracked shipping and simple returns if you need them";
+  const bullets = [beats[1], beats[2], beats[3] ?? fallbackBullet].filter(
+    (b) => b && !/easy to install|simple setup/i.test(b),
+  );
+  while (bullets.length < 3) {
+    bullets.push(fallbackBullet);
+  }
+  return `<p>${lead}</p><ul>${bullets
+    .slice(0, 3)
+    .map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`)
+    .join("")}</ul>`;
 }
 
 export type EnrichCopyResult = {

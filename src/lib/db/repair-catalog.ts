@@ -10,7 +10,7 @@ import * as schema from "./schema";
 
 type DB = LibSQLDatabase<typeof schema>;
 
-const REPAIR_KEY = "catalog_repair_v4";
+const REPAIR_KEY = "catalog_repair_v5";
 
 /**
  * Caps fake inventory, humanizes "Option" variant names, and cleans titles.
@@ -68,14 +68,19 @@ export async function repairCatalogData(db: DB): Promise<{
   for (const p of products) {
     const source = (p.cleanTitle || p.rawTitle || "").trim();
     if (!source) continue;
-    const next = discoverCardTitle(source);
+    const next = discoverCardTitle(p.rawTitle || source);
     if (!next || next === p.cleanTitle) continue;
-    // Only rewrite when the current title still looks like supplier junk or is empty.
+    const current = p.cleanTitle?.trim() || "";
     const looksJunk =
-      !p.cleanTitle?.trim() ||
-      /\b(20\d{2}|hot selling|top rated|local stock|wholesale|dropship)\b/i.test(p.cleanTitle) ||
-      /\b(for|with|and|or|the|a|an|of|to|in|on)\s*$/i.test(p.cleanTitle.trim());
-    if (!looksJunk && p.cleanTitle && p.cleanTitle.length <= 60) continue;
+      !current ||
+      /\b(20\d{2}|hot selling|top rated|local stock|wholesale|dropship|usb hanging|mah usb)\b/i.test(
+        current,
+      ) ||
+      /\b(for|with|and|or|the|a|an|of|to|in|on)\s*$/i.test(current) ||
+      /^\d+[a-z]/i.test(current) ||
+      (/usb|led|mah/i.test(current) && current === current.toLowerCase()) ||
+      current !== discoverCardTitle(current);
+    if (!looksJunk) continue;
     await db.update(schema.products).set({ cleanTitle: next }).where(eq(schema.products.id, p.id));
     titlesFixed += 1;
   }

@@ -130,7 +130,12 @@ export default async function CommandPage() {
         <Kpi label="Your cost" value={money(kpis.cogs)} />
         <Kpi label="Ad spend" value={money(kpis.adSpend)} />
         <Kpi label="Processor fees" value={money(kpis.fees)} />
-        <Kpi label="Net profit" value={money(kpis.profit)} tone={profitTone} hint={pct(kpis.avgMargin)} />
+        <Kpi
+          label="Net profit"
+          value={money(kpis.profit)}
+          tone={profitTone}
+          hint={kpis.revenue > 0 ? pct(kpis.avgMargin) : "—"}
+        />
         <Kpi
           label="Needs you"
           value={String(data.pendingCount + data.needTrackingCount)}
@@ -150,7 +155,11 @@ export default async function CommandPage() {
                   <p className="text-xs text-muted">{alert.detail}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Badge tone={alert.tone === "loss" ? "loss" : "warn"}>{alert.tone}</Badge>
+                  <Badge
+                    tone={alert.tone === "loss" ? "loss" : alert.tone === "line" ? "line" : "warn"}
+                  >
+                    {alert.tone === "line" ? "optional" : alert.tone}
+                  </Badge>
                   <DeskLink href={alert.href} className="text-xs text-accent">
                     Open
                   </DeskLink>

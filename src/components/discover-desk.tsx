@@ -11,8 +11,9 @@ import {
 import { postJson } from "@/lib/retry-fetch";
 import { visualSearch } from "@/app/actions/ops";
 import { unitMargin, suggestedRetail, breakevenRoas } from "@/lib/money";
-import { DISCOVER_COST_CEILING, discoverShipping, discoverShippingKnown, plausibleDiscoverCost } from "@/lib/discover-cost";
-import { licensedBrandWarning } from "@/lib/product-screen";
+import { discoverShippingKnown } from "@/lib/discover-cost";
+import { discoverCardCost } from "@/lib/discover-card-cost";
+import { licensedBrandWarning, screenListing } from "@/lib/product-screen";
 import { DISCOVER_SORTS, sortDiscoverItems, type DiscoverSortId, discoverMetrics } from "@/lib/discover-sort";
 import { savedListingKey } from "@/lib/saved-listing";
 import { money, pct } from "@/lib/utils";
@@ -161,12 +162,9 @@ export function DiscoverDesk({
 
   const sorted = sortDiscoverItems(showSaved ? savedRows : (liveRows ?? []), sort);
   const rows = sorted.filter((p) => {
-    const cost = plausibleDiscoverCost(
-      (p.variants ?? []).map((v) => v.cost).filter((c) => c > 0).length
-        ? Math.min(...(p.variants ?? []).map((v) => v.cost).filter((c) => c > 0))
-        : p.cost,
-    );
-    if (pricedOnly && !(cost > 0)) return false;
+    const card = discoverCardCost(p);
+    // "Priced only" means a verified offer cost — not an untrusted feed estimate.
+    if (pricedOnly && !card.verified) return false;
     if (minRating4 && !(p.rating && p.rating >= 4)) return false;
     if (inStockOnly && (p.stockKnown === false || p.stock <= 0)) return false;
     return true;
@@ -407,30 +405,21 @@ export function DiscoverDesk({
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((p) => {
-          const variantCosts = (p.variants ?? [])
-            .map((v) => v.cost)
-            .filter((c) => Number.isFinite(c) && c > 0);
-          const minCost = variantCosts.length ? Math.min(...variantCosts) : p.cost;
-          const maxCost = variantCosts.length ? Math.max(...variantCosts) : p.cost;
-          const displayCost = plausibleDiscoverCost(minCost);
-          const costSuspect = minCost > DISCOVER_COST_CEILING;
+          const card = discoverCardCost(p);
+          const displayCost = card.cost;
           const shipKnown = discoverShippingKnown(p.shipping);
-          const shipping = discoverShipping(p.shipping);
-          const costLabel =
-            displayCost <= 0
-              ? costSuspect
-                ? "Verify cost on import"
-                : "On import"
-              : variantCosts.length > 1 && maxCost - minCost > 0.01
-                ? `from ${money(displayCost)}${shipKnown ? ` + ~${money(p.shipping)} ship` : ` + ~${money(shipping)} ship (est.)`} · feed est.`
-                : shipKnown
-                  ? `${money(displayCost)} + ~${money(p.shipping)} ship · feed est.`
-                  : `${money(displayCost)} + ~${money(shipping)} ship (est.) · feed est.`;
+          const shipping = card.shipping;
+          const costLabel = !card.verified
+            ? "Verify cost on import"
+            : shipKnown
+              ? `${money(displayCost)} + ~${money(p.shipping)} ship`
+              : `${money(displayCost)} + ~${money(shipping)} ship (est.)`;
           const retail = displayCost > 0 ? suggestedRetail(displayCost, shipping, 3) : 0;
           const econ = unitMargin(retail, displayCost, shipping);
           const metrics = discoverMetrics(p);
           const score = metrics.score;
           const licensed = licensedBrandWarning(p.title, p.cleanTitle);
+          const screen = !licensed ? screenListing({ title: `${p.title} ${p.cleanTitle}` }) : null;
           const shipLabel =
             p.shippingDays > 0 ? `${p.shippingDays}d ship` : "est. ship";
           const listingKey = savedListingKey(p);
@@ -470,7 +459,9 @@ export function DiscoverDesk({
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-faint">Landed cost est.</p>
+                    <p className="text-[10px] uppercase tracking-wider text-faint">
+                      {card.verified ? "Landed cost est." : "Cost"}
+                    </p>
                     <p className="mt-0.5 text-muted">{costLabel}</p>
                   </div>
                   <div className="text-right">
@@ -483,19 +474,20 @@ export function DiscoverDesk({
                       : "Margin on import"}
                   </span>
                   <span className="text-right text-muted">
-                    {displayCost > 0
-                      ? (() => {
-                          const be = breakevenRoas(retail, displayCost, shipping);
-                          return Number.isFinite(be) && be > 0 ? `BE ROAS ${be.toFixed(1)}x` : "—";
-                        })()
-                      : p.orders30d
-                        ? `${p.orders30d.toLocaleString()} sold / 30d`
+                    {p.orders30d
+                      ? `${p.orders30d.toLocaleString()} sold / 30d`
+                      : displayCost > 0
+                        ? (() => {
+                            const be = breakevenRoas(retail, displayCost, shipping);
+                            return Number.isFinite(be) && be > 0 ? `BE ROAS ${be.toFixed(1)}x` : "—";
+                          })()
                         : `${shipLabel}${
                             p.stockKnown === false || p.stock <= 0 ? "" : ` · ${p.stock} pcs`
                           }`}
                   </span>
                 </div>
                 {licensed ? <p className="text-xs text-loss">{licensed}</p> : null}
+                {screen && !screen.ok ? <p className="text-xs text-warn">{screen.reason}</p> : null}
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"

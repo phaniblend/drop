@@ -71,6 +71,20 @@ describe("localCleanTitle", () => {
   });
 });
 
+describe("discoverCardTitle junk heads", () => {
+  it("does not glue digit junk into Portable", async () => {
+    const { discoverCardTitle } = await import("./copy-local");
+    expect(discoverCardTitle("8OPortable Blender Bottle Electric 6 Blades")).not.toMatch(/^8o/i);
+    expect(discoverCardTitle("8OPortable Blender Bottle Electric 6 Blades")).toMatch(/Portable/i);
+  });
+
+  it("keeps USB LED mAh casing", async () => {
+    const { discoverCardTitle } = await import("./copy-local");
+    expect(discoverCardTitle("8000mah Usb Hanging Neck Fan Portable Bladeless")).toMatch(/mAh/);
+    expect(discoverCardTitle("8000mah Usb Hanging Neck Fan Portable Bladeless")).toMatch(/USB/);
+  });
+});
+
 describe("meta pause safety", () => {
   it("preview path must not call pause APIs when dryRun is true", () => {
     const pauseAdSet = vi.fn();

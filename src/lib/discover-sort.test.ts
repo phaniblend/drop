@@ -13,6 +13,7 @@ function item(partial: Partial<FeedProduct> & Pick<FeedProduct, "id" | "cost">):
     shipping: 0,
     shippingDays: 0,
     stock: 10,
+    stockKnown: true,
     demand: 0.2,
     image: "",
     tags: [],

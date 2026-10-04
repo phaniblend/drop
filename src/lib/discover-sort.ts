@@ -1,6 +1,6 @@
 import { suggestedRetail, winningScore } from "./money";
 import type { FeedProduct } from "./supplier-feed";
-import { discoverShipping, plausibleDiscoverCost } from "./discover-cost";
+import { discoverCardCost } from "./discover-card-cost";
 import { licensedBrandWarning } from "./product-screen";
 
 export const DISCOVER_SORTS = [
@@ -24,12 +24,9 @@ export function parseSupplierRating(raw: unknown): number | undefined {
 }
 
 export function discoverMetrics(product: FeedProduct) {
-  const variantCosts = (product.variants ?? [])
-    .map((v) => v.cost)
-    .filter((c) => Number.isFinite(c) && c > 0);
-  const raw = variantCosts.length ? Math.min(...variantCosts) : product.cost;
-  const cost = plausibleDiscoverCost(raw);
-  const shipping = discoverShipping(product.shipping);
+  const card = discoverCardCost(product);
+  const cost = card.cost;
+  const shipping = card.shipping;
   const retail = cost > 0 ? suggestedRetail(cost, shipping, 3) : 0;
   const score = winningScore({
     retail,
@@ -45,6 +42,7 @@ export function discoverMetrics(product: FeedProduct) {
     cost,
     retail,
     score,
+    verified: card.verified,
     orders: product.orders30d ?? Math.round(product.demand * 1000),
     rating: product.rating ?? 0,
     ship: product.shippingDays > 0 ? product.shippingDays : Number.POSITIVE_INFINITY,
@@ -65,9 +63,12 @@ export function sortDiscoverItems(items: FeedProduct[], sort: DiscoverSortId): F
       const aFlag = licensedBrandWarning(a.item.title) ? 1 : 0;
       const bFlag = licensedBrandWarning(b.item.title) ? 1 : 0;
       cmp = aFlag - bFlag || b.m.score - a.m.score;
-    }
-    else if (sort === "cost") cmp = a.m.cost - b.m.cost;
-    else if (sort === "sell") cmp = b.m.retail - a.m.retail;
+    } else if (sort === "cost") {
+      // Unverified costs sort last so "Lowest cost" is not a trap.
+      const aCost = a.m.verified ? a.m.cost : Number.POSITIVE_INFINITY;
+      const bCost = b.m.verified ? b.m.cost : Number.POSITIVE_INFINITY;
+      cmp = aCost - bCost;
+    } else if (sort === "sell") cmp = b.m.retail - a.m.retail;
     else if (sort === "sold") cmp = b.m.orders - a.m.orders;
     else if (sort === "rating") cmp = b.m.rating - a.m.rating;
     else cmp = a.m.ship - b.m.ship;

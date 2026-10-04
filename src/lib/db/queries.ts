@@ -522,9 +522,9 @@ export async function getDashboard() {
         )
         .slice(0, 4)
         .map((p) => ({
-          tone: "warn" as const,
-          title: `Organic test still open: ${p.cleanTitle ?? p.rawTitle}`,
-          detail: "3 hook videos need 1,000+ views each before paid launch.",
+          tone: "line" as const,
+          title: `Optional organic test: ${p.cleanTitle ?? p.rawTitle}`,
+          detail: "3 hook videos at 1,000+ views each before paid launch — or Override on Command.",
           href: `/catalog/${p.id}`,
         })),
     ],

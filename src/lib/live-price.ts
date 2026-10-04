@@ -8,9 +8,12 @@ export function formatSellPrice(price: number) {
 export function withLivePrice(text: string, price: number) {
   const live = formatSellPrice(price);
   if (!(price > 0) || !text) return text;
-  return text
+  let next = text
     .replace(/\$\d+(?:\.\d{1,2})?/g, live)
     .replace(/\bat just\s+\d+(?:\.\d{1,2})?\b/gi, `at just ${live}`)
     .replace(/\bis\s+\d+\.\d{2}\b/gi, `is ${live}`)
     .replace(/\blive at\s+\d+(?:\.\d{1,2})?\b/gi, `live at ${live}`);
+  // Fix "Belt. at just $X" → "Belt. At just $X"
+  next = next.replace(/([.!?]\s+)([a-z])/g, (_, punct: string, letter: string) => punct + letter.toUpperCase());
+  return next;
 }

@@ -259,17 +259,34 @@ async function enrichOfferCosts(items: FeedProduct[]): Promise<FeedProduct[]> {
           }),
         ]);
         if (!parsed) return item;
-        const costs = parsed.variants.map((v) => v.cost).filter((c) => c > 0);
+        const { partitionVariants } = await import("../variant-pricing");
+        const shaped = parsed.variants.map((v) => ({
+          cost: v.cost,
+          name: v.attributes,
+          attributes: v.attributes,
+          stock: v.stock,
+          skuId: v.skuId,
+        }));
+        const { primary, accessories } = partitionVariants(shaped);
+        const pool = primary.length ? primary : shaped;
+        const costs = pool.map((v) => v.cost).filter((c) => c > 0);
         const offer = costs.length ? Math.min(...costs) : parsed.baseCost;
         if (!(offer > 0.2)) return item;
         const shipDays = parsed.shippingDays > 0 ? parsed.shippingDays : item.shippingDays;
+        const stock = pool.reduce((s, v) => s + Math.max(0, Number(v.stock) || 0), 0);
         return {
           ...item,
           cost: offer,
           shippingDays: shipDays,
-          stock: parsed.variants.reduce((s, v) => s + Math.max(0, v.stock), 0),
+          stock,
           stockKnown: true as const,
-          variants: [{ skuId: item.id.replace(/^ali_/, ""), attributes: "Default", cost: offer, stock: 0 }],
+          variants: pool.slice(0, 8).map((v, i) => ({
+            skuId: v.skuId || `${item.id.replace(/^ali_/, "")}_${i}`,
+            attributes: v.attributes || v.name || "Default",
+            cost: v.cost,
+            stock: Number(v.stock) || 0,
+          })),
+          ...(accessories.length ? { tags: [...(item.tags || []), "accessories-hidden"] } : {}),
         };
       } catch {
         return item;

@@ -8,6 +8,7 @@ describe("screenListing", () => {
 
   it("flags medical claims and brand names for review", () => {
     expect(screenListing({ title: "Jessup makeup brushes" }).level).toBe("review");
+    expect(screenListing({ title: "Xiaomi Mijia Portable Juicer" }).level).toBe("review");
     expect(screenListing({ title: "Scoliosis Corrector", description: "alleviate discomfort" }).level).toBe(
       "review",
     );

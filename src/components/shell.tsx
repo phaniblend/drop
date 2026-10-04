@@ -215,7 +215,7 @@ export function Shell({
               />
             ) : null}
             {operatorName ? (
-              <span className="hidden max-w-[7rem] truncate text-xs text-muted lg:inline">{operatorName}</span>
+              <span className="hidden max-w-[12rem] truncate text-xs text-muted xl:inline">{operatorName}</span>
             ) : null}
             <TrialBadge billing={billing} />
             <Badge tone={liveCount ? "profit" : "accent"}>

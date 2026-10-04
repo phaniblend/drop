@@ -48,14 +48,36 @@ export function sanitizeShopperHtml(html: string, title: string) {
     /you pay about\s*\$/i.test(text) ||
     (titleHint.length >= 4 && !text.toLowerCase().includes(titleHint))
   ) {
-    return shopperFallbackHtml(title);
+    return shopperFallbackHtml(title, source);
   }
   return withoutBadItems;
 }
 
-export function shopperFallbackHtml(title: string) {
+export function shopperFallbackHtml(title: string, hint?: string) {
   const name = title.trim() || "This product";
-  return `<p>${name} ships with tracking. What you see is what we send.</p><ul><li>Tracked shipping</li><li>Packed as shown</li><li>Refund or replacement if it arrives wrong or damaged</li></ul>`;
+  const blob = `${name} ${hint ?? ""}`.toLowerCase();
+  const bullets: string[] = [];
+  if (/brush|makeup|cosmetic/i.test(blob)) {
+    bullets.push("Soft bristles for everyday makeup");
+    bullets.push("Easy to clean after use");
+  } else if (/fan|cooler|blender|juicer/i.test(blob)) {
+    bullets.push("USB rechargeable for home or travel");
+    bullets.push("Compact size that packs light");
+  } else if (/light|lamp|led|sign/i.test(blob)) {
+    bullets.push("Bright enough to see at night");
+    bullets.push("Simple to place where you need it");
+  } else if (/posture|belt|brace|support/i.test(blob)) {
+    bullets.push("Adjustable straps for a snug fit");
+    bullets.push("Breathable fabric for daily wear");
+  } else {
+    bullets.push("Looks like the photos");
+    bullets.push("Ready for everyday use");
+  }
+  bullets.push("Tracked shipping · refund or replacement if it arrives wrong or damaged");
+  return `<p>${name} is made for daily use — ${bullets[0]!.charAt(0).toLowerCase()}${bullets[0]!.slice(1)}.</p><ul>${bullets
+    .slice(0, 3)
+    .map((b) => `<li>${b}</li>`)
+    .join("")}</ul>`;
 }
 
 function looksLikeSupplierSku(part: string) {

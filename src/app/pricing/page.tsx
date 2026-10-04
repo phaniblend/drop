@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { auth } from "@/auth";
 
 export const metadata = {
   title: "Pricing — SetoStore",
@@ -39,7 +40,10 @@ const PLANS = [
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const session = await auth();
+  const signedIn = Boolean(session?.user?.email);
+
   return (
     <main className="min-h-dvh bg-bg text-ink">
       <header className="border-b border-line px-4 py-4">
@@ -47,9 +51,15 @@ export default function PricingPage() {
           <Link href="/">
             <BrandLogo />
           </Link>
-          <Link href="/login" className="text-sm text-accent">
-            Sign in
-          </Link>
+          {signedIn ? (
+            <Link href="/" className="text-sm text-accent">
+              Open desk
+            </Link>
+          ) : (
+            <Link href="/login" className="text-sm text-accent">
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-4 py-12">

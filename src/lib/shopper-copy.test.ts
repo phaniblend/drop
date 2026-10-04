@@ -103,6 +103,6 @@ describe("shopper copy", () => {
       "Posture Support Belt",
     );
     expect(html).not.toMatch(/alleviate|spinal alignment|discomfort/i);
-    expect(html.toLowerCase()).toMatch(/posture|tracked shipping|ships with tracking/);
+    expect(html.toLowerCase()).toMatch(/posture|daily wear|tracked shipping|adjustable/);
   });
 });

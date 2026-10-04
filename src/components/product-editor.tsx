@@ -13,6 +13,7 @@ import { money, pct } from "@/lib/utils";
 import { unitMargin, breakevenRoas } from "@/lib/money";
 import { deliveryWindow } from "@/lib/delivery";
 import { MIN_PUBLISH_PRICE, screenListing } from "@/lib/product-screen";
+import { sanitizeShopperHtml } from "@/lib/shopper-copy";
 import { humanizeVariantLabel, labeledVariantName } from "@/lib/variant-label";
 import { Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { StatusPill } from "./status-pill";
@@ -41,10 +42,17 @@ export function ProductEditor({
   const [rewriting, startRewrite] = useTransition();
   const [publishing, startPublish] = useTransition();
   const [statusPending, startStatus] = useTransition();
-  const [retail, setRetail] = useState(String(product.retailPrice));
-  const [markup, setMarkup] = useState(String(product.markupMultiplier));
-  const [shipping, setShipping] = useState(String(product.shippingCost));
   const baseCost = product.variants[0]?.variantCost ?? product.baseCost;
+  const initialShip = Number(product.shippingCost) || 0;
+  const initialLanded = baseCost + (initialShip > 0 ? initialShip : 0);
+  const [retail, setRetail] = useState(String(product.retailPrice));
+  const [markup, setMarkup] = useState(() => {
+    if (initialLanded > 0 && product.retailPrice > 0) {
+      return (product.retailPrice / initialLanded).toFixed(2);
+    }
+    return String(product.markupMultiplier);
+  });
+  const [shipping, setShipping] = useState(String(product.shippingCost));
   const [copyReason, setCopyReason] = useState("");
   const [suggestion, setSuggestion] = useState<{ title: string; descriptionHtml: string } | null>(null);
   const [publishMsg, setPublishMsg] = useState<{ tone: "profit" | "warn" | "loss"; text: string; href?: string } | null>(
@@ -207,11 +215,26 @@ export function ProductEditor({
         <Card className="overflow-hidden">
           <Thumb src={product.imageUrl} alt="" className="h-72 w-full rounded-none" />
           <div className="space-y-3 p-5">
-            <p className="text-xs uppercase tracking-wider text-faint">Storefront copy</p>
-            <div
-              className="prose-sm text-sm text-muted [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2"
-              dangerouslySetInnerHTML={{ __html: product.descriptionHtml ?? "" }}
-            />
+            <p className="text-xs uppercase tracking-wider text-faint">Storefront copy (live)</p>
+            {(() => {
+              const title = product.cleanTitle || product.rawTitle;
+              const raw = (product.descriptionHtml ?? "").trim();
+              const liveHtml = sanitizeShopperHtml(raw, title);
+              const claimsStripped = /alleviate|spinal|discomfort|fda|pain relief|cure|treat/i.test(raw);
+              return (
+                <>
+                  {claimsStripped ? (
+                    <p className="text-xs text-warn">
+                      Same text shoppers see. Health-style claims were removed so ads and the store stay safer.
+                    </p>
+                  ) : null}
+                  <div
+                    className="prose-sm text-sm text-muted [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2"
+                    dangerouslySetInnerHTML={{ __html: liveHtml }}
+                  />
+                </>
+              );
+            })()}
             <Button
               tone="line"
               disabled={rewriting}
@@ -298,8 +321,10 @@ export function ProductEditor({
             <p className="text-xs uppercase tracking-wider text-faint">Cost vs profit</p>
             <dl className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm">
               <div>
-                <dt className="text-faint">Landed cost (item + ship)</dt>
-                <dd>{money(liveEcon.cogs)}</dd>
+                <dt className="text-faint">
+                  {shipUnknown ? "Item cost (shipping unknown)" : "Landed cost (item + ship)"}
+                </dt>
+                <dd>{money(shipUnknown ? baseCost : liveEcon.cogs)}</dd>
               </div>
               <div>
                 <dt className="text-faint">Card fee</dt>
@@ -335,7 +360,7 @@ export function ProductEditor({
               <Field label="Selling price">
                 <input className={inputClass} value={retail} onChange={(e) => onRetailChange(e.target.value)} />
               </Field>
-              <Field label="Markup (sell ÷ landed cost)">
+              <Field label={shipUnknown ? "Markup (sell ÷ item cost)" : "Markup (sell ÷ landed cost)"}>
                 <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
               <Field label="Ship $">
@@ -343,7 +368,16 @@ export function ProductEditor({
                   id="ship-cost"
                   className={`${inputClass} ${shipUnknown && !allowUnknownShipping ? "border-loss/50" : ""}`}
                   value={shipping}
-                  onChange={(e) => setShipping(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setShipping(value);
+                    const ship = Number(value) || 0;
+                    const landed = baseCost + (ship > 0 ? ship : 0);
+                    const price = Number(retail);
+                    if (landed > 0 && Number.isFinite(price) && price > 0) {
+                      setMarkup((price / landed).toFixed(2));
+                    }
+                  }}
                 />
               </Field>
             </div>
@@ -367,24 +401,27 @@ export function ProductEditor({
                 Publish without a ship cost
               </label>
             ) : null}
-            {product.status !== "published"
-              ? (() => {
-                  const screen = screenListing({
-                    title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
-                    description: product.descriptionHtml ?? "",
-                  });
-                  return !screen.ok && screen.level === "review" ? (
-                    <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-                      <input
-                        type="checkbox"
-                        checked={allowRestricted}
-                        onChange={(e) => setAllowRestricted(e.target.checked)}
-                      />
-                      {screen.reason || "I checked this listing is allowed (health/brand risk)"}
-                    </label>
-                  ) : null;
-                })()
-              : null}
+            {(() => {
+              const screen = screenListing({
+                title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+                description: product.descriptionHtml ?? "",
+              });
+              if (screen.ok || screen.level === "block") {
+                return screen.level === "block" ? (
+                  <p className="mt-2 text-xs text-loss">{screen.reason}</p>
+                ) : null;
+              }
+              return (
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={allowRestricted}
+                    onChange={(e) => setAllowRestricted(e.target.checked)}
+                  />
+                  {screen.reason || "I checked this listing is allowed (health/brand risk)"}
+                </label>
+              );
+            })()}
             {Number.isFinite(beRoas) && beRoas > 2.5 ? (
               <p className="mt-2 text-xs text-warn">
                 Break-even ROAS is {beRoas.toFixed(1)}x — hard to advertise profitably. Raise price or cut cost before
