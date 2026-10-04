@@ -33,8 +33,9 @@ function collectHtmlListings(html) {
   for (const [id, item] of found) {
     const idx = html.indexOf(id);
     const window = idx >= 0 ? html.slice(Math.max(0, idx - 120), idx + 2400) : "";
-    const price = window.match(/"salePrice"\s*:\s*"?([\d.]+)/i)?.[1]
-      || window.match(/"minPrice"\s*:\s*"?([\d.]+)/i)?.[1];
+    const price = window.match(/"salePrice"\s*:\s*\{[^}]{0,240}?"minPrice"\s*:\s*"?([\d.]+)/i)?.[1]
+      || window.match(/"salePrice"\s*:\s*"?([\d.]+)/i)?.[1]
+      || window.match(/"targetSalePrice"\s*:\s*"?([\d.]+)/i)?.[1];
     if (price) item.cost = Number.parseFloat(price);
   }
   return [...found.values()];

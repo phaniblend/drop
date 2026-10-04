@@ -62,14 +62,25 @@ function firstNumber(chunk: string, patterns: RegExp[]) {
 }
 
 export function extractPriceFromChunk(chunk: string) {
-  return firstNumber(chunk, [
+  // Prefer nested salePrice.minPrice — bare "minPrice" often hits originalPrice (list) first.
+  const nestedSale = chunk.match(/"salePrice"\s*:\s*\{[^}]{0,240}?"minPrice"\s*:\s*"?([\d.]+)/i)?.[1];
+  if (nestedSale && Number.parseFloat(nestedSale) > 0) return nestedSale;
+
+  const scalar = firstNumber(chunk, [
     /"salePrice"\s*:\s*"?([\d.]+)/i,
-    /"minPrice"\s*:\s*"?([\d.]+)/i,
-    /"skuAmount"[^}]{0,80}"value"\s*:\s*"?([\d.]+)/i,
     /"targetSalePrice"\s*:\s*"?([\d.]+)/i,
+    /"skuAmount"[^}]{0,80}"value"\s*:\s*"?([\d.]+)/i,
     /"formattedPrice"\s*:\s*"(?:US\s*)?\$?([\d.]+)/i,
     /"price"\s*:\s*"([\d.]+)"/,
   ]);
+  if (scalar) return scalar;
+
+  const cents = chunk.match(/"salePrice"[^}]{0,240}?"cent"\s*:\s*(\d+)/i)?.[1];
+  if (cents) {
+    const dollars = Number.parseInt(cents, 10) / 100;
+    if (dollars > 0) return String(dollars);
+  }
+  return undefined;
 }
 
 export function extractImageFromChunk(chunk: string) {
