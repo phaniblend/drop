@@ -25,6 +25,7 @@ import { ProcessingToast } from "./processing-toast";
 import { BrandLogo, BrandMark } from "./brand-logo";
 import { TrialBadge } from "./trial-badge";
 import { UpgradeModal } from "./upgrade-modal";
+import { StripeKeysPrompt } from "./stripe-keys-form";
 import { SignOutButton } from "./sign-out-button";
 import type { BillingSummary } from "@/lib/paywall";
 
@@ -58,6 +59,8 @@ export function Shell({
   storeSlug = "",
   liveCount,
   stripeMode = "off",
+  stripePkMasked = "",
+  stripeSkMasked = "",
   billing,
   operatorName,
   operatorImage,
@@ -68,6 +71,8 @@ export function Shell({
   storeSlug?: string;
   liveCount: number;
   stripeMode?: "off" | "test" | "live";
+  stripePkMasked?: string;
+  stripeSkMasked?: string;
   billing: BillingSummary;
   operatorName?: string;
   operatorImage?: string | null;
@@ -296,6 +301,12 @@ export function Shell({
       <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
       <ProcessingToast />
       <UpgradeModal />
+      <StripeKeysPrompt
+        live={stripeMode === "live"}
+        publishableMasked={stripePkMasked}
+        secretMasked={stripeSkMasked}
+        mode={stripeMode}
+      />
     </div>
   );
 }

@@ -24,6 +24,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       storeSlug={desk.storeSlug}
       liveCount={desk.liveCount}
       stripeMode={desk.stripeMode}
+      stripePkMasked={desk.stripePkMasked}
+      stripeSkMasked={desk.stripeSkMasked}
       billing={desk.billing}
       operatorName={desk.displayName}
       operatorImage={session?.user?.image}

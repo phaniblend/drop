@@ -4,14 +4,23 @@ import { useEffect, useState, useTransition } from "react";
 import { saveStoreStripeKeys } from "@/app/actions/settings";
 import { Button, Card, CardHeader, Field, inputClass } from "./ui";
 
+export const STRIPE_KEYS_PROMPT = "seto-stripe-keys-prompt";
+
+export function promptStoreStripeKeys() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(STRIPE_KEYS_PROMPT));
+}
+
 export function StripeKeysForm({
   publishableMasked = "",
   secretMasked = "",
   mode = "off",
+  onSaved,
 }: {
   publishableMasked?: string;
   secretMasked?: string;
   mode?: "off" | "test" | "live";
+  onSaved?: () => void;
 }) {
   const [pending, start] = useTransition();
   const [pk, setPk] = useState("");
@@ -45,6 +54,7 @@ export function StripeKeysForm({
             setMsg(res.message);
             setPk("");
             setSk("");
+            onSaved?.();
           });
         }}
       >
@@ -88,27 +98,15 @@ export function StripeKeysForm({
   );
 }
 
-export function StripeSandboxBanner() {
-  return (
-    <div className="rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 sm:px-5">
-      <p className="text-sm font-medium text-ink">Your store is currently running in Stripe Sandbox mode.</p>
-      <p className="mt-1 text-sm text-muted">
-        Add your live Stripe keys to accept real customer payments.
-      </p>
-      <a href="/settings#stripe" className="mt-2 inline-block text-sm text-accent">
-        Add live Stripe keys →
-      </a>
-    </div>
-  );
-}
-
-export function StripeOnboardingGate({
+export function StripeKeysPrompt({
   live,
+  autoOpen = false,
   publishableMasked = "",
   secretMasked = "",
   mode = "off",
 }: {
   live: boolean;
+  autoOpen?: boolean;
   publishableMasked?: string;
   secretMasked?: string;
   mode?: "off" | "test" | "live";
@@ -116,37 +114,33 @@ export function StripeOnboardingGate({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (live) return;
-    if (window.sessionStorage.getItem("seto-stripe-setup") === "1") return;
-    setOpen(true);
-  }, [live]);
+    if (live) {
+      setOpen(false);
+      return;
+    }
+    if (autoOpen) setOpen(true);
+    function onPrompt() {
+      setOpen(true);
+    }
+    window.addEventListener(STRIPE_KEYS_PROMPT, onPrompt);
+    return () => window.removeEventListener(STRIPE_KEYS_PROMPT, onPrompt);
+  }, [live, autoOpen]);
 
-  function dismiss() {
-    window.sessionStorage.setItem("seto-stripe-setup", "1");
-    setOpen(false);
-  }
+  if (live || !open) return null;
 
   return (
-    <>
-      {live ? null : <StripeSandboxBanner />}
-      {open ? (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-          <div className="w-full max-w-lg">
-            <StripeKeysForm
-              publishableMasked={publishableMasked}
-              secretMasked={secretMasked}
-              mode={mode}
-            />
-            <button
-              type="button"
-              className="mt-3 w-full text-center text-sm text-white/90"
-              onClick={dismiss}
-            >
-              Skip for now — I will stay in sandbox
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+      <div className="w-full max-w-lg">
+        <StripeKeysForm
+          publishableMasked={publishableMasked}
+          secretMasked={secretMasked}
+          mode={mode}
+          onSaved={() => setOpen(false)}
+        />
+        <button type="button" className="mt-3 w-full text-center text-sm text-white/90" onClick={() => setOpen(false)}>
+          Skip for now — I will stay in sandbox
+        </button>
+      </div>
+    </div>
   );
 }

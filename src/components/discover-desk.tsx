@@ -3,7 +3,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  importLiveListing,
   importFromSupplierUrl,
   importProductsCsv,
   importScrapedListing,
@@ -23,6 +22,7 @@ import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 import { emitPaywall, hasPaywall, type PaywallPayload } from "@/lib/paywall";
 import { shareListingWithCoach, loadCoachSession } from "@/app/actions/coach";
 import { beginProcessing, endProcessing } from "@/lib/processing";
+import { promptStoreStripeKeys } from "./stripe-keys-form";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { Thumb } from "./thumb";
 import { CompetitorAdsPanel } from "./competitor-ads-panel";
@@ -236,6 +236,7 @@ export function DiscoverDesk({
         }
         router.push(`/catalog/${res.id}`);
         window.dispatchEvent(new Event("seto-coach-shared"));
+        promptStoreStripeKeys();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
       } finally {
@@ -281,6 +282,7 @@ export function DiscoverDesk({
       }
       router.push(`/catalog/${saved.id}`);
       window.dispatchEvent(new Event("seto-coach-shared"));
+      if (!("reused" in saved && saved.reused)) promptStoreStripeKeys();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {
@@ -684,6 +686,7 @@ export function DiscoverDesk({
                   router.push("/catalog");
                   setCsv("");
                   setError(`Imported ${res.count} drafts.`);
+                  if (res.count > 0) promptStoreStripeKeys();
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "CSV failed");
                 }
@@ -841,6 +844,7 @@ export function DiscoverDesk({
                       }
                       setPreview(null);
                       window.dispatchEvent(new Event("seto-coach-shared"));
+                      promptStoreStripeKeys();
                       router.push(`/catalog/${res.id}`);
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Import failed");

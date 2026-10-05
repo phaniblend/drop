@@ -16,12 +16,22 @@ export default async function SettingsPage({
     shopify_error?: string;
     meta?: string;
     meta_error?: string;
+    upgraded?: string;
+    session_id?: string;
+    canceled?: string;
   }>;
 }) {
   const params = await searchParams;
   const user = await getOperator();
   if (!user) {
     return <p className="text-sm text-muted">Sign in with Google to create the operator desk.</p>;
+  }
+  if (params.session_id) {
+    try {
+      await import("@/lib/billing").then((m) => m.fulfillBillingCheckout(params.session_id!));
+    } catch {
+      /* webhook still applies the plan */
+    }
   }
   const superuser = isSuperuser(user.email);
 
@@ -59,7 +69,18 @@ export default async function SettingsPage({
   const metaLive = meta.live;
 
   return (
-    <SettingsDesk
+    <>
+      {params.upgraded ? (
+        <p className="mb-4 rounded-xl border border-profit/30 bg-profit/5 px-4 py-3 text-sm text-profit">
+          {params.upgraded === "scaler" ? "Scaler" : "Starter"} membership is on. Import limits reset for this cycle.
+        </p>
+      ) : null}
+      {params.canceled ? (
+        <p className="mb-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
+          Membership checkout was canceled. You can stay on the free trial.
+        </p>
+      ) : null}
+      <SettingsDesk
       status={{
         ...status,
         shopify: shopifyOk,
@@ -149,5 +170,6 @@ export default async function SettingsPage({
       }
       superuser={superuser}
     />
+    </>
   );
 }

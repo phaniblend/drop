@@ -20,11 +20,12 @@ function errorCopy(code?: string) {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const ready = Boolean(env.googleId.length > 12 && env.googleSecret.length > 12 && env.authSecret);
   const message = errorCopy(error);
+  const nextPath = next?.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-bg px-4 py-10">
@@ -40,6 +41,7 @@ export default async function LoginPage({
         ) : null}
         {ready ? (
           <form action={signInWithGoogle} className="mt-6">
+            <input type="hidden" name="next" value={nextPath} />
             <Button type="submit" tone="accent" className="w-full">
               <GoogleMark />
               Continue with Google

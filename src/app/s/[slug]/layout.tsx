@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StoreShell } from "@/components/store-shell";
 import { StoreFooter } from "@/components/store-footer";
-import { getUserBySlug } from "@/lib/db/queries";
+import { StripeKeysPrompt } from "@/components/stripe-keys-form";
+import { getOperator, getUserBySlug } from "@/lib/db/queries";
 import { stripeCheckoutMode } from "@/lib/stripe-mode";
+import { maskStripeKey } from "@/lib/stripe-keys";
 import { storeHomePath } from "@/lib/store-slug";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,8 @@ export default async function SlugStoreLayout({
   if (!user) notFound();
   const homeHref = storeHomePath(user.storeSlug);
   const stripeMode = stripeCheckoutMode(user.storeStripeSk);
+  const operator = await getOperator();
+  const isOwner = operator?.id === user.id;
   return (
     <StoreShell
       storeName={user.storeName}
@@ -46,6 +50,15 @@ export default async function SlugStoreLayout({
           Preview only — card checkout is not live for shoppers until the merchant connects live Stripe
           keys.
         </div>
+      ) : null}
+      {isOwner ? (
+        <StripeKeysPrompt
+          live={stripeMode === "live"}
+          autoOpen
+          publishableMasked={maskStripeKey(user.storeStripePk)}
+          secretMasked={maskStripeKey(user.storeStripeSk)}
+          mode={stripeMode}
+        />
       ) : null}
       {children}
       <StoreFooter storeName={user.storeName} homeHref={homeHref} stripeMode={stripeMode} />

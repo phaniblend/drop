@@ -2,8 +2,10 @@
 
 import { signIn, signOut } from "@/auth";
 
-export async function signInWithGoogle() {
-  await signIn("google", { redirectTo: "/" });
+export async function signInWithGoogle(formData?: FormData) {
+  const next = String(formData?.get("next") || "/");
+  const safe = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  await signIn("google", { redirectTo: safe });
 }
 
 export async function signOutOperator() {

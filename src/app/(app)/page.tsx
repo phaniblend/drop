@@ -8,8 +8,6 @@ import { OrganicLaunchCard } from "@/components/organic-launch-card";
 import { storeHomePath } from "@/lib/store-slug";
 import { sellerPublishGaps } from "@/lib/storefront";
 import { stripeKeyMode } from "@/lib/stripe-keys";
-import { StripeOnboardingGate } from "@/components/stripe-keys-form";
-import { maskStripeKey } from "@/lib/stripe-keys";
 import { customerDisplayName } from "@/lib/fulfillment-copy";
 import { SetupChecklist } from "@/components/setup-checklist";
 
@@ -115,13 +113,6 @@ export default async function CommandPage() {
       </div>
 
       <SetupChecklist steps={setupSteps} />
-
-      <StripeOnboardingGate
-        live={merchantStripe === "live"}
-        publishableMasked={maskStripeKey(data.user?.storeStripePk)}
-        secretMasked={maskStripeKey(data.user?.storeStripeSk)}
-        mode={merchantStripe}
-      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Revenue (24h)" value={money(kpis.revenue)} hint={`${kpis.orders} orders`} />

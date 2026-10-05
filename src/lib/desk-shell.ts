@@ -6,6 +6,7 @@ import { getOperator, getUserByEmail } from "./db/queries";
 import { provisionOperator } from "./db/seed";
 import { getBillingSummary, type BillingSummary } from "./billing";
 import { stripeCheckoutMode } from "./stripe-mode";
+import { maskStripeKey } from "./stripe-keys";
 import { storeHomePath } from "./store-slug";
 
 export type DeskShell = {
@@ -16,6 +17,8 @@ export type DeskShell = {
   billing: BillingSummary;
   liveCount: number;
   stripeMode: "off" | "test" | "live";
+  stripePkMasked: string;
+  stripeSkMasked: string;
 };
 
 const globalForDesk = globalThis as unknown as {
@@ -56,6 +59,8 @@ export async function loadDeskShell(input: {
       storeHref: hit.shell.storeHref || storeHomePath(hit.shell.storeSlug || "seto"),
       liveCount: await liveApiCount(),
       stripeMode: hit.shell.stripeMode ?? stripeCheckoutMode(""),
+      stripePkMasked: hit.shell.stripePkMasked ?? "",
+      stripeSkMasked: hit.shell.stripeSkMasked ?? "",
     };
   }
 
@@ -82,6 +87,8 @@ export async function loadDeskShell(input: {
     billing,
     liveCount: await liveApiCount(),
     stripeMode: stripeCheckoutMode(user.storeStripeSk),
+    stripePkMasked: maskStripeKey(user.storeStripePk),
+    stripeSkMasked: maskStripeKey(user.storeStripeSk),
   };
   globalForDesk.setoDesk = { email, at: Date.now(), shell };
   return shell;

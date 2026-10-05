@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { PlanCheckoutButtons } from "@/components/plan-checkout-buttons";
 import { auth } from "@/auth";
 
 export const metadata = {
@@ -9,6 +10,7 @@ export const metadata = {
 
 const PLANS = [
   {
+    id: "trial",
     name: "Free trial",
     price: "$0",
     blurb: "Explore the desk before you pay.",
@@ -19,6 +21,7 @@ const PLANS = [
     ],
   },
   {
+    id: "starter",
     name: "Starter",
     price: "$19/mo",
     blurb: "For operators running one store and ads.",
@@ -29,6 +32,7 @@ const PLANS = [
     ],
   },
   {
+    id: "scaler",
     name: "Scaler",
     price: "$39/mo",
     blurb: "For higher volume and more campaigns watched.",
@@ -79,6 +83,17 @@ export default async function PricingPage() {
                   <li key={p}>· {p}</li>
                 ))}
               </ul>
+              {plan.id === "starter" || plan.id === "scaler" ? (
+                <div className="mt-5">
+                  <PlanCheckoutButtons signedIn={signedIn} compact plans={[plan.id]} />
+                </div>
+              ) : signedIn ? (
+                <p className="mt-5 text-xs text-faint">You are on this plan until you subscribe.</p>
+              ) : (
+                <Link href="/login?next=/pricing" className="mt-5 inline-block text-sm text-accent">
+                  Sign in to start the trial
+                </Link>
+              )}
             </section>
           ))}
         </div>

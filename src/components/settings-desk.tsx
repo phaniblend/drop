@@ -13,11 +13,11 @@ import {
 import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
-import { emitPaywall } from "@/lib/paywall";
 import type { BillingSummary } from "@/lib/paywall";
 import { friendlyMetaError } from "@/lib/meta-status";
 import { StripeKeysForm } from "./stripe-keys-form";
 import { BillingPortalButton } from "./billing-portal-button";
+import { PlanCheckoutButtons } from "./plan-checkout-buttons";
 import { MetaAdAccountPicker } from "./meta-ad-account-picker";
 import { GoLiveCard } from "./go-live-card";
 
@@ -281,22 +281,7 @@ export function SettingsDesk({
             View plan comparison →
           </a>
           {billing.hasCustomer ? <BillingPortalButton /> : null}
-          {billing.tier === "trial_5" ? (
-            <Button
-              tone="accent"
-              onClick={() =>
-                emitPaywall({
-                  code: "TRIAL_LIMIT_REACHED",
-                  message: "Continue testing winning products without interruption.",
-                  used: billing.productsUsed,
-                  limit: billing.productsLimit,
-                  resource: "products",
-                })
-              }
-            >
-              Upgrade
-            </Button>
-          ) : null}
+          {billing.tier === "trial_5" ? <PlanCheckoutButtons signedIn compact /> : null}
           </div>
         </div>
       </Card>
