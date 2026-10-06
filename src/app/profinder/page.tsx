@@ -1,6 +1,4 @@
 import { cookies } from "next/headers";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { unlockProfinder } from "@/app/actions/profinder";
@@ -12,7 +10,7 @@ import {
   canOpenProfinder,
   profinderCookieValid,
 } from "@/lib/profinder-access";
-import { ProfinderFrame } from "./profinder-frame";
+import { ProfinderDesk } from "./profinder-desk";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +75,5 @@ export default async function ProfinderPage({
     );
   }
 
-  const html = await readFile(path.join(process.cwd(), "profinder.html"), "utf8");
-  return <ProfinderFrame html={html} />;
+  return <ProfinderDesk />;
 }
