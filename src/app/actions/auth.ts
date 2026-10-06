@@ -11,3 +11,7 @@ export async function signInWithGoogle(formData?: FormData) {
 export async function signOutOperator() {
   await signOut({ redirectTo: "/login" });
 }
+
+export async function signOutToProfinderLogin() {
+  await signOut({ redirectTo: "/login?next=/profinder" });
+}

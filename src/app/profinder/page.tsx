@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { unlockProfinder } from "@/app/actions/profinder";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui";
+import { SignOutButton } from "@/components/sign-out-button";
 import {
   PROFINDER_COOKIE,
   canOpenProfinder,
@@ -26,10 +28,23 @@ export default async function ProfinderPage({
 }) {
   const session = await auth();
   const email = session?.user?.email;
+  if (!email) {
+    redirect("/login?next=/profinder");
+  }
   if (!canOpenProfinder(email)) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-bg px-4">
-        <p className="text-sm text-muted">This page is not available.</p>
+      <main className="flex min-h-dvh items-center justify-center bg-bg px-4 py-10">
+        <section className="w-full max-w-md rounded-2xl border border-line bg-surface p-8">
+          <BrandLogo />
+          <h1 className="mt-6 text-xl font-semibold tracking-tight">Profinder</h1>
+          <p className="mt-2 text-sm text-muted">
+            Signed in as {email}. This desk is not on the Profinder list. Sign out and use the allowed
+            Google account.
+          </p>
+          <div className="mt-6">
+            <SignOutButton className="w-full" />
+          </div>
+        </section>
       </main>
     );
   }
