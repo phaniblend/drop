@@ -20,12 +20,13 @@ function errorCopy(code?: string) {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; callbackUrl?: string }>;
 }) {
-  const { error, next } = await searchParams;
+  const { error, next, callbackUrl } = await searchParams;
   const ready = Boolean(env.googleId.length > 12 && env.googleSecret.length > 12 && env.authSecret);
   const message = errorCopy(error);
-  const nextPath = next?.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const rawNext = next || callbackUrl;
+  const nextPath = rawNext?.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-bg px-4 py-10">

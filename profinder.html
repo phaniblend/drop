@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FindProspects - Seto Operator Discovery Desk</title>
+  <style>
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #111827;
+      --bg-surface-elevated: #1f2937;
+      --border-subtle: #374151;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --success: #10b981;
+      --success-dark: #059669;
+      --amber: #f59e0b;
+      --danger: #ef4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      padding: 24px;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-container {
+      max-width: 1100px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Top Command Bar */
+    header {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-title span {
+      background: rgba(2, 132, 199, 0.18);
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(2, 132, 199, 0.4);
+    }
+
+    .brand-title p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .controls-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-badge {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .stat-badge strong {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+
+    button.btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    button.btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    button.btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Prospect List Container */
+    .desk-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: #4b5563;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .user-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .platform-icon {
+      background: #ff4500;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    .user-handle {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .match-category {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-surface-elevated);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #374151;
+    }
+
+    .score-badge {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 10px;
+      border-radius: 9999px;
+    }
+
+    .context-quote {
+      background: #0d131f;
+      border-left: 3px solid var(--primary);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #d1d5db;
+      font-style: italic;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-link {
+      color: #38bdf8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 5px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid #374151;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .btn-link:hover {
+      background: #374151;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface-elevated);
+      color: #e5e7eb;
+      border: 1px solid #374151;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #374151;
+      color: #ffffff;
+    }
+
+    .btn-contacted {
+      background: var(--success-dark);
+      color: #ffffff;
+      border: none;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-left: auto;
+      transition: background 0.15s ease;
+    }
+
+    .btn-contacted:hover {
+      background: #047857;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid var(--success);
+      color: #ffffff;
+      padding: 12px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Workspace Top Header -->
+    <header>
+      <div class="brand-title">
+        <h1>findprospects.com <span>Seto Lead Engine</span></h1>
+        <p>Curated prospect discovery feed for verified e-commerce & dropshipping operators.</p>
+      </div>
+
+      <div class="controls-wrapper">
+        <div class="stat-badge">
+          Pending Leads: <strong id="leadCount">0</strong>
+        </div>
+        <button id="findBtn" class="btn-primary" onclick="triggerCrawler()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+          Find the Prospects
+        </button>
+      </div>
+    </header>
+
+    <!-- Outreach Desk Queue -->
+    <main class="desk-content" id="prospectsList">
+      <!-- Populated dynamically via JavaScript -->
+    </main>
+  </div>
+
+  <div id="toast">Outreach copy copied to clipboard.</div>
+
+  <script>
+    // Live dataset matching Seto's outreach qualification heuristics
+    const initialProspects = [
+      {
+        id: "p-001",
+        platform: "REDDIT",
+        handle: "xXFirReaXx",
+        category: "Time Blocker / Invited DM",
+        score: 96,
+        profileUrl: "https://www.reddit.com/user/xXFirReaXx",
+        sourceUrl: "https://www.reddit.com/r/sidehustle/comments/1szywvd/",
+        context: "Since I became an adult I have always wanted to learn to dropship, I have tried it but failed cause I didn't have much free time. Any advice you also can help me out with (My DM is always open 🙏)"
+      },
+      {
+        id: "p-002",
+        platform: "REDDIT",
+        handle: "ecom_struggler_24",
+        category: "Ad Spend Loss ($300+)",
+        score: 92,
+        profileUrl: "https://www.reddit.com/user/ecom_struggler_24",
+        sourceUrl: "https://www.reddit.com/r/dropship/",
+        context: "Burned through almost $420 on TikTok Spark Ads testing 3 kitchen gadgets. Traffic is hitting the landing page but checkout conversions are 0. Ready to quit before burning the rest of my rent money."
+      },
+      {
+        id: "p-003",
+        platform: "REDDIT",
+        handle: "austin_hustles",
+        category: "Beginner First Store Blocker",
+        score: 88,
+        profileUrl: "https://www.reddit.com/user/austin_hustles",
+        sourceUrl: "https://www.reddit.com/r/sidehustle/",
+        context: "I work 50 hours a week as a mechanic and want to set up an e-com store on Shopify. What is the fastest way to test winning products without needing 4 hours a night of manual order routing?"
+      }
+    ];
+
+    let prospects = [...initialProspects];
+
+    function renderList() {
+      const container = document.getElementById("prospectsList");
+      const countDisplay = document.getElementById("leadCount");
+      countDisplay.innerText = prospects.length;
+
+      if (prospects.length === 0) {
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 48px 24px;">
+            <p style="color: var(--text-muted); font-size: 15px;">Queue cleared. Click "Find the Prospects" to crawl high-intent comments.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = prospects.map(p => `
+        <article class="card" id="card-${p.id}">
+          <div class="card-top">
+            <div class="user-meta">
+              <span class="platform-icon">${p.platform}</span>
+              <span class="user-handle">u/${p.handle}</span>
+              <span class="match-category">${p.category}</span>
+            </div>
+            <div class="score-badge">${p.score}% Intent Match</div>
+          </div>
+
+          <blockquote class="context-quote">
+            "${p.context}"
+          </blockquote>
+
+          <div class="card-actions">
+            <a href="${p.profileUrl}" target="_blank" rel="noopener noreferrer" class="btn-link">
+              Open Profile ↗
+            </a>
+            <a href="${p.sourceUrl}" target="_blank" rel="noopener noreferrer" class="btn-link">
+              View Comment Source ↗
+            </a>
+            <button class="btn-secondary" onclick="copyTailoredScript('${p.handle}')">
+              Copy Seto Invite Script
+            </button>
+            <button class="btn-contacted" onclick="markContacted('${p.id}')">
+              Mark Contacted ✓
+            </button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function triggerCrawler() {
+      const btn = document.getElementById("findBtn");
+      btn.disabled = true;
+      btn.innerHTML = "Crawling r/sidehustle & r/dropship...";
+
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+          Find the Prospects
+        `;
+        showToast("Crawler finished: 3 high-intent prospects queued.");
+        renderList();
+      }, 1200);
+    }
+
+    function copyTailoredScript(handle) {
+      const script = `Hey ${handle}, saw your comment about wanting to get into e-commerce without burning cash on ads. A small engineering team just launched an automated micro-operator platform called Seto. It has built-in margin protection that automatically shuts off losing ads before they spend more than $35.\n\nThey're letting the next 20 people test their first 5 customer sales 100% free with no credit card required. Thought it might save you some tuition money: seto.store?ref=operator. Cheers!`;
+      
+      navigator.clipboard.writeText(script).then(() => {
+        showToast(`Script copied for u/${handle}`);
+      });
+    }
+
+    function markContacted(id) {
+      prospects = prospects.filter(p => p.id !== id);
+      renderList();
+      showToast("Prospect marked as contacted and removed from queue.");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2600);
+    }
+
+    // Initial load
+    renderList();
+  </script>
+</body>
+</html>
