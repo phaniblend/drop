@@ -322,41 +322,7 @@
   <div id="toast">Outreach copy copied to clipboard.</div>
 
   <script>
-    // Live dataset matching Seto's outreach qualification heuristics
-    const initialProspects = [
-      {
-        id: "p-001",
-        platform: "REDDIT",
-        handle: "xXFirReaXx",
-        category: "Time Blocker / Invited DM",
-        score: 96,
-        profileUrl: "https://www.reddit.com/user/xXFirReaXx",
-        sourceUrl: "https://www.reddit.com/r/sidehustle/comments/1szywvd/",
-        context: "Since I became an adult I have always wanted to learn to dropship, I have tried it but failed cause I didn't have much free time. Any advice you also can help me out with (My DM is always open 🙏)"
-      },
-      {
-        id: "p-002",
-        platform: "REDDIT",
-        handle: "ecom_struggler_24",
-        category: "Ad Spend Loss ($300+)",
-        score: 92,
-        profileUrl: "https://www.reddit.com/user/ecom_struggler_24",
-        sourceUrl: "https://www.reddit.com/r/dropship/",
-        context: "Burned through almost $420 on TikTok Spark Ads testing 3 kitchen gadgets. Traffic is hitting the landing page but checkout conversions are 0. Ready to quit before burning the rest of my rent money."
-      },
-      {
-        id: "p-003",
-        platform: "REDDIT",
-        handle: "austin_hustles",
-        category: "Beginner First Store Blocker",
-        score: 88,
-        profileUrl: "https://www.reddit.com/user/austin_hustles",
-        sourceUrl: "https://www.reddit.com/r/sidehustle/",
-        context: "I work 50 hours a week as a mechanic and want to set up an e-com store on Shopify. What is the fastest way to test winning products without needing 4 hours a night of manual order routing?"
-      }
-    ];
-
-    let prospects = [...initialProspects];
+    let prospects = [];
 
     function renderList() {
       const container = document.getElementById("prospectsList");
@@ -418,7 +384,7 @@
           </svg>
           Find the Prospects
         `;
-        showToast("Crawler finished: 3 high-intent prospects queued.");
+        showToast("No new prospects yet. The live crawl is not wired.");
         renderList();
       }, 1200);
     }
