@@ -25,7 +25,7 @@ export function ProfinderDesk() {
       setLeads(data.leads ?? []);
       ping(
         data.leads?.length
-          ? `Queued ${data.leads.length} live Reddit prospects.`
+          ? `Queued ${data.leads.length} uncontacted prospects.`
           : data.warning || "No matching comments in this pull.",
       );
     } catch {
@@ -41,6 +41,21 @@ export function ProfinderDesk() {
     ping(`Script copied for u/${handle}`);
   }
 
+  async function markDone(p: ProfinderLead) {
+    setLeads((cur) => cur.filter((row) => row.id !== p.id && row.handle.toLowerCase() !== p.handle.toLowerCase()));
+    ping("Prospect marked as contacted and hidden.");
+    try {
+      await fetch("/api/profinder/contacted", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id, handle: p.handle, sourceUrl: p.sourceUrl }),
+      });
+    } catch {
+      ping("Saved locally; server hide failed.");
+    }
+  }
+
   return (
     <div className="profinder-root min-h-dvh bg-[#090d16] px-6 py-6 text-[#f9fafb]">
       <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
@@ -53,7 +68,8 @@ export function ProfinderDesk() {
               </span>
             </h1>
             <p className="mt-1 text-[13px] text-[#9ca3af]">
-              Live Reddit comments from dropship / Shopify / side-hustle threads.
+              Wider hunt across dropship, Shopify, TikTok Shop, FBA, and side-gig threads. Contacted
+              people stay hidden.
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -123,10 +139,7 @@ export function ProfinderDesk() {
                   <button
                     type="button"
                     className="ml-auto rounded bg-emerald-700 px-4 py-1.5 text-[13px] font-semibold text-white"
-                    onClick={() => {
-                      setLeads((cur) => cur.filter((row) => row.id !== p.id));
-                      ping("Prospect marked as contacted and removed from queue.");
-                    }}
+                    onClick={() => void markDone(p)}
                   >
                     Mark Contacted ✓
                   </button>

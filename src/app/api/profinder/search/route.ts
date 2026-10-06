@@ -4,7 +4,7 @@ import { canOpenProfinder } from "@/lib/profinder-allow";
 import { searchProfinderLeads } from "@/lib/profinder-search";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST() {
   const session = await auth();

@@ -256,6 +256,14 @@ CREATE INDEX IF NOT EXISTS idx_orders_fulfillment ON orders(fulfillment_status);
 CREATE INDEX IF NOT EXISTS idx_users_subscription ON users(id, subscription_tier, products_imported_count);
 CREATE INDEX IF NOT EXISTS idx_saved_listings_user ON saved_listings(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_listings_user_key ON saved_listings(user_id, listing_key);
+CREATE TABLE IF NOT EXISTS profinder_contacted (
+  lead_id TEXT PRIMARY KEY,
+  handle TEXT NOT NULL,
+  source_url TEXT NOT NULL DEFAULT '',
+  by_email TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_profinder_contacted_handle ON profinder_contacted(handle);
 `;
 
 async function addMissingColumns(

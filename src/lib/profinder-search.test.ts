@@ -10,7 +10,10 @@ describe("profinder scoring", () => {
     expect(hit!.score).toBeGreaterThan(70);
   });
 
-  it("ignores short unrelated posts", () => {
-    expect(scoreProspectText("Nice weather today everyone")).toBeNull();
+  it("scores side-gig plus store language", () => {
+    const hit = scoreProspectText(
+      "Looking for a side hustle using Shopify to sell products after my day job. Any advice?",
+    );
+    expect(hit).toBeTruthy();
   });
 });

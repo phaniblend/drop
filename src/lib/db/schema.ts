@@ -268,6 +268,18 @@ export const savedListings = sqliteTable(
   ],
 );
 
+export const profinderContacted = sqliteTable(
+  "profinder_contacted",
+  {
+    leadId: text("lead_id").primaryKey(),
+    handle: text("handle").notNull(),
+    sourceUrl: text("source_url").notNull().default(""),
+    byEmail: text("by_email").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("idx_profinder_contacted_handle").on(t.handle)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type ProductVariant = typeof productVariants.$inferSelect;
@@ -282,3 +294,4 @@ export type CoachSession = typeof coachSessions.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
 export type Activity = typeof activityLog.$inferSelect;
 export type SavedListing = typeof savedListings.$inferSelect;
+export type ProfinderContacted = typeof profinderContacted.$inferSelect;
