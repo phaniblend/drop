@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeMetaOAuthCode, saveMetaConnectionFromToken } from "@/lib/integrations/meta-oauth";
+import { appOrigin } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function settingsRedirect(pathWithQuery: string) {
+  return NextResponse.redirect(new URL(pathWithQuery, appOrigin()));
+}
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error_description") || req.nextUrl.searchParams.get("error");
   const cookieState = req.cookies.get("meta_oauth_state")?.value;
-  const clear = NextResponse.redirect(new URL("/settings?meta=connected#meta", req.nextUrl));
+  const clear = settingsRedirect("/settings?meta=connected#meta");
 
   if (error) {
-    const fail = NextResponse.redirect(
-      new URL(`/settings?meta=error&meta_error=${encodeURIComponent(error)}#meta`, req.nextUrl),
+    const fail = settingsRedirect(
+      `/settings?meta=error&meta_error=${encodeURIComponent(error)}#meta`,
     );
     fail.cookies.delete("meta_oauth_state");
     return fail;
   }
   if (!code || !state || !cookieState || state !== cookieState) {
-    const fail = NextResponse.redirect(new URL("/settings?meta=error&meta_error=state#meta", req.nextUrl));
+    const fail = settingsRedirect("/settings?meta=error&meta_error=state#meta");
     fail.cookies.delete("meta_oauth_state");
     return fail;
   }
@@ -31,8 +36,8 @@ export async function GET(req: NextRequest) {
     return clear;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Meta connect failed";
-    const fail = NextResponse.redirect(
-      new URL(`/settings?meta=error&meta_error=${encodeURIComponent(msg.slice(0, 180))}#meta`, req.nextUrl),
+    const fail = settingsRedirect(
+      `/settings?meta=error&meta_error=${encodeURIComponent(msg.slice(0, 180))}#meta`,
     );
     fail.cookies.delete("meta_oauth_state");
     return fail;
