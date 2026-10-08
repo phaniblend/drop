@@ -103,8 +103,9 @@ export async function fetchMetaAdSets(accessToken: string, adAccountId: string):
 /** Upsert Meta ad sets into campaign_trackers so Ads & Guard has cards to show. */
 export async function syncMetaAdSetsIntoTrackers(): Promise<MetaAdSetsFetch & { synced: number }> {
   const { resolveMetaToken } = await import("./meta-token");
+  const { resolveMetaAdAccountId } = await import("../meta-health");
   const token = await resolveMetaToken();
-  const accountId = env.metaAdAccountId;
+  const accountId = await resolveMetaAdAccountId();
   const fetched = await fetchMetaAdSets(token, accountId);
   if (!fetched.ok) return { ...fetched, synced: 0 };
 
