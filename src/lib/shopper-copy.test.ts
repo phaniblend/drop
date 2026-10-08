@@ -69,6 +69,22 @@ describe("shopper copy", () => {
     expect(html).toMatch(/ships as shown/i);
   });
 
+  it("PDP hero price follows desk retail, not the first variant row", () => {
+    const pub = toPublicProduct({
+      id: "prod_anchor",
+      cleanTitle: "Cabinet Light",
+      rawTitle: "Cabinet Light",
+      descriptionHtml: "<p>Cabinet Light ships as shown.</p>",
+      shippingDays: 12,
+      retailPrice: 49.99,
+      variants: [
+        { id: "expensive", variantName: "4-pack", variantPrice: 171.45, inventoryCount: 3 },
+        { id: "anchor", variantName: "1pcs", variantPrice: 49.99, inventoryCount: 20 },
+      ],
+    });
+    expect(pub.price).toBe(49.99);
+  });
+
   it("public PDP HTML never includes cost or operator phrases", () => {
     const pub = toPublicProduct({
       id: "prod_bcc3b3d6-f",

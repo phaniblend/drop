@@ -100,7 +100,13 @@ export async function resolveStoreLines(
     const qtyCheck = validateStoreQty(Number(item.qty), stock);
     if (!qtyCheck.ok) throw new StoreCheckoutError(qtyCheck.error);
     const qty = qtyCheck.qty;
-    const option = variant ? shopperVariantLabel(variant.variantName) : "";
+    const variantIndex = variant
+      ? Math.max(
+          0,
+          variants.findIndex((row) => row.id === variant.id),
+        )
+      : 0;
+    const option = variant ? shopperVariantLabel(variant.variantName, variantIndex) : "";
     if (lines.length && lines[0].merchantId !== product.userId) {
       throw new StoreCheckoutError(
         `This bag has items from more than one shop. Remove “${product.cleanTitle || product.rawTitle}”, then pay.`,

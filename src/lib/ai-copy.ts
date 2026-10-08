@@ -3,14 +3,15 @@ import "server-only";
 import { geminiGenerate, parseJsonObject } from "./gemini";
 import { formatGeminiFallback, localCleanTitle as cleanTitle } from "./copy-local";
 import { recordGeminiCall } from "./gemini-health";
-import { extractProductBeats, spokenProductName } from "./product-title";
+import { spokenProductName } from "./product-title";
 import { env } from "./env";
-import { sanitizeShopperHtml } from "./shopper-copy";
+import { sanitizeShopperHtml, shopperFallbackHtml } from "./shopper-copy";
 
 export function localCleanTitle(raw: string, currentTitle?: string) {
   return cleanTitle(raw, currentTitle, spokenProductName);
 }
 
+/** Neutral shopper body — never invents category claims from title keywords. */
 export function localDescription(input: {
   title: string;
   rawTitle: string;
@@ -19,31 +20,12 @@ export function localDescription(input: {
   niche?: string;
   descriptionHint?: string;
 }) {
-  const beats = extractProductBeats({
-    title: `${input.title} ${input.rawTitle}`,
-    description: input.descriptionHint,
-    niche: input.niche,
-  });
-  // beats are noun-phrase / clause fragments — lead with a full sentence.
-  const niche = (input.niche || "").toLowerCase();
-  const blob = `${input.title} ${input.rawTitle} ${input.descriptionHint ?? ""}`.toLowerCase();
-  const leadBeat = beats[0] || "ready for everyday use";
-  const lead = `${input.title} is made for daily use — ${leadBeat}.`;
-  const fallbackBullet = /brush|makeup|cosmetic|sign|light|fan|belt|bag/.test(blob)
-    ? "Tracked shipping and simple returns if you need them"
-    : niche === "beauty"
-      ? "Soft feel and easy cleanup after use"
-      : "Tracked shipping and simple returns if you need them";
-  const bullets = [beats[1], beats[2], beats[3] ?? fallbackBullet].filter(
-    (b) => b && !/easy to install|simple setup/i.test(b),
-  );
-  while (bullets.length < 3) {
-    bullets.push(fallbackBullet);
-  }
-  return `<p>${lead}</p><ul>${bullets
-    .slice(0, 3)
-    .map((e) => `<li>${e.charAt(0).toUpperCase()}${e.slice(1)}</li>`)
-    .join("")}</ul>`;
+  void input.rawTitle;
+  void input.cost;
+  void input.shipping;
+  void input.niche;
+  void input.descriptionHint;
+  return shopperFallbackHtml(input.title);
 }
 
 export type EnrichCopyResult = {
@@ -84,16 +66,11 @@ export async function enrichCopy(input: {
   }
 
   try {
-    const beats = extractProductBeats({
-      title: input.rawTitle,
-      description: input.descriptionHint,
-      niche: input.niche,
-    });
     const result = await geminiGenerate({
       temperature: 0.55,
       system:
-        "You write shopper-facing product copy only. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus 3 benefit bullets. Never mention cost, price, margin, ads, creative angles, or 'you pay about'. Never write medical or health claims (cure, treat, pain relief, alleviate, FDA). Never write for the seller.",
-      user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nKnown beats: ${beats.join("; ")}\nWrite descriptionHtml for a shopper using your returned title as the product name.`,
+        "You write shopper-facing product copy only. Return JSON only: {title, descriptionHtml}. Title max 6 words, no wholesale brand codes, no year spam. Description is short HTML: one paragraph plus 3 benefit bullets grounded only in the product name — never invent category claims from loose title keywords (e.g. do not turn 'brush' into makeup copy or 'light' into night-light copy). Never mention cost, price, margin, ads, creative angles, or 'you pay about'. Never write medical or health claims (cure, treat, pain relief, alleviate, FDA). Never write for the seller.",
+      user: `Raw title: ${input.rawTitle}\nShort name hint: ${fallbackTitle}\nNiche: ${input.niche ?? "general"}\nWrite descriptionHtml for a shopper using your returned title as the product name.`,
     });
     await recordGeminiCall(result);
 
@@ -127,17 +104,9 @@ export async function enrichCopy(input: {
         descriptionHtml = descriptionHtml.split(old).join(title);
       }
     }
-    const lead = localDescription({
-      title,
-      rawTitle: input.rawTitle,
-      cost: input.cost,
-      shipping: input.shipping,
-      niche: input.niche,
-      descriptionHint: descriptionHtml,
-    });
-    // If description still leads with a different product name, prefer a title-aligned local body.
+    // If description still leads with a different product name, use neutral fallback (no keyword templates).
     if (!descriptionHtml.toLowerCase().includes(title.toLowerCase().slice(0, Math.min(12, title.length)))) {
-      descriptionHtml = lead;
+      descriptionHtml = shopperFallbackHtml(title);
     }
     descriptionHtml = sanitizeShopperHtml(descriptionHtml, title);
     return {

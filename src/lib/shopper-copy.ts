@@ -170,7 +170,8 @@ export function toPublicProduct(input: {
     imageUrl: input.imageUrl ?? null,
     gallery,
     shippingDays: input.shippingDays,
-    price: variants[0]?.price || input.retailPrice,
+    // Hero price matches the desk retail (pricing anchor), not whichever variant row is first.
+    price: input.retailPrice > 0 ? input.retailPrice : variants[0]?.price || 0,
     variants,
   };
 }
