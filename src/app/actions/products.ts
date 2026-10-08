@@ -16,6 +16,7 @@ import { assertProductQuota, isBillingError } from "@/lib/billing";
 import type { PaywallPayload } from "@/lib/paywall";
 import type { ScrapedListing } from "@/lib/aliexpress-scrape/types";
 import { partitionVariants, scaleVariantPrices, uniquifyVariantNames } from "@/lib/variant-pricing";
+import { labeledVariantName } from "@/lib/variant-label";
 
 function paywallResult(error: unknown): { paywall: PaywallPayload } {
   if (isBillingError(error)) return { paywall: error.paywall };
@@ -27,7 +28,6 @@ function importVariantsFromParsed(parsed: {
   shippingCost: number;
   variants: Array<{ skuId: string; attributes: string; cost: number; stock: number; imageUrl?: string }>;
 }) {
-  const retail = suggestedRetail(parsed.baseCost, parsed.shippingCost, 3);
   const raw =
     parsed.variants.length > 0
       ? parsed.variants.map((v) => ({
@@ -49,10 +49,14 @@ function importVariantsFromParsed(parsed: {
           },
         ];
   const { primary } = partitionVariants(raw);
-  const names = uniquifyVariantNames(primary.map((v) => v.name || "Option"));
+  const baseCost = primary[0]?.cost ?? parsed.baseCost;
+  const retailPrice = suggestedRetail(baseCost, parsed.shippingCost, 3);
+  const names = uniquifyVariantNames(
+    primary.map((v, i) => labeledVariantName(v.name || v.attributes || "", i, undefined, { sku: v.skuId, cost: v.cost })),
+  );
   const prices = scaleVariantPrices(
     primary.map((v) => ({ cost: v.cost })),
-    retail,
+    retailPrice,
     parsed.shippingCost,
     3,
   );
@@ -64,8 +68,7 @@ function importVariantsFromParsed(parsed: {
     stock: v.stock,
     imageUrl: v.imageUrl,
   }));
-  const baseCost = variants[0]?.cost ?? parsed.baseCost;
-  return { retail: suggestedRetail(baseCost, parsed.shippingCost, 3), baseCost, variants };
+  return { retail: retailPrice, baseCost, variants };
 }
 
 export async function importFromSupplierUrl(url: string) {
@@ -78,6 +81,13 @@ export async function importFromSupplierUrl(url: string) {
     }
   }
   const parsed = await scrapeSupplierUrl(url);
+  const screen = (await import("@/lib/product-screen")).screenListing({
+    title: parsed.title,
+    description: parsed.title,
+  });
+  if (screen.level === "block") {
+    throw new Error(screen.reason || "This product type cannot be imported.");
+  }
   const mapped = importVariantsFromParsed(parsed);
   const copy = await enrichCopy({
     rawTitle: parsed.title,
@@ -131,6 +141,13 @@ export async function importScrapedListing(listing: ScrapedListing) {
     }
   }
   const parsed = listingToParsed(listing);
+  const screen = (await import("@/lib/product-screen")).screenListing({
+    title: parsed.title,
+    description: parsed.title,
+  });
+  if (screen.level === "block") {
+    return { error: screen.reason || "This product type cannot be imported." };
+  }
   const mapped = importVariantsFromParsed(parsed);
   const copy = await enrichCopy({
     rawTitle: parsed.title,
@@ -178,6 +195,19 @@ export async function importLiveListing(feed: FeedProduct) {
   try {
     return await importFromSupplierUrl(feed.url);
   } catch (first) {
+    // Never bypass a policy block via the snapshot fallback.
+    if (
+      first instanceof Error &&
+      /supplement|restricted|cannot be imported|not allowed/i.test(first.message)
+    ) {
+      throw first;
+    }
+    const screen = (await import("@/lib/product-screen")).screenListing({
+      title: `${feed.title} ${feed.cleanTitle}`,
+    });
+    if (screen.level === "block") {
+      throw new Error(screen.reason || "This product type cannot be imported.");
+    }
     // Fall back to the search snapshot if the listing scrape is blocked.
     const existing = await findProductBySupplierUrl(feed.url);
     if (!existing) {
@@ -249,6 +279,13 @@ export async function importProductsCsv(text: string) {
   for (const row of rows) {
     const rawTitle = row.title || row.raw_title || row.name;
     if (!rawTitle) continue;
+    const screen = (await import("@/lib/product-screen")).screenListing({
+      title: rawTitle,
+      description: row.description || row.tags || "",
+    });
+    if (screen.level === "block") {
+      throw new Error(`${rawTitle}: ${screen.reason || "This product type cannot be imported."}`);
+    }
     try {
       await assertProductQuota();
     } catch (error) {

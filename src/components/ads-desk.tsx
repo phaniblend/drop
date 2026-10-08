@@ -117,7 +117,7 @@ export function AdsDesk({
             <p className="mt-2 text-xs text-profit">Meta or TikTok is connected — a real pause can hit the live ad set.</p>
           ) : metaDegraded ? (
             <p className="mt-2 text-xs text-warn">
-              Margin Guard is not protecting spend — finish Meta setup (account ID + long-lived token).
+              Margin Guard is not protecting spend — reconnect with Facebook in Settings.
             </p>
           ) : adsLive ? (
             <p className="mt-2 text-xs text-profit">TikTok is connected — a real pause can hit the live ad set.</p>
@@ -141,7 +141,23 @@ export function AdsDesk({
             start(async () => {
               setCheckMsg("");
               try {
+                if (!metaFullyConnected && !adsLive) {
+                  setCheckMsg("Couldn't check — Meta isn't connected.");
+                  return;
+                }
+                if (metaDegraded && !metaFullyConnected) {
+                  setCheckMsg("Couldn't check — Meta isn't connected.");
+                  return;
+                }
                 const res = await runAllGuards();
+                if (!res.results.length) {
+                  setCheckMsg(
+                    metaFullyConnected || adsLive
+                      ? "No ad sets to check yet. Link campaigns or sync Meta in Settings."
+                      : "Couldn't check — Meta isn't connected.",
+                  );
+                  return;
+                }
                 setCheckMsg(`Checked ${res.results.length} ads.`);
               } catch {
                 setCheckMsg("Could not check ads. Try again.");

@@ -38,8 +38,9 @@ export function pct(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-export function shortDate(iso: string) {
+export function shortDate(iso: string, timeZone = "America/Chicago") {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone,
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -47,8 +48,9 @@ export function shortDate(iso: string) {
   }).format(new Date(iso));
 }
 
-export function dayLabel(iso: string) {
+export function dayLabel(iso: string, timeZone = "America/Chicago") {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone,
     weekday: "short",
     month: "short",
     day: "numeric",

@@ -3,7 +3,10 @@ import { screenListing } from "./product-screen";
 
 describe("screenListing", () => {
   it("blocks supplements by default", () => {
-    expect(screenListing({ title: "Omega 3 Fish Oil" }).level).toBe("block");
+    const hit = screenListing({ title: "Omega 3 Fish Oil" });
+    expect(hit.level).toBe("block");
+    expect(hit.ok).toBe(false);
+    if (!hit.ok) expect(hit.reason).toMatch(/supplement|fish oil|terms/i);
   });
 
   it("flags medical claims and brand names for review", () => {

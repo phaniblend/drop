@@ -73,8 +73,8 @@ export default async function CatalogPage({
         ))}
       </div>
 
-      <Card className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      <Card className="max-w-full overflow-x-auto">
+        <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="border-b border-line text-[11px] uppercase tracking-wider text-faint">
             <tr>
               <th className="px-4 py-3 font-medium">Product</th>

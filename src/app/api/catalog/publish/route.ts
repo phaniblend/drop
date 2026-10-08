@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDb } from "@/lib/db";
+import { publishActivityMessage } from "@/lib/activity-copy";
 import { logActivity } from "@/lib/db/seed";
 import { publishLiveProduct } from "@/lib/storefront";
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     const db = await ensureDb();
     await logActivity(db, {
       kind: "publish",
-      message: `Published ${result.title} to your Seto Storefront`,
+      message: publishActivityMessage(result.title),
       href: result.storeUrl.replace(/^https?:\/\/[^/]+/, "") || `/store/${result.handle}`,
     });
     return NextResponse.json({

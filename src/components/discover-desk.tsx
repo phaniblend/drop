@@ -80,6 +80,8 @@ export function DiscoverDesk({
     variants: Array<{ name: string; cost: number; stock: number }>;
     images: string[];
     feedCost?: number;
+    feedShip?: number;
+    feedShipKnown?: boolean;
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState("");
   const [pricedOnly, setPricedOnly] = useState(true);
@@ -275,6 +277,14 @@ export function DiscoverDesk({
       const saved = await importScrapedListing(json.data);
       if (hasPaywall(saved)) {
         emitPaywall(saved.paywall);
+        return;
+      }
+      if (saved && typeof saved === "object" && "error" in saved && saved.error) {
+        setError(String(saved.error));
+        return;
+      }
+      if (!saved || typeof saved !== "object" || !("id" in saved) || !saved.id) {
+        setError("Import failed.");
         return;
       }
       if ("reused" in saved && saved.reused) {
@@ -591,7 +601,12 @@ export function DiscoverDesk({
                             error?: string;
                           }>("/api/scrape", { url: p.url });
                           if (!res.data) throw new Error(res.error || "Preview failed");
-                          setPreview({ ...res.data, feedCost: displayCost > 0 ? displayCost : undefined });
+                          setPreview({
+                            ...res.data,
+                            feedCost: displayCost > 0 ? displayCost : undefined,
+                            feedShip: shipping,
+                            feedShipKnown: shipKnown,
+                          });
                         } catch (e) {
                           setError(e instanceof Error ? e.message : "Preview failed");
                         } finally {
@@ -800,9 +815,13 @@ export function DiscoverDesk({
                 ? ` (Discover card showed ~${money(preview.feedCost)})`
                 : ""}
               · Ship{" "}
-              {preview.shippingUnknown || preview.shippingCost <= 0
-                ? "unknown — enter after import"
-                : money(preview.shippingCost)}
+              {preview.shippingCost > 0 && !preview.shippingUnknown
+                ? money(preview.shippingCost)
+                : preview.feedShip != null && preview.feedShip > 0
+                  ? preview.feedShipKnown
+                    ? money(preview.feedShip)
+                    : `~${money(preview.feedShip)} (est. — confirm after import)`
+                  : "unknown — enter after import"}
               · {preview.stockTotal} pcs sellable
               {preview.accessoriesExcluded
                 ? ` · ${preview.accessoriesExcluded} accessory SKU${preview.accessoriesExcluded === 1 ? "" : "s"} hidden`

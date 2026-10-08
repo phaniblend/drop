@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { ensureDb } from "@/lib/db";
-import { getOperator, listCampaigns } from "@/lib/db/queries";
+import { getOperator, listCampaigns, listOrders } from "@/lib/db/queries";
 import { campaignTrackers, products, users } from "@/lib/db/schema";
 import { logActivity } from "@/lib/db/seed";
 import { runSafetyCircuitCheck } from "@/lib/margin-guard";
@@ -48,14 +48,25 @@ export async function runCampaignGuard(campaignId: string) {
     };
   }
 
-  const [campaigns, operator] = await Promise.all([listCampaigns(), getOperator()]);
+  const [campaigns, operator, orderRows] = await Promise.all([
+    listCampaigns(),
+    getOperator(),
+    listOrders(),
+  ]);
   const campaign = campaigns.find((c) => c.id === campaignId);
   if (!campaign) throw new Error("Campaign not found.");
+  const { guardAttributedRevenue } = await import("@/lib/guard-attributed-revenue");
+  const attributedRevenue = guardAttributedRevenue({
+    storedRevenueToday: campaign.revenueToday,
+    productId: campaign.productId,
+    orders: orderRows,
+    timeZone: operator?.timezone || "America/Chicago",
+  });
 
   const result = await runSafetyCircuitCheck({
     adSetId: campaign.adSetId,
     platform: campaign.platform === "tiktok" ? "tiktok" : "meta",
-    attributedRevenue: campaign.revenueToday,
+    attributedRevenue,
     totalCogs: campaign.cogsToday,
     spendThreshold: campaign.spendLimitThreshold,
     minRoas: campaign.minRoasThreshold,
@@ -110,13 +121,24 @@ export async function runCampaignGuard(campaignId: string) {
 }
 
 export async function previewCampaignGuard(campaignId: string) {
-  const [campaigns, operator] = await Promise.all([listCampaigns(), getOperator()]);
+  const [campaigns, operator, orderRows] = await Promise.all([
+    listCampaigns(),
+    getOperator(),
+    listOrders(),
+  ]);
   const campaign = campaigns.find((c) => c.id === campaignId);
   if (!campaign) throw new Error("Campaign not found.");
+  const { guardAttributedRevenue } = await import("@/lib/guard-attributed-revenue");
+  const attributedRevenue = guardAttributedRevenue({
+    storedRevenueToday: campaign.revenueToday,
+    productId: campaign.productId,
+    orders: orderRows,
+    timeZone: operator?.timezone || "America/Chicago",
+  });
   const result = await runSafetyCircuitCheck({
     adSetId: campaign.adSetId,
     platform: campaign.platform === "tiktok" ? "tiktok" : "meta",
-    attributedRevenue: campaign.revenueToday,
+    attributedRevenue,
     totalCogs: campaign.cogsToday,
     spendThreshold: campaign.spendLimitThreshold,
     minRoas: campaign.minRoasThreshold,

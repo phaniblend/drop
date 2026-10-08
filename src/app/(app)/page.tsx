@@ -10,6 +10,7 @@ import { sellerPublishGaps } from "@/lib/storefront";
 import { stripeKeyMode } from "@/lib/stripe-keys";
 import { customerDisplayName } from "@/lib/fulfillment-copy";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { isPracticeOrder } from "@/lib/practice-order";
 
 export default async function CommandPage() {
   const data = await getDashboard();
@@ -25,14 +26,18 @@ export default async function CommandPage() {
   const merchantStripe = stripeKeyMode(data.user?.storeStripeSk);
   const stripeLabel =
     merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Sandbox" : "Not connected";
-  const storeLabel =
-    merchantStripe === "live" ? "Live" : merchantStripe === "test" ? "Preview" : "Setup needed";
   const meta = await import("@/lib/meta-health").then((m) => m.getMetaHealth(true));
-  const adsLabel =
-    meta.status === "connected" ? "Ready" : meta.status === "degraded" ? "Expired" : "Pending";
+  const { metaStatusLabel } = await import("@/lib/meta-status");
+  const adsLabel = metaStatusLabel(meta.status).short;
   const findFirst = data.pendingCount === 0;
   const sellerReady = sellerPublishGaps(data.user).length === 0;
   const hasProduct = (data.catalog?.length ?? 0) > 0;
+  const storeLabel =
+    merchantStripe === "live" && sellerReady
+      ? "Live"
+      : merchantStripe === "test" && sellerReady
+        ? "Preview"
+        : "Setup needed";
   const hasAngles = (data.catalog ?? []).some((p) => {
     try {
       const raw = (p as { adAnglesJson?: string | null }).adAnglesJson;
@@ -80,7 +85,7 @@ export default async function CommandPage() {
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Command</p>
           <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
-            {data.user?.displayName ?? "Operator"}, here is today
+            {data.user?.displayName ?? "Operator"} — today’s desk
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span>
@@ -115,7 +120,11 @@ export default async function CommandPage() {
       <SetupChecklist steps={setupSteps} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Revenue (24h)" value={money(kpis.revenue)} hint={`${kpis.orders} orders`} />
+        <Kpi
+          label="Revenue (24h)"
+          value={money(kpis.revenue)}
+          hint={`${kpis.orders} order${kpis.orders === 1 ? "" : "s"}`}
+        />
         <Kpi label="Your cost" value={money(kpis.cogs)} />
         <Kpi label="Ad spend" value={money(kpis.adSpend)} />
         <Kpi label="Processor fees" value={money(kpis.fees)} />
@@ -195,13 +204,20 @@ export default async function CommandPage() {
             {data.recentOrders.length === 0 ? (
               <p className="px-5 py-6 text-sm text-muted">No checkouts yet.</p>
             ) : (
-              data.recentOrders.map((order) => (
+              data.recentOrders.map((order) => {
+                const practice = isPracticeOrder(order);
+                return (
               <div key={order.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
                     <DeskLink href={`/orders/${order.id}`}>
                       {order.orderNumber} · {customerDisplayName(order.customerName, order.customerEmail)}
                     </DeskLink>
+                    {practice ? (
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-warn">
+                        Practice
+                      </span>
+                    ) : null}
                   </p>
                   <p className="text-xs text-muted">
                     {order.items.map((i) => i.title).join(", ")} · {money(order.netMargin)} net
@@ -209,7 +225,8 @@ export default async function CommandPage() {
                 </div>
                 <StatusPill value={order.fulfillmentStatus} />
               </div>
-              ))
+              );
+              })
             )}
           </div>
         </Card>

@@ -40,6 +40,13 @@ export function sellerPublishHint(missing: string[]) {
   return `Add ${missing.join(" and ")} in Settings, then publish again. Your store name is already set.`;
 }
 
+/** Settings deep-link for the first missing seller field. */
+export function sellerPublishSettingsHref(missing: string[]) {
+  if (missing.includes("business address")) return "/settings#business-address";
+  if (missing.includes("support email")) return "/settings#support-email";
+  return "/settings";
+}
+
 export async function getStorefrontBrand(userId?: string) {
   const user = userId ? await getUserById(userId) : await getOperator();
   const merchantSk = user?.storeStripeSk?.trim() || "";

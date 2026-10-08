@@ -1,3 +1,5 @@
+import { humanizeVariantLabel } from "./variant-label";
+
 const OPERATOR_LINE =
   /you pay about|room for ads|creative angle|doesn['’]t land|impulse-friendly|positioned for shoppers|supplier cost|markup|cogs|wholesale/i;
 
@@ -53,29 +55,15 @@ export function sanitizeShopperHtml(html: string, title: string) {
   return withoutBadItems;
 }
 
-export function shopperFallbackHtml(title: string, hint?: string) {
+/** Neutral shopper copy — never invents category claims from title keywords. */
+export function shopperFallbackHtml(title: string, _hint?: string) {
   const name = title.trim() || "This product";
-  const blob = `${name} ${hint ?? ""}`.toLowerCase();
-  const bullets: string[] = [];
-  if (/brush|makeup|cosmetic/i.test(blob)) {
-    bullets.push("Soft bristles for everyday makeup");
-    bullets.push("Easy to clean after use");
-  } else if (/fan|cooler|blender|juicer/i.test(blob)) {
-    bullets.push("USB rechargeable for home or travel");
-    bullets.push("Compact size that packs light");
-  } else if (/light|lamp|led|sign/i.test(blob)) {
-    bullets.push("Bright enough to see at night");
-    bullets.push("Simple to place where you need it");
-  } else if (/posture|belt|brace|support/i.test(blob)) {
-    bullets.push("Adjustable straps for a snug fit");
-    bullets.push("Breathable fabric for daily wear");
-  } else {
-    bullets.push("Looks like the photos");
-    bullets.push("Ready for everyday use");
-  }
-  bullets.push("Tracked shipping · refund or replacement if it arrives wrong or damaged");
-  return `<p>${name} is made for daily use — ${bullets[0]!.charAt(0).toLowerCase()}${bullets[0]!.slice(1)}.</p><ul>${bullets
-    .slice(0, 3)
+  const bullets = [
+    "Matches the photos on this page",
+    "Ready for everyday use",
+    "Tracked shipping · refund or replacement if it arrives wrong or damaged",
+  ];
+  return `<p>${name} ships as shown — simple setup and tracked delivery.</p><ul>${bullets
     .map((b) => `<li>${b}</li>`)
     .join("")}</ul>`;
 }
@@ -84,7 +72,7 @@ function looksLikeSupplierSku(part: string) {
   return /^\d{6,}[:#]/.test(part) || /:\d{6,}/.test(part) || /#\w+\s*T\d+/i.test(part);
 }
 
-export function shopperVariantLabel(raw: string) {
+export function shopperVariantLabel(raw: string, index = 0) {
   const parts = String(raw ?? "")
     .split(/\s*·\s*|\s*;\s*/)
     .map((part) => part.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim())
@@ -93,9 +81,21 @@ export function shopperVariantLabel(raw: string) {
         part &&
         !isShipFromPart(part) &&
         !/^option$/i.test(part) &&
+        !/^variant\s*\d+$/i.test(part) &&
         !looksLikeSupplierSku(part),
     );
-  return parts.length ? [...new Set(parts)].join(" · ") : "Option";
+  if (parts.length) return [...new Set(parts)].join(" · ");
+  const human = humanizeVariantLabel(String(raw ?? ""));
+  if (
+    human &&
+    human !== "Option" &&
+    human !== "Default" &&
+    !/^[A-Z]{0,3}\d{0,3}[A-Za-z0-9_-]{0,4}$/.test(human) &&
+    human.length > 2
+  ) {
+    return human;
+  }
+  return `Option ${index + 1}`;
 }
 
 export type PublicStoreVariant = {
@@ -153,9 +153,9 @@ export function toPublicProduct(input: {
   const variants = (input.variants.length
     ? input.variants
     : [{ id: "default", variantName: "Default", variantPrice: input.retailPrice, inventoryCount: 0 }]
-  ).map((variant) => ({
+  ).map((variant, index) => ({
     id: variant.id,
-    name: shopperVariantLabel(variant.variantName),
+    name: shopperVariantLabel(variant.variantName, index),
     price: variant.variantPrice || input.retailPrice,
     stock: Math.max(0, variant.inventoryCount),
     imageUrl: variant.cleanImageUrl || variant.supplierImageUrl || null,

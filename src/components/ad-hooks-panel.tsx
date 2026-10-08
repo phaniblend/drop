@@ -52,6 +52,7 @@ export function AdHooksPanel({
   description,
   price,
   productUrl = "",
+  published = false,
   initialHooks = [],
 }: {
   productId?: string;
@@ -59,6 +60,7 @@ export function AdHooksPanel({
   description: string;
   price: number;
   productUrl?: string;
+  published?: boolean;
   initialHooks?: AdHookAngle[];
 }) {
   const [pending, start] = useTransition();
@@ -128,6 +130,12 @@ export function AdHooksPanel({
             ? "Suggested angles — edit freely in Ads Manager after you paste. Post buttons copy script plus a UTM product link."
             : "No angles yet. Write ad angles for three short-form hooks you can paste into Meta or TikTok."}
         </p>
+        {!published ? (
+          <p className="text-xs text-warn">
+            Publish this product first — UTM links point at the live store page and will 404 while this is still a
+            draft.
+          </p>
+        ) : null}
         {reason ? <p className="text-xs text-warn">{reason}</p> : null}
         {pending ? (
           <div className="space-y-2" aria-hidden>

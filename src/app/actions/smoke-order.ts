@@ -53,12 +53,15 @@ export async function createPracticeOrder() {
     createdAt: nowIso(),
   });
 
+  const { shopperVariantLabel } = await import("@/lib/shopper-copy");
+  const option = variant?.variantName ? shopperVariantLabel(variant.variantName) : "";
+  const titleBase = product.cleanTitle || product.rawTitle;
   await db.insert(orderItems).values({
     id: nid("itm"),
     orderId: id,
     productId: product.id,
     variantId: variant?.id ?? "default",
-    title: product.cleanTitle || product.rawTitle,
+    title: option ? `${titleBase} · ${option}` : titleBase,
     sku: variant?.supplierSkuId || "PRACTICE",
     quantity: qty,
     unitPrice,

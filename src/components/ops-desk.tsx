@@ -16,6 +16,18 @@ function fillMacro(body: string, order?: Order) {
     .replaceAll("{{carrier}}", order?.carrier ?? "[carrier]");
 }
 
+function macroHasPlaceholders(body: string) {
+  return /\{\{[^}]+\}\}/.test(body);
+}
+
+function macroNeedsOrder(body: string) {
+  return /\{\{(name|order|tracking|carrier)\}\}/.test(body);
+}
+
+function macroNeedsTracking(body: string) {
+  return /\{\{(tracking|carrier)\}\}/.test(body);
+}
+
 export function OpsDesk({
   tasks,
   macros,
@@ -82,8 +94,17 @@ export function OpsDesk({
         <CardHeader title="Saved replies" eyebrow="Customer messages" />
         <div className="grid gap-3 p-4 md:grid-cols-2">
           {macros.map((m) => {
-            const ready = Boolean(selected);
+            const needsOrder = macroNeedsOrder(m.body);
+            const needsTracking = macroNeedsTracking(m.body);
+            const ready =
+              !macroHasPlaceholders(m.body) ||
+              (Boolean(selected) && (!needsTracking || Boolean(selected?.trackingNumber)));
             const body = fillMacro(m.body, selected);
+            const blockedLabel = needsTracking
+              ? "Needs a tracked order"
+              : needsOrder
+                ? "Pick an order"
+                : "Copy";
             return (
               <div key={m.id} className="rounded-xl border border-line bg-bg p-4">
                 <div className="flex items-center justify-between gap-2">
@@ -91,11 +112,17 @@ export function OpsDesk({
                     <p className="text-[11px] uppercase tracking-wider text-faint">{m.category}</p>
                     <p className="text-sm font-semibold">{m.title}</p>
                   </div>
-                  <CopyButton text={body} disabled={!ready} label={ready ? "Copy" : "Pick an order"} />
+                  <CopyButton text={body} disabled={!ready} label={ready ? "Copy" : blockedLabel} />
                 </div>
                 <p className="mt-3 text-sm text-muted">{body}</p>
-                {!ready ? (
-                  <p className="mt-2 text-xs text-warn">Select an aging shipment above before copying.</p>
+                {!ready && needsOrder ? (
+                  <p className="mt-2 text-xs text-warn">
+                    {stale.length === 0
+                      ? "No aging shipments right now — open Orders if you need a specific reply."
+                      : needsTracking
+                        ? "Select an aging shipment that has tracking."
+                        : "Select an aging shipment above before copying."}
+                  </p>
                 ) : null}
               </div>
             );

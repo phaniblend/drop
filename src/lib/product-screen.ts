@@ -1,5 +1,5 @@
 const BLOCKED =
-  /\b(omega\s*3|fish oil|dietary supplement|cbd|thc|cannabis|vape|e-?cig|weapon|firearm|ammunition|viagra|cialis)\b/i;
+  /\b(omega\s*(?:\d+|fish)|fish\s*oil|dietary\s+supplement|supplements?|cbd|thc|cannabis|vape|e-?cig|weapon|firearm|ammunition|viagra|cialis)\b/i;
 
 const HEALTH_REVIEW =
   /\b(scoliosis|pain relief|medical device|cure|treats?|alleviate|discomfort|spinal|alignment|wellness|supplement|vitamin|collagen|fda approved|prescription|posture corrector)\b/i;
@@ -28,7 +28,8 @@ export function screenListing(input: { title?: string; description?: string }) {
     return {
       ok: false as const,
       level: "block" as const,
-      reason: "Supplements, controlled, or restricted goods cannot be published.",
+      reason:
+        "Supplements (e.g. fish oil / omega-3), controlled, or restricted goods are not allowed — see /terms. Cannot import or publish.",
     };
   }
   const licensed = licensedBrandWarning(input.title, input.description);

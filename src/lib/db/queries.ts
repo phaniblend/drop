@@ -418,7 +418,12 @@ export async function getDashboard() {
     return day === today && Number.isFinite(new Date(iso).getTime());
   };
 
-  const todaysOrders = orderRows.filter((o) => inStoreDay(o.createdAt) || agingHours(o) < 24);
+  const { isPracticeOrder } = await import("../practice-order");
+  const realOrders = orderRows.filter((o) => !isPracticeOrder(o));
+  // 24h KPI: rolling window plus anything still on the store-local calendar day.
+  const todaysOrders = realOrders.filter(
+    (o) => inStoreDay(o.createdAt) || agingHours(o) < 24,
+  );
   const revenue = round2(todaysOrders.reduce((s, o) => s + o.totalRevenue, 0));
   const cogs = round2(todaysOrders.reduce((s, o) => s + o.totalCogs, 0));
   const fees = round2(todaysOrders.reduce((s, o) => s + o.paymentFee, 0));
@@ -427,11 +432,11 @@ export async function getDashboard() {
   const adSpend = round2(liveCampaigns.reduce((s, c) => s + c.spendToday, 0));
   const profit = round2(revenue - cogs - fees - adSpend);
 
-  const pending = orderRows.filter((o) => o.fulfillmentStatus === "pending_batch");
-  const needTracking = orderRows.filter(
+  const pending = realOrders.filter((o) => o.fulfillmentStatus === "pending_batch");
+  const needTracking = realOrders.filter(
     (o) => o.fulfillmentStatus === "ordered_supplier" && !o.trackingNumber,
   );
-  const staleOrders = orderRows.filter(isStaleOrder);
+  const staleOrders = realOrders.filter(isStaleOrder);
   const lowStock = catalog.filter(
     (p) => isLowStock(p.stock) && (p.status === "published" || p.status === "local_only" || p.status === "ready"),
   );
@@ -439,16 +444,18 @@ export async function getDashboard() {
 
   const last7 = Array.from({ length: 7 }).map((_, i) => {
     const day = new Date();
-    day.setDate(day.getDate() - (6 - i));
-    const key = day.toISOString().slice(0, 10);
-    const dayOrders = orderRows.filter((o) => o.createdAt.slice(0, 10) === key);
+    day.setUTCDate(day.getUTCDate() - (6 - i));
+    // Anchor noon UTC so weekday labels stay stable across DST edges.
+    day.setUTCHours(12, 0, 0, 0);
+    const key = todayKey(tz, day);
+    const dayOrders = realOrders.filter((o) => todayKey(tz, o.createdAt) === key);
     const dayRevenue = dayOrders.reduce((s, o) => s + o.totalRevenue, 0);
     const dayCogs = dayOrders.reduce((s, o) => s + o.totalCogs, 0);
     const dayFees = dayOrders.reduce((s, o) => s + o.paymentFee, 0);
-    const daySpend = i === 6 ? adSpend : 0;
+    const daySpend = key === today ? adSpend : 0;
     return {
       key,
-      label: day.toLocaleDateString("en-US", { weekday: "short" }),
+      label: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: tz }).format(day),
       revenue: round2(dayRevenue),
       profit: round2(dayRevenue - dayCogs - dayFees - daySpend),
       orders: dayOrders.length,
@@ -457,7 +464,7 @@ export async function getDashboard() {
 
   const topProducts = catalog
     .map((p) => {
-      const sold = orderRows
+      const sold = realOrders
         .flatMap((o) => o.items)
         .filter((item) => item.productId === p.id)
         .reduce((s, item) => s + item.quantity, 0);
@@ -743,14 +750,14 @@ export async function writeProductPricing(
   if (!Number.isFinite(shippingCost) || shippingCost < 0) {
     throw new Error("Ship cost must be a valid number.");
   }
-  const firstCost = vars[0]?.variantCost ?? 0;
+  const { pricingAnchorCost, scaleVariantPrices } = await import("../variant-pricing");
+  const anchorCost = pricingAnchorCost(vars.map((v) => ({ cost: v.variantCost })));
   const { retailPrice, markupMultiplier } = applyExplicitRetailPrice({
     retailPrice: Number(input.retailPrice),
     markupMultiplier: Number(input.markupMultiplier),
-    firstVariantCost: firstCost,
+    firstVariantCost: anchorCost || vars[0]?.variantCost || 0,
     shippingCost,
   });
-  const { scaleVariantPrices } = await import("../variant-pricing");
   const scaled = scaleVariantPrices(
     vars.map((v) => ({ cost: v.variantCost })),
     retailPrice,

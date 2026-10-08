@@ -216,14 +216,14 @@ export function Shell({
           <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
             <button
               type="button"
-              className="rounded-lg p-2 text-ink hover:bg-black/[0.04] md:hidden"
+              className="shrink-0 rounded-lg p-2 text-ink hover:bg-black/[0.04] md:hidden"
               onClick={() => setNavOpen(true)}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <BrandMark className="hidden h-7 w-7 text-xs md:inline-flex" />
-            <span className="shrink-0 font-medium text-ink">Seto</span>
+            <BrandMark className="hidden h-7 w-7 shrink-0 text-xs md:inline-flex" />
+            <span className="min-w-0 truncate font-medium text-ink">Seto</span>
           </div>
           <div className="flex min-w-0 shrink-0 items-center gap-2">
             <HelpMenuButton

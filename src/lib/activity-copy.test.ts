@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { operatorHasShopifyOAuth, sanitizeActivityMessage } from "./activity-copy";
+import { operatorHasShopifyOAuth, publishActivityMessage, sanitizeActivityMessage } from "./activity-copy";
 
 describe("activity copy", () => {
+  it("normalizes legacy Seto publish lines to one storefront phrase", () => {
+    expect(sanitizeActivityMessage("Neck fan is live on your Seto store.")).toBe(
+      publishActivityMessage("Neck fan"),
+    );
+  });
+
   it("rewrites Shopify GID publishes to the Seto storefront", () => {
     expect(
       sanitizeActivityMessage("Neck fan pushed to Shopify (gid://shopify/Product/9876543210)"),

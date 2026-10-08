@@ -27,7 +27,8 @@ const TRAILING_STOP =
 function isJunkToken(token: string) {
   const t = token.trim();
   if (!t) return true;
-  if (/^\d+[a-z]/i.test(t) && !/^(\d+)(ml|mah|w|v|oz|pcs?|pack)$/i.test(t)) return true;
+  if (/^\d+(?:mah|ml|w|v|oz|pcs?|pack)$/i.test(t)) return false;
+  if (/^\d+[a-z]/i.test(t)) return true;
   if (/^[a-z]*\d+[a-z]+$/i.test(t) && t.length <= 12 && !/[aeiou]/i.test(t.replace(/\d/g, ""))) return true;
   return false;
 }
@@ -38,9 +39,9 @@ function stripJunk(raw: string) {
   next = next.replace(/(\d+)\s*\/\s*(\d+\s*ml)\b/gi, "$1-$2");
   for (const re of JUNK) next = next.replace(re, " ");
   next = next.replace(/[,|/]+/g, " ").replace(/\s+/g, " ").trim();
-  // Drop digit junk glued onto a real product noun: 8OPortable, 8oportable.
+  // Drop digit junk glued onto a real product noun (8oportable) — never eat mAh/W units.
   next = next.replace(
-    /\b\d+[a-z]{0,4}(?=(portable|blender|juicer|fan|light|brush|belt|bag|cup|bottle)\b)/gi,
+    /\b\d+(?!mah\b|ml\b|w\b|v\b|oz\b|pcs?\b|pack\b)[a-z]{0,4}(?=(portable|blender|juicer|fan|light|brush|belt|bag|cup|bottle)\b)/gi,
     "",
   );
   next = next
@@ -128,7 +129,8 @@ export function localCleanTitle(
   const words = dedupeWords(
     (next || cleanedCurrent).split(" ").filter((w) => w.length > 1 && !/^\d+(\.\d+)?$/.test(w)),
   );
-  return titleCaseWords(words.slice(0, 6)) || cleanedCurrent || "Product";
+  // Keep enough words that capacity + product type survive (e.g. 8000mAh USB Hanging Neck Fan).
+  return titleCaseWords(words.slice(0, 10)) || cleanedCurrent || "Product";
 }
 
 export function formatGeminiFallback(reason: string | null | undefined) {

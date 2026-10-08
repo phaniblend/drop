@@ -21,6 +21,7 @@ export function FulfillmentBoard({
   const [supplierId, setSupplierId] = useState("");
   const [pendingTx, start] = useTransition();
   const [tracking, setTracking] = useState<Record<string, { tracking: string; carrier: string }>>({});
+  const [error, setError] = useState("");
 
   const chosen = useMemo(
     () => pending.filter((o) => selected.includes(o.id)),
@@ -41,6 +42,7 @@ export function FulfillmentBoard({
             Copy the address, place the order on AliExpress/CJ, then stamp the supplier order id.
             Export CSV if you use a bulk order tool.
           </p>
+          {error ? <p className="mt-2 text-sm text-loss">{error}</p> : null}
         </div>
         <a href="/api/export/fulfillment">
           <Button tone="line">Download batch CSV</Button>
@@ -102,8 +104,24 @@ export function FulfillmentBoard({
             </Field>
             <Button
               tone="accent"
-              disabled={pendingTx || chosen.length === 0}
-              onClick={() => start(() => markOrdersPlaced(chosen.map((o) => o.id), supplierId))}
+              disabled={pendingTx || chosen.length === 0 || supplierId.trim().length < 3}
+              onClick={() =>
+                start(async () => {
+                  setError("");
+                  if (supplierId.trim().length < 3) {
+                    setError("Enter the supplier order id before marking placed.");
+                    return;
+                  }
+                  try {
+                    await markOrdersPlaced(
+                      chosen.map((o) => o.id),
+                      supplierId,
+                    );
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Could not mark placed.");
+                  }
+                })
+              }
             >
               Mark {chosen.length} placed
             </Button>
@@ -142,8 +160,19 @@ export function FulfillmentBoard({
                 />
                 <Button
                   tone="line"
-                  disabled={pendingTx || !draft.tracking}
-                  onClick={() => start(() => attachTracking(order.id, draft.tracking, draft.carrier))}
+                  disabled={
+                    pendingTx || draft.tracking.trim().length < 6 || !draft.carrier.trim()
+                  }
+                  onClick={() =>
+                    start(async () => {
+                      setError("");
+                      try {
+                        await attachTracking(order.id, draft.tracking, draft.carrier);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Could not save tracking.");
+                      }
+                    })
+                  }
                 >
                   Save
                 </Button>

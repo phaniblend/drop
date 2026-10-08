@@ -14,7 +14,7 @@ import { SignOutButton } from "./sign-out-button";
 import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
 import type { BillingSummary } from "@/lib/paywall";
-import { friendlyMetaError } from "@/lib/meta-status";
+import { friendlyMetaError, metaStatusLabel } from "@/lib/meta-status";
 import { StripeKeysForm } from "./stripe-keys-form";
 import { BillingPortalButton } from "./billing-portal-button";
 import { PlanCheckoutButtons } from "./plan-checkout-buttons";
@@ -150,13 +150,21 @@ export function SettingsDesk({
       name: "Meta ads",
       ok: status.metaStatus === "connected" || Boolean(metaOAuth?.connected),
       degraded: status.metaStatus === "degraded",
-      why:
-        status.metaStatus === "connected" || metaOAuth?.connected
-          ? `Live ad account check passed${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`
-          : status.metaStatus === "degraded"
-            ? friendlyMetaError(status.metaError) ||
-              "Token expired or incomplete. Use Connect with Facebook or Reconnect Meta on this card."
-            : "Reads spend and can pause Facebook and Instagram ads that are losing money.",
+      why: (() => {
+        const statusKey =
+          status.metaStatus === "connected" || metaOAuth?.connected
+            ? ("connected" as const)
+            : status.metaStatus === "degraded"
+              ? ("degraded" as const)
+              : ("offline" as const);
+        if (statusKey === "connected") {
+          return `Meta connected${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`;
+        }
+        if (statusKey === "degraded") {
+          return friendlyMetaError(status.metaError) || metaStatusLabel("degraded").detail;
+        }
+        return metaStatusLabel("offline").detail;
+      })(),
       metaLogin: true as const,
       metaExtend: Boolean(status.meta || metaLongLived || status.metaStatus === "degraded" || metaOAuth?.connected),
       reconnectMeta: status.metaStatus !== "connected" && !metaOAuth?.connected,
@@ -588,6 +596,7 @@ export function SettingsDesk({
           </Field>
           <Field label="Shopper support email">
             <input
+              id="support-email"
               className={inputClass}
               type="email"
               value={form.supportEmail}
@@ -597,6 +606,7 @@ export function SettingsDesk({
           </Field>
           <Field label="Business address">
             <input
+              id="business-address"
               className={inputClass}
               value={form.businessAddress}
               onChange={(e) => setForm({ ...form, businessAddress: e.target.value })}

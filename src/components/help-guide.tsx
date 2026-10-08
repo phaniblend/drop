@@ -147,7 +147,7 @@ export function HelpGuide({
 
   return (
     <aside
-      className="fixed top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))] right-3 z-[100] flex w-[min(21.25rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(15,18,34,0.12)] md:right-6"
+      className="fixed bottom-[max(4.5rem,env(safe-area-inset-bottom))] left-3 right-3 z-[100] flex max-h-[min(70vh,28rem)] w-auto flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_50px_rgba(15,18,34,0.12)] max-[1100px]:top-auto xl:bottom-auto xl:left-auto xl:right-6 xl:top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))] xl:w-[min(21.25rem,calc(100vw-1rem))]"
       style={pos ? { left: pos.x, top: pos.y, right: "auto" } : undefined}
       role="dialog"
       aria-label="Today’s plan"

@@ -1,9 +1,11 @@
 import { DeskLink } from "@/components/desk-link";
-import { listOrders } from "@/lib/db/queries";
+import { getOperator, listOrders } from "@/lib/db/queries";
 import { money, shortDate } from "@/lib/utils";
-import { Button, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { StatusPill } from "@/components/status-pill";
 import { customerDisplayName } from "@/lib/fulfillment-copy";
+import { isPracticeOrder } from "@/lib/practice-order";
+import { DeletePracticeOrderButton } from "@/components/delete-practice-order-button";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -20,7 +22,11 @@ export default async function OrdersPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const rows = await listOrders(status && status !== "all" ? status : undefined);
+  const [rows, operator] = await Promise.all([
+    listOrders(status && status !== "all" ? status : undefined),
+    getOperator(),
+  ]);
+  const tz = operator?.timezone || "America/Chicago";
 
   return (
     <div className="space-y-6">
@@ -79,7 +85,13 @@ export default async function OrdersPage({
                   <DeskLink href={`/orders/${o.id}`} className="font-medium text-ink hover:text-accent">
                     {o.orderNumber}
                   </DeskLink>
-                  <p className="text-[11px] text-faint">{shortDate(o.createdAt)}</p>
+                  {isPracticeOrder(o) ? (
+                    <span className="mt-1 inline-block">
+                      <Badge tone="warn">Practice · not revenue</Badge>
+                    </span>
+                  ) : null}
+                  <p className="text-[11px] text-faint">{shortDate(o.createdAt, tz)}</p>
+                  {isPracticeOrder(o) ? <DeletePracticeOrderButton orderId={o.id} /> : null}
                 </td>
                 <td className="px-4 py-3">
                   <DeskLink href={`/orders/${o.id}`} className="block">

@@ -4,7 +4,11 @@ import { ProductEditor } from "@/components/product-editor";
 import { shopifyStorefrontHomeUrl } from "@/lib/shopify-storefront";
 import { storeHomePath } from "@/lib/store-slug";
 import { stripeKeyMode } from "@/lib/stripe-keys";
-import { sellerPublishGaps, sellerPublishHint } from "@/lib/storefront";
+import {
+  sellerPublishGaps,
+  sellerPublishHint,
+  sellerPublishSettingsHref,
+} from "@/lib/storefront";
 
 export default async function ProductPage({
   params,
@@ -25,6 +29,7 @@ export default async function ProductPage({
       stripeLive={stripeKeyMode(operator?.storeStripeSk) === "live"}
       sellerReady={sellerReady}
       sellerHint={sellerPublishHint(sellerMissing)}
+      sellerSettingsHref={sellerPublishSettingsHref(sellerMissing)}
     />
   );
 }

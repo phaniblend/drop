@@ -32,12 +32,13 @@ export function StoreProductMedia({
         className="aspect-square w-full rounded-2xl sm:h-80 sm:aspect-auto"
       />
       {gallery.length > 1 ? (
-        <div className="flex gap-2 overflow-x-auto">
-          {gallery.slice(0, 6).map((src) => (
+        <div className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain">
+          {gallery.slice(0, 6).map((src, index) => (
             <button
               key={src}
               type="button"
               onClick={() => setActive(src)}
+              aria-label={`View photo ${index + 1} of ${title}`}
               className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border ${
                 active === src ? "border-accent" : "border-line"
               }`}

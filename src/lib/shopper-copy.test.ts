@@ -59,7 +59,14 @@ describe("shopper copy", () => {
     expect(shopperVariantLabel("S · black · China Mainland")).toBe("S · black");
     expect(shopperVariantLabel("L · grey · China Mainland")).toBe("L · grey");
     expect(shopperVariantLabel("14:1005009182345 · Black")).toBe("Black");
-    expect(shopperVariantLabel("1005009182345:14#T0")).toBe("Option");
+    expect(shopperVariantLabel("1005009182345:14#T0")).toMatch(/^Option \d+$/);
+  });
+
+  it("uses a neutral fallback without category claims", () => {
+    const html = sanitizeShopperHtml("", "Adjustable Breathable Posture Corrector Belt");
+    expect(html).not.toMatch(/bright enough to see at night/i);
+    expect(html).not.toMatch(/soft bristles/i);
+    expect(html).toMatch(/ships as shown/i);
   });
 
   it("public PDP HTML never includes cost or operator phrases", () => {

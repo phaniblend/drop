@@ -25,8 +25,15 @@ export function netProfit(input: {
   return round2(input.revenue - input.cogs - spend - fees);
 }
 
+/** Round to a shopper-friendly .99 (or .49 when under $10). */
+export function retailEnding(raw: number) {
+  if (!(raw > 0)) return 0;
+  if (raw < 10) return round2(Math.ceil(raw * 2) / 2 - 0.01);
+  return round2(Math.ceil(raw) - 0.01);
+}
+
 export function suggestedRetail(cost: number, shipping: number, multiplier = 3) {
-  return round2((cost + shipping) * multiplier);
+  return retailEnding((cost + shipping) * multiplier);
 }
 
 export function unitMargin(retail: number, cost: number, shipping: number) {

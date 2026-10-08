@@ -31,6 +31,7 @@ export function ProductEditor({
   stripeLive = false,
   sellerReady = false,
   sellerHint = "",
+  sellerSettingsHref = "/settings",
 }: {
   product: Product & {
     variants: ProductVariant[];
@@ -42,13 +43,18 @@ export function ProductEditor({
   stripeLive?: boolean;
   sellerReady?: boolean;
   sellerHint?: string;
+  sellerSettingsHref?: string;
 }) {
   const router = useRouter();
   const [savingPrice, startPrice] = useTransition();
   const [rewriting, startRewrite] = useTransition();
   const [publishing, startPublish] = useTransition();
   const [statusPending, startStatus] = useTransition();
-  const baseCost = product.variants[0]?.variantCost ?? product.baseCost;
+  const baseCost = (() => {
+    const costs = product.variants.map((v) => v.variantCost).filter((c) => c > 0);
+    if (costs.length) return Math.min(...costs);
+    return product.baseCost;
+  })();
   const initialShip = Number(product.shippingCost) || 0;
   const initialLanded = baseCost + (initialShip > 0 ? initialShip : 0);
   const [retail, setRetail] = useState(String(product.retailPrice));
@@ -143,6 +149,7 @@ export function ProductEditor({
         showPublish({
           tone: "warn",
           text: sellerHint || "Add a business address in Settings, then publish again.",
+          href: sellerSettingsHref,
         });
         return;
       }
@@ -209,6 +216,21 @@ export function ProductEditor({
         <StatusPill value={product.status} />
       </div>
 
+      {!sellerReady ? (
+        <p className="rounded-xl border border-warn/30 bg-warn/5 px-3 py-2 text-sm text-warn">
+          {sellerHint || "Add a business address in Settings before you can publish."}{" "}
+          <a href={sellerSettingsHref} className="underline">
+            Open Settings
+          </a>
+          {product.status === "published" ? (
+            <span className="mt-1 block text-xs text-muted">
+              This listing is already live. New publishes stay blocked until the address is set; existing
+              shopper pages stay up.
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+
       {publishMsg ? (
         <p
           className={`rounded-xl border px-3 py-2 text-sm ${
@@ -223,8 +245,13 @@ export function ProductEditor({
           {publishMsg.href ? (
             <>
               {" "}
-              <a href={publishMsg.href} target="_blank" rel="noreferrer" className="underline">
-                Open store page
+              <a
+                href={publishMsg.href}
+                target={publishMsg.href.startsWith("/settings") ? undefined : "_blank"}
+                rel={publishMsg.href.startsWith("/settings") ? undefined : "noreferrer"}
+                className="underline"
+              >
+                {publishMsg.href.startsWith("/settings") ? "Open Settings" : "Open store page"}
               </a>
             </>
           ) : null}
@@ -236,10 +263,13 @@ export function ProductEditor({
         title={product.cleanTitle ?? product.rawTitle}
         description={product.descriptionHtml ?? ""}
         price={product.retailPrice}
+        published={product.status === "published"}
         productUrl={
-          typeof window !== "undefined"
-            ? `${window.location.origin}${storeHref.replace(/\/$/, "")}/${product.id}`
-            : `${storeHref.replace(/\/$/, "")}/${product.id}`
+          product.status === "published"
+            ? typeof window !== "undefined"
+              ? `${window.location.origin}${storeHref.replace(/\/$/, "")}/${product.id}`
+              : `${storeHref.replace(/\/$/, "")}/${product.id}`
+            : ""
         }
         initialHooks={(() => {
           try {
@@ -256,7 +286,9 @@ export function ProductEditor({
         <Card className="overflow-hidden">
           <Thumb src={product.imageUrl} alt="" className="h-72 w-full rounded-none" />
           <div className="space-y-3 p-5">
-            <p className="text-xs uppercase tracking-wider text-faint">Storefront copy (live)</p>
+            <p className="text-xs uppercase tracking-wider text-faint">
+              {product.status === "published" ? "Storefront copy (live)" : "Storefront copy (draft)"}
+            </p>
             {(() => {
               const title = product.cleanTitle || product.rawTitle;
               const raw = (product.descriptionHtml ?? "").trim();
@@ -413,6 +445,13 @@ export function ProductEditor({
                     const value = e.target.value;
                     setShipping(value);
                     const ship = Number(value) || 0;
+                    if (ship > 0 || allowUnknownShipping) {
+                      setPublishMsg((msg) =>
+                        msg?.text.includes("ship cost") || msg?.text.includes("shipping unknown")
+                          ? null
+                          : msg,
+                      );
+                    }
                     const landed = baseCost + (ship > 0 ? ship : 0);
                     const price = Number(retail);
                     if (landed > 0 && Number.isFinite(price) && price > 0) {
@@ -423,24 +462,30 @@ export function ProductEditor({
               </Field>
             </div>
             {shipUnknown ? (
-              <p className="mt-2 text-xs text-warn">
-                Supplier freight was not available — margin is estimated until you enter ship cost.
-              </p>
-            ) : null}
-            {shipUnknown && !allowUnknownShipping ? (
-              <p className="mt-1 text-xs text-loss">
-                Enter ship cost above, or check “Publish without a ship cost”, before publishing.
-              </p>
-            ) : null}
-            {shipUnknown ? (
-              <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={allowUnknownShipping}
-                  onChange={(e) => setAllowUnknownShipping(e.target.checked)}
-                />
-                Publish without a ship cost
-              </label>
+              <>
+                <p className="mt-2 text-xs text-warn">
+                  {allowUnknownShipping
+                    ? "Publishing with shipping unknown — margin is estimated."
+                    : "Enter ship cost, or check the box to publish with shipping unknown."}
+                </p>
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={allowUnknownShipping}
+                    onChange={(e) => {
+                      setAllowUnknownShipping(e.target.checked);
+                      if (e.target.checked) {
+                        setPublishMsg((msg) =>
+                          msg?.text.includes("ship cost") || msg?.text.includes("shipping unknown")
+                            ? null
+                            : msg,
+                        );
+                      }
+                    }}
+                  />
+                  Publish without a ship cost
+                </label>
+              </>
             ) : null}
             {(() => {
               const screen = screenListing({
@@ -488,10 +533,15 @@ export function ProductEditor({
                       markupMultiplier: Number(markup),
                       shippingCost: Number(shipping),
                     }, { busy: "Saving price…" });
-                    setRetail(String(saved.retailPrice));
-                    setMarkup(String(saved.markupMultiplier));
+                    setRetail(Number(saved.retailPrice).toFixed(2));
+                    setMarkup(Number(saved.markupMultiplier).toFixed(2));
                     setShipping(String(saved.shippingCost));
                     setPriceMsg("Saved.");
+                    setPublishMsg((msg) =>
+                      msg?.text.includes("ship cost") || msg?.text.includes("shipping unknown")
+                        ? null
+                        : msg,
+                    );
                   } catch {
                     setPriceMsg("Could not save. Try again.");
                     return;

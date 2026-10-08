@@ -1,5 +1,32 @@
 export type MetaHealthStatus = "connected" | "degraded" | "offline";
 
+/** One label set for Command, Settings, Ads, and go-live. */
+export function metaStatusLabel(status: MetaHealthStatus): {
+  short: string;
+  badge: "CONNECTED" | "NEEDS SETUP" | "OFFLINE";
+  detail: string;
+} {
+  if (status === "connected") {
+    return {
+      short: "Ready",
+      badge: "CONNECTED",
+      detail: "Meta is connected — Margin Guard can read spend and pause ad sets you allow.",
+    };
+  }
+  if (status === "degraded") {
+    return {
+      short: "Needs setup",
+      badge: "NEEDS SETUP",
+      detail: "Meta Login started but Guard is not fully ready — reconnect with Facebook in Settings.",
+    };
+  }
+  return {
+    short: "Pending",
+    badge: "OFFLINE",
+    detail: "Connect with Facebook in Settings so Margin Guard can protect spend.",
+  };
+}
+
 /** Shop-facing copy — never show Graph API session dumps. */
 export function friendlyMetaError(raw?: string | null) {
   const text = (raw ?? "").trim();
