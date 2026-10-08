@@ -82,6 +82,36 @@ async function resolveTokenAndLongLived(): Promise<{ token: string; longLived: b
   return { token, longLived };
 }
 
+/** Desk-picked act_… first (dropshipper’s account), then platform env fallback. */
+export async function resolveMetaAdAccountId(): Promise<string> {
+  try {
+    const { getOperator } = await import("./db/queries");
+    const operator = await getOperator();
+    if (operator?.id) {
+      const db = await ensureDb();
+      const key = `meta_ad_account_${operator.id}`;
+      const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
+      if (row?.value?.trim()) return normalizeAdAccountId(row.value);
+      try {
+        const { metaAdAccounts, metaConnections } = await import("./db/schema-guard");
+        const { and, eq: eq2 } = await import("drizzle-orm");
+        const [acct] = await db
+          .select({ id: metaAdAccounts.id })
+          .from(metaAdAccounts)
+          .innerJoin(metaConnections, eq2(metaAdAccounts.metaConnectionId, metaConnections.id))
+          .where(and(eq2(metaConnections.storeId, operator.id), eq2(metaAdAccounts.guardEnabled, true)))
+          .limit(1);
+        if (acct?.id) return normalizeAdAccountId(acct.id);
+      } catch {
+        /* guard tables may be absent in older DBs */
+      }
+    }
+  } catch {
+    /* fall through to env */
+  }
+  return normalizeAdAccountId(env.metaAdAccountId);
+}
+
 /** Live ping against act_{id}; cached ~1h unless force. */
 export async function pingMeta(force = false): Promise<MetaHealth> {
   const envToken = Boolean(env.metaToken);
@@ -111,14 +141,14 @@ export async function pingMeta(force = false): Promise<MetaHealth> {
     };
   }
 
-  const accountId = normalizeAdAccountId(env.metaAdAccountId);
+  const accountId = await resolveMetaAdAccountId();
   const { token, longLived } = await resolveTokenAndLongLived();
 
   if (!accountId) {
     const stored: Stored = {
       status: "degraded",
       live: false,
-      error: "META_AD_ACCOUNT_ID is missing. Add act_… on Railway.",
+      error: "Pick an ad account under Meta ads in Settings.",
       accountId: "",
       checkedAt: new Date().toISOString(),
       longLived,

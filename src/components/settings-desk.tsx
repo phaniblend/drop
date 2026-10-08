@@ -148,20 +148,17 @@ export function SettingsDesk({
     },
     {
       name: "Meta ads",
-      ok: status.metaStatus === "connected" || Boolean(metaOAuth?.connected),
+      ok: status.metaStatus === "connected",
       degraded: status.metaStatus === "degraded",
       why: (() => {
-        const statusKey =
-          status.metaStatus === "connected" || metaOAuth?.connected
-            ? ("connected" as const)
-            : status.metaStatus === "degraded"
-              ? ("degraded" as const)
-              : ("offline" as const);
-        if (statusKey === "connected") {
+        if (status.metaStatus === "connected") {
           return `Meta connected${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`;
         }
-        if (statusKey === "degraded") {
+        if (status.metaStatus === "degraded") {
           return friendlyMetaError(status.metaError) || metaStatusLabel("degraded").detail;
+        }
+        if (metaOAuth?.connected) {
+          return "Facebook connected — pick an ad account below for Margin Guard.";
         }
         return metaStatusLabel("offline").detail;
       })(),
@@ -415,7 +412,7 @@ export function SettingsDesk({
                 </p>
               </div>
             ) : null}
-            {"metaExtend" in c && c.metaExtend && status.metaStatus === "connected" ? (
+            {"metaExtend" in c && c.metaExtend && (status.metaStatus === "connected" || status.metaStatus === "degraded") ? (
               metaAppReady ? (
                 <div className="mt-3 space-y-1">
                   <Button

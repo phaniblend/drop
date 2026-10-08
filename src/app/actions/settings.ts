@@ -244,7 +244,13 @@ export async function saveMetaAdAccount(adAccountId: string) {
   const key = `meta_ad_account_${operator.id}`;
   await db.delete(settings).where(eq(settings.key, key));
   await db.insert(settings).values({ key, value: id });
+  try {
+    await import("@/lib/meta-health").then((m) => m.getMetaHealth(true));
+  } catch {
+    /* health refresh is best-effort */
+  }
   revalidatePath("/settings");
   revalidatePath("/ads");
+  revalidatePath("/");
   return { ok: true as const, message: `Margin Guard will use ${id}.` };
 }
