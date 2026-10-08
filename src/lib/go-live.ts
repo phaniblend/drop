@@ -38,10 +38,6 @@ export async function getPlatformGoLive() {
   // encrypts stored tokens; Meta can still work with plaintext desk tokens if it is missing.
   const metaSoftLaunchOk = metaAppOk;
   const metaConnected = Boolean(metaHealth.live || metaHealth.degraded);
-  const metaCredGaps: string[] = [];
-  if (!metaAppIdOk) metaCredGaps.push("META_APP_ID");
-  if (!metaAppSecretOk) metaCredGaps.push("META_APP_SECRET");
-  if (!encryptionOk) metaCredGaps.push("ENCRYPTION_KEY");
   const merchantTest = stripeKeyMode(operator?.storeStripeSk) === "test";
   const merchantLive = stripeKeyMode(operator?.storeStripeSk) === "live";
   const sellerMissing = sellerPublishGaps(operator);
