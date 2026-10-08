@@ -94,9 +94,19 @@ export default async function OrderDetailPage({
         <ul className="divide-y divide-line">
           {order.items.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-              <p>
-                {item.quantity}× {item.title}
-              </p>
+              <div>
+                <p>
+                  {item.quantity}× {item.title.includes(" · ") ? item.title : item.title}
+                </p>
+                {!item.title.includes(" · ") ? (
+                  <p className="text-[11px] text-faint">
+                    {item.variantId && item.variantId !== "default"
+                      ? "Option not recorded on this older order"
+                      : "Option not recorded"}
+                  </p>
+                ) : null}
+                <p className="font-mono text-[10px] text-faint">SKU {item.sku}</p>
+              </div>
               <p className="font-mono text-xs">{money(item.unitPrice * item.quantity)}</p>
             </li>
           ))}

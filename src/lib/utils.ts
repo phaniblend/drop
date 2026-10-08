@@ -38,9 +38,11 @@ export function pct(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+/** Store-timezone timestamps — always pass an explicit IANA zone so SSR and client match. */
 export function shortDate(iso: string, timeZone = "America/Chicago") {
+  const tz = timeZone.trim() || "America/Chicago";
   return new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: tz,
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -49,12 +51,18 @@ export function shortDate(iso: string, timeZone = "America/Chicago") {
 }
 
 export function dayLabel(iso: string, timeZone = "America/Chicago") {
+  const tz = timeZone.trim() || "America/Chicago";
   return new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: tz,
     weekday: "short",
     month: "short",
     day: "numeric",
   }).format(new Date(iso));
+}
+
+/** Checked-at style stamp for Settings cards (hydration-safe when tz is fixed). */
+export function checkedAtLabel(iso: string, timeZone = "America/Chicago") {
+  return shortDate(iso, timeZone);
 }
 
 export function clamp(n: number, min: number, max: number) {

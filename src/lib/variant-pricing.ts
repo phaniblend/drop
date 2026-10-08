@@ -1,5 +1,5 @@
 import { round2 } from "./utils";
-import { suggestedRetail } from "./money";
+import { retailEnding, suggestedRetail } from "./money";
 
 /**
  * SKUs whose cost is far below the median are usually brushes/cables/gifts.
@@ -65,8 +65,9 @@ export function scaleVariantPrices(
     if (isAccessoryOutlier(v.cost, costs)) {
       return suggestedRetail(v.cost, ship, Math.min(effectiveMarkup, 2.5));
     }
+    // Keep the operator's typed price on the anchor SKU; round every other SKU to .99/.49.
     if (anchor > 0 && Math.abs(v.cost - anchor) < 0.02) return round2(retailPrice);
-    return round2(Math.max(0.5, (v.cost + ship) * effectiveMarkup));
+    return retailEnding(Math.max(0.5, (v.cost + ship) * effectiveMarkup));
   });
 }
 

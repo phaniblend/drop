@@ -436,7 +436,13 @@ export function ProductEditor({
               <Field label={shipUnknown ? "Markup (sell ÷ item cost)" : "Markup (sell ÷ landed cost)"}>
                 <input className={inputClass} value={markup} onChange={(e) => onMarkupChange(e.target.value)} />
               </Field>
-              <Field label="Ship $">
+              <Field
+                label={
+                  !shipUnknown && Math.abs(shipNum - 2.49) < 0.01
+                    ? "Ship $ (est. — confirm)"
+                    : "Ship $"
+                }
+              >
                 <input
                   id="ship-cost"
                   className={`${inputClass} ${shipUnknown && !allowUnknownShipping ? "border-loss/50" : ""}`}
@@ -461,6 +467,11 @@ export function ProductEditor({
                 />
               </Field>
             </div>
+            {!shipUnknown && Math.abs(shipNum - 2.49) < 0.01 ? (
+              <p className="mt-1 text-xs text-warn">
+                Ship cost came from a Discover estimate — confirm the real freight before publishing.
+              </p>
+            ) : null}
             {shipUnknown ? (
               <>
                 <p className="mt-2 text-xs text-warn">
@@ -514,44 +525,86 @@ export function ProductEditor({
                 spending on ads.
               </p>
             ) : null}
-            <Button
-              className="mt-3"
-              tone="line"
-              busy={savingPrice}
-              onClick={() =>
-                startPrice(async () => {
-                  setPriceMsg("");
-                  try {
-                    const saved = await postJson<{
-                      ok: boolean;
-                      retailPrice: number;
-                      markupMultiplier: number;
-                      shippingCost: number;
-                    }>("/api/catalog/pricing", {
-                      productId: product.id,
-                      retailPrice: Number(retail),
-                      markupMultiplier: Number(markup),
-                      shippingCost: Number(shipping),
-                    }, { busy: "Saving price…" });
-                    setRetail(Number(saved.retailPrice).toFixed(2));
-                    setMarkup(Number(saved.markupMultiplier).toFixed(2));
-                    setShipping(String(saved.shippingCost));
-                    setPriceMsg("Saved.");
-                    setPublishMsg((msg) =>
-                      msg?.text.includes("ship cost") || msg?.text.includes("shipping unknown")
-                        ? null
-                        : msg,
-                    );
-                  } catch {
-                    setPriceMsg("Could not save. Try again.");
-                    return;
-                  }
-                  router.refresh();
-                })
-              }
-            >
-              {savingPrice ? "Saving…" : "Save pricing"}
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                tone="line"
+                busy={savingPrice}
+                onClick={() =>
+                  startPrice(async () => {
+                    setPriceMsg("");
+                    try {
+                      const saved = await postJson<{
+                        ok: boolean;
+                        retailPrice: number;
+                        markupMultiplier: number;
+                        shippingCost: number;
+                      }>("/api/catalog/pricing", {
+                        productId: product.id,
+                        retailPrice: Number(retail),
+                        markupMultiplier: Number(markup),
+                        shippingCost: Number(shipping),
+                      }, { busy: "Saving price…" });
+                      setRetail(Number(saved.retailPrice).toFixed(2));
+                      setMarkup(Number(saved.markupMultiplier).toFixed(2));
+                      setShipping(String(saved.shippingCost));
+                      setPriceMsg("Saved.");
+                      setPublishMsg((msg) =>
+                        msg?.text.includes("ship cost") || msg?.text.includes("shipping unknown")
+                          ? null
+                          : msg,
+                      );
+                    } catch {
+                      setPriceMsg("Could not save. Try again.");
+                      return;
+                    }
+                    router.refresh();
+                  })
+                }
+              >
+                {savingPrice ? "Saving…" : "Save pricing"}
+              </Button>
+              <Button
+                tone="ghost"
+                disabled={savingPrice}
+                onClick={() =>
+                  startPrice(async () => {
+                    setPriceMsg("");
+                    try {
+                      const { recalculateVariantPrices } = await import("@/app/actions/products");
+                      const preview = await recalculateVariantPrices(product.id, { apply: false });
+                      if (!preview.ok) {
+                        setPriceMsg(preview.error);
+                        return;
+                      }
+                      const changed = preview.changes.filter((c) => Math.abs(c.from - c.to) >= 0.02);
+                      if (!changed.length) {
+                        setPriceMsg("Variant prices already match markup.");
+                        return;
+                      }
+                      const lines = changed
+                        .slice(0, 6)
+                        .map((c) => `${c.name}: $${c.from.toFixed(2)} → $${c.to.toFixed(2)}`)
+                        .join("\n");
+                      const ok = window.confirm(
+                        `${preview.handTuned ? "This product may be hand-priced.\n\n" : ""}Recalculate ${changed.length} variant price(s)?\n\n${lines}${changed.length > 6 ? "\n…" : ""}`,
+                      );
+                      if (!ok) return;
+                      const applied = await recalculateVariantPrices(product.id, { apply: true });
+                      if (!applied.ok) {
+                        setPriceMsg(applied.error);
+                        return;
+                      }
+                      setPriceMsg(`Recalculated ${changed.length} variant prices.`);
+                      router.refresh();
+                    } catch {
+                      setPriceMsg("Could not recalculate. Try again.");
+                    }
+                  })
+                }
+              >
+                Recalculate variants
+              </Button>
+            </div>
             {priceMsg ? (
               <p className={`mt-2 text-xs ${priceMsg === "Saved." ? "text-profit" : "text-loss"}`}>
                 {priceMsg}

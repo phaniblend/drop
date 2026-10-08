@@ -27,7 +27,7 @@ export function validateTracking(trackingRaw: string, carrierRaw: string) {
   if (tracking.length < MIN_TRACKING_LEN) {
     return {
       ok: false as const,
-      error: "Tracking number looks too short — paste the full carrier tracking id.",
+      error: "That doesn't look like a tracking number — check it and try again.",
     };
   }
   if (!carrier) {

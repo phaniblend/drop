@@ -60,7 +60,7 @@ export function DiscoverDesk({
   const [searchError, setSearchError] = useState("");
   const [pending, start] = useTransition();
   const [searching, setSearching] = useState(false);
-  const [scraping, setScraping] = useState(false);
+  const [importingUrl, setImportingUrl] = useState("");
   const [sort, setSort] = useState<DiscoverSortId>("best");
   const [showSaved, setShowSaved] = useState(false);
   const [savedRows, setSavedRows] = useState<FeedProduct[]>([]);
@@ -105,9 +105,10 @@ export function DiscoverDesk({
       .then((s) => {
         if (!s) return;
         setCoachStep(s.stepId);
+        // Coach keyword goes into the visible search box only — never a hidden DOM value.
         if (s.stepId === "pick" && s.keyword) {
           setShowSaved(false);
-          setQuery((q) => (q.trim().length >= 2 ? q : s.keyword));
+          setQuery(s.keyword);
         }
       })
       .catch(() => {});
@@ -229,7 +230,7 @@ export function DiscoverDesk({
 
     beginProcessing("Importing listing…");
     if (isCj) {
-      setScraping(true);
+      setImportingUrl(trimmed);
       try {
         const res = await importFromSupplierUrl(trimmed);
         if (hasPaywall(res)) {
@@ -242,13 +243,13 @@ export function DiscoverDesk({
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
       } finally {
-        setScraping(false);
+        setImportingUrl("");
         endProcessing();
       }
       return;
     }
 
-    setScraping(true);
+    setImportingUrl(trimmed);
     try {
       const scrapeRes = await fetch("/api/scrape", {
         method: "POST",
@@ -296,7 +297,7 @@ export function DiscoverDesk({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {
-      setScraping(false);
+      setImportingUrl("");
       endProcessing();
     }
   }
@@ -359,9 +360,15 @@ export function DiscoverDesk({
           className={`${inputClass} border-accent/40`}
           placeholder="Search for products to sell"
           value={query}
+          autoComplete="off"
+          spellCheck={false}
           onChange={(e) => {
             setShowSaved(false);
             setQuery(e.target.value);
+          }}
+          onFocus={(e) => {
+            // If browser/bfcache left a ghost value that React state doesn't know about, adopt it.
+            if (e.target.value !== query) setQuery(e.target.value);
           }}
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -535,15 +542,23 @@ export function DiscoverDesk({
                   </span>
                 </div>
                 {licensed ? <p className="text-xs text-loss">{licensed}</p> : null}
-                {screen && !screen.ok ? <p className="text-xs text-warn">{screen.reason}</p> : null}
+                {screen && !screen.ok ? (
+                  <p className={`text-xs ${screen.level === "block" ? "text-loss" : "text-warn"}`}>
+                    {screen.reason}
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-2">
                   <Button
                     className="w-full"
                     tone="accent"
-                    disabled={pending}
+                    disabled={pending || screen?.level === "block" || Boolean(licensed)}
                     onClick={() =>
                       start(async () => {
                         setError("");
+                        if (screen?.level === "block") {
+                          setError(screen.reason);
+                          return;
+                        }
                         try {
                           await shareListingWithCoach({
                             title: p.cleanTitle || p.title,
@@ -564,22 +579,31 @@ export function DiscoverDesk({
                   <Button
                     className="w-full"
                     tone={coachStep === "import" ? "accent" : "line"}
-                    busy={pending || scraping}
+                    busy={importingUrl === p.url}
+                    disabled={
+                      Boolean(importingUrl) ||
+                      screen?.level === "block" ||
+                      Boolean(licensed)
+                    }
                     onClick={() =>
                       start(async () => {
+                        if (screen?.level === "block") {
+                          setError(screen.reason);
+                          return;
+                        }
                         await runImportUrl(p.url);
                       })
                     }
                   >
-                    {scraping ? "Importing…" : "Import"}
+                    {importingUrl === p.url ? "Importing…" : "Import"}
                   </Button>
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
                     tone="line"
-                    disabled={pending || previewLoading === p.url}
-                    onClick={() =>
-                      start(async () => {
+                    disabled={previewLoading === p.url || importingUrl === p.url}
+                    onClick={() => {
+                      void (async () => {
                         setError("");
                         setPreviewLoading(p.url);
                         try {
@@ -612,8 +636,8 @@ export function DiscoverDesk({
                         } finally {
                           setPreviewLoading("");
                         }
-                      })
-                    }
+                      })();
+                    }}
                   >
                     {previewLoading === p.url ? "Fetching…" : "Preview (free)"}
                   </Button>
@@ -656,10 +680,12 @@ export function DiscoverDesk({
           <Button
             className="mt-3 w-full"
             tone="accent"
-            disabled={pending || scraping || !url}
+            disabled={Boolean(importingUrl) || !url}
             onClick={() => void runImportUrl(url)}
           >
-            {scraping ? "Scraping product data..." : "Import URL"}
+            {importingUrl && importingUrl === url.trim()
+              ? "Scraping product data..."
+              : "Import URL"}
           </Button>
         </Card>
         <Card className="p-5">

@@ -30,9 +30,18 @@ export async function getPlatformGoLive() {
 
   const authOk = Boolean(env.authSecret && env.googleId && env.googleSecret);
   const cronOk = Boolean(env.cronSecret);
-  const metaAppOk = Boolean(env.metaAppId && env.metaAppSecret);
+  const metaAppIdOk = Boolean(env.metaAppId?.trim());
+  const metaAppSecretOk = Boolean(env.metaAppSecret?.trim());
   const encryptionOk = Boolean(process.env.ENCRYPTION_KEY?.trim());
+  const metaAppOk = metaAppIdOk && metaAppSecretOk;
+  // Soft launch needs the Facebook app so Connect works for any desk. ENCRYPTION_KEY
+  // encrypts stored tokens; Meta can still work with plaintext desk tokens if it is missing.
+  const metaSoftLaunchOk = metaAppOk;
   const metaConnected = Boolean(metaHealth.live || metaHealth.degraded);
+  const metaCredGaps: string[] = [];
+  if (!metaAppIdOk) metaCredGaps.push("META_APP_ID");
+  if (!metaAppSecretOk) metaCredGaps.push("META_APP_SECRET");
+  if (!encryptionOk) metaCredGaps.push("ENCRYPTION_KEY");
   const merchantTest = stripeKeyMode(operator?.storeStripeSk) === "test";
   const merchantLive = stripeKeyMode(operator?.storeStripeSk) === "live";
   const sellerMissing = sellerPublishGaps(operator);
@@ -65,12 +74,15 @@ export async function getPlatformGoLive() {
     {
       id: "meta_app",
       label: "Meta app credentials",
-      ok: metaAppOk && encryptionOk,
-      detail:
-        metaAppOk && encryptionOk
+      ok: metaSoftLaunchOk,
+      detail: !metaAppOk
+        ? `Missing on Railway: ${[metaAppIdOk ? null : "META_APP_ID", metaAppSecretOk ? null : "META_APP_SECRET"]
+            .filter(Boolean)
+            .join(", ")}.`
+        : encryptionOk
           ? "META_APP_ID / SECRET + ENCRYPTION_KEY ready for Login + App Review."
-          : "Set META_APP_ID, META_APP_SECRET, and ENCRYPTION_KEY on Railway.",
-      owner: metaAppOk && encryptionOk ? "ready" : "railway",
+          : "META_APP_ID / SECRET are set (Connect works). Set ENCRYPTION_KEY on Railway to encrypt desk tokens at rest.",
+      owner: metaSoftLaunchOk ? "ready" : "railway",
     },
     {
       id: "meta_desk",
@@ -107,7 +119,8 @@ export async function getPlatformGoLive() {
     },
   ];
 
-  const softLaunchOk = authOk && cronOk && metaAppOk && encryptionOk;
+  // ENCRYPTION_KEY is recommended but not required for soft launch when Meta Login already works.
+  const softLaunchOk = authOk && cronOk && metaSoftLaunchOk;
   const chargeOk = billing.liveReady;
   const metaReviewUrls = {
     privacy: `${appUrl}/privacy`,

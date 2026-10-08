@@ -223,7 +223,10 @@ export async function importLiveListing(feed: FeedProduct) {
       shipping: feed.shipping,
       niche: feed.niche,
     });
-    const retail = suggestedRetail(feed.cost, feed.shipping, 3);
+    const { ESTIMATED_SHIP_USD, discoverShippingKnown } = await import("@/lib/discover-cost");
+    const shipKnown = discoverShippingKnown(feed.shipping);
+    const shipForPrice = shipKnown ? feed.shipping : ESTIMATED_SHIP_USD;
+    const retail = suggestedRetail(feed.cost, shipForPrice, 3);
     const id = await insertImportedProduct({
       rawTitle: feed.title,
       cleanTitle: copy.title,
@@ -234,7 +237,9 @@ export async function importLiveListing(feed: FeedProduct) {
       imageUrl: feed.image,
       gallery: feed.image ? [feed.image] : [],
       baseCost: feed.cost,
-      shippingCost: feed.shipping,
+      // Carry Discover estimate so the product page starts at the same sell price; publish still
+      // requires confirm or "Publish without a ship cost".
+      shippingCost: shipForPrice,
       retailPrice: retail,
       shippingDays: feed.shippingDays,
       niche: feed.niche,
@@ -243,7 +248,7 @@ export async function importLiveListing(feed: FeedProduct) {
         skuId: v.skuId,
         name: v.attributes,
         cost: v.cost,
-        price: suggestedRetail(v.cost, feed.shipping, 3),
+        price: suggestedRetail(v.cost, shipForPrice, 3),
         stock: v.stock,
         imageUrl: feed.image,
       })),
@@ -388,6 +393,41 @@ export async function updateProductPricing(
   await writeProductPricing(productId, input);
 }
 
+/** Preview (and optionally apply) reprice of every variant from cost+ship × product markup. */
+export async function recalculateVariantPrices(productId: string, opts?: { apply?: boolean }) {
+  const product = await getProduct(productId);
+  if (!product) return { ok: false as const, error: "Product not found." };
+  const { scaleVariantPrices, pricingAnchorCost } = await import("@/lib/variant-pricing");
+  const { pricesMatchMarkup } = await import("@/lib/money");
+  const ship = product.shippingCost > 0 ? product.shippingCost : 0;
+  const markup = product.markupMultiplier > 0 ? product.markupMultiplier : 3;
+  const anchor = pricingAnchorCost(product.variants.map((v) => ({ cost: v.variantCost })));
+  const nextPrices = scaleVariantPrices(
+    product.variants.map((v) => ({ cost: v.variantCost })),
+    product.retailPrice,
+    ship,
+    markup,
+  );
+  const changes = product.variants.map((v, i) => ({
+    id: v.id,
+    name: v.variantName,
+    from: v.variantPrice,
+    to: nextPrices[i] ?? v.variantPrice,
+  }));
+  const handTuned = !pricesMatchMarkup(product.retailPrice, anchor || product.baseCost, ship, markup);
+  if (!opts?.apply) {
+    return { ok: true as const, handTuned, changes, applied: false as const };
+  }
+  await writeProductPricing(productId, {
+    retailPrice: product.retailPrice,
+    markupMultiplier: markup,
+    shippingCost: ship,
+  });
+  revalidatePath(`/catalog/${productId}`);
+  revalidatePath("/catalog");
+  return { ok: true as const, handTuned, changes, applied: true as const };
+}
+
 export async function publishProduct(productId: string) {
   const result = await publishLiveProduct(productId);
   return {
@@ -401,6 +441,15 @@ export async function publishProduct(productId: string) {
 export async function setProductStatus(productId: string, status: string) {
   const product = await getProduct(productId);
   if (!product) throw new Error("Product not found.");
+  if (status === "ready" || status === "published") {
+    const screen = (await import("@/lib/product-screen")).screenListing({
+      title: `${product.cleanTitle ?? ""} ${product.rawTitle}`,
+      description: product.descriptionHtml ?? "",
+    });
+    if (screen.level === "block") {
+      throw new Error(screen.reason || "This product type cannot be published.");
+    }
+  }
   const db = await ensureDb();
   await db.update(products).set({ status }).where(eq(products.id, productId));
   revalidatePath("/catalog");

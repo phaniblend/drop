@@ -27,7 +27,7 @@ const TRAILING_STOP =
 function isJunkToken(token: string) {
   const t = token.trim();
   if (!t) return true;
-  if (/^\d+(?:mah|ml|w|v|oz|pcs?|pack)$/i.test(t)) return false;
+  if (/^\d+(?:mah|ml|w|v|oz|pcs?|-?pack|x\d*)$/i.test(t)) return false;
   if (/^\d+[a-z]/i.test(t)) return true;
   if (/^[a-z]*\d+[a-z]+$/i.test(t) && t.length <= 12 && !/[aeiou]/i.test(t.replace(/\d/g, ""))) return true;
   return false;
@@ -37,18 +37,24 @@ function stripJunk(raw: string) {
   let next = raw;
   // Keep capacity pairs like 500/1300ml as "500-1300ml" before slash strip.
   next = next.replace(/(\d+)\s*\/\s*(\d+\s*ml)\b/gi, "$1-$2");
+  // Keep pack counts: "2 Pack" / "2 PCS" / "2x" → one token so the digit isn't dropped.
+  next = next.replace(/\b(\d+)\s*[x×]\s*(\d+)?\b/gi, (_, a, b) => (b ? `${a}x${b}` : `${a}x`));
+  next = next.replace(/\b(\d+)\s*(pcs?|pack)\b/gi, "$1$2");
   for (const re of JUNK) next = next.replace(re, " ");
   next = next.replace(/[,|/]+/g, " ").replace(/\s+/g, " ").trim();
   // Drop digit junk glued onto a real product noun (8oportable) — never eat mAh/W units.
   next = next.replace(
-    /\b\d+(?!mah\b|ml\b|w\b|v\b|oz\b|pcs?\b|pack\b)[a-z]{0,4}(?=(portable|blender|juicer|fan|light|brush|belt|bag|cup|bottle)\b)/gi,
+    /\b\d+(?!mah\b|ml\b|w\b|v\b|oz\b|pcs?\b|pack\b|x\b)[a-z]{0,4}(?=(portable|blender|juicer|fan|light|brush|belt|bag|cup|bottle)\b)/gi,
     "",
   );
   next = next
     .split(/\s+/)
     .flatMap((w) => {
+      // 8000mahUsb → keep capacity, drop glue into next word
+      const capacityGlued = w.match(/^(\d+(?:mah|ml|w|v|oz|pcs?|pack))([A-Za-z].+)$/i);
+      if (capacityGlued) return [capacityGlued[1]!, capacityGlued[2]!];
       const glued = w.match(/^(\d+[a-z]+)([A-Z].+)$/);
-      if (glued) return [glued[2]!];
+      if (glued && !/^\d+(?:mah|ml|w|v|oz|pcs?|pack)$/i.test(glued[1]!)) return [glued[2]!];
       return [w];
     })
     .filter((w) => w && !isJunkToken(w) && !/^\d+$/.test(w))
@@ -57,6 +63,8 @@ function stripJunk(raw: string) {
     .replace(/\busb\b/gi, "USB")
     .replace(/\bled\b/gi, "LED")
     .replace(/\b(\d+)\s*mah\b/gi, "$1mAh")
+    .replace(/\b(\d+)pcs?\b/gi, "$1pcs")
+    .replace(/\b(\d+)pack\b/gi, "$1-Pack")
     .replace(/\bpc\b/gi, "PC");
   return next.replace(/\s+/g, " ").trim();
 }
@@ -73,10 +81,15 @@ function dedupeWords(words: string[]) {
   return out;
 }
 
+const LEADING_STOP = /^(for|with|in|on|the|a|an|of|to|and|or|by|from|at|as)$/i;
+
 /** Short card title: word-boundary truncate, no dangling preposition/number. */
 export function discoverCardTitle(raw: string, maxWords = 8) {
   const cleaned = stripJunk(raw);
   let words = dedupeWords(cleaned.split(/\s+/).filter(Boolean)).slice(0, maxWords);
+  while (words.length > 2 && LEADING_STOP.test(words[0] || "")) {
+    words = words.slice(1);
+  }
   while (words.length > 2 && TRAILING_STOP.test(words[words.length - 1] || "")) {
     words = words.slice(0, -1);
   }

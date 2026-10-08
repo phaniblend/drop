@@ -15,6 +15,7 @@ import { Badge, Button, Card, CardHeader, Field, inputClass } from "./ui";
 import { PwaInstallButton } from "./pwa-install-button";
 import type { BillingSummary } from "@/lib/paywall";
 import { friendlyMetaError, metaStatusLabel } from "@/lib/meta-status";
+import { checkedAtLabel } from "@/lib/utils";
 import { StripeKeysForm } from "./stripe-keys-form";
 import { BillingPortalButton } from "./billing-portal-button";
 import { PlanCheckoutButtons } from "./plan-checkout-buttons";
@@ -152,7 +153,7 @@ export function SettingsDesk({
       degraded: status.metaStatus === "degraded",
       why: (() => {
         if (status.metaStatus === "connected") {
-          return `Meta connected${status.metaCheckedAt ? ` · checked ${new Date(status.metaCheckedAt).toLocaleString()}` : ""}.`;
+          return `Meta connected${status.metaCheckedAt ? ` · checked ${checkedAtLabel(status.metaCheckedAt, form.timezone)}` : ""}.`;
         }
         if (status.metaStatus === "degraded") {
           return friendlyMetaError(status.metaError) || metaStatusLabel("degraded").detail;
@@ -203,7 +204,7 @@ export function SettingsDesk({
       name: "Listing copy",
       ok: status.ai,
       why: status.ai
-        ? `Title and ad-angle rewrite is live${status.aiCheckedAt ? ` · checked ${new Date(status.aiCheckedAt).toLocaleString()}` : ""}.`
+        ? `Title and ad-angle rewrite is live${status.aiCheckedAt ? ` · checked ${checkedAtLabel(status.aiCheckedAt, form.timezone)}` : ""}.`
         : status.aiConfigured
           ? `Key is set but the copy service failed a health check${status.aiError ? ` (${status.aiError})` : ""}. Offline benefit copy still runs.`
           : "Offline benefit-based copy runs today.",
@@ -692,7 +693,7 @@ export function SettingsDesk({
             start(async () => {
               const result = await repairCatalog();
               setRepairMsg(
-                `Repaired ${result.variantsFixed} variants, cleaned ${result.titlesFixed ?? 0} titles, added ${result.suppliersLinked} suppliers.`,
+                `Repaired ${result.variantsFixed} variants, cleaned ${result.titlesFixed ?? 0} titles, fixed ${result.copyFixed ?? 0} descriptions, repriced ${result.productsPriced} SKUs, added ${result.suppliersLinked} suppliers.`,
               );
             })
           }

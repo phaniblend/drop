@@ -29,10 +29,14 @@ export function OrderFulfillmentEditor({
       setError("");
       setMsg("");
       try {
-        await updateOrderFulfillment(orderId, input);
+        const res = await updateOrderFulfillment(orderId, input);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
         setMsg(label);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not update fulfillment.");
+      } catch {
+        setError("Could not update fulfillment. Try again.");
       }
     });
   }

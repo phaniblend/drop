@@ -70,10 +70,12 @@ export async function updateOrderFulfillment(
     carrier?: string;
     fulfillmentStatus?: string;
   },
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const operator = await requireOperator();
   const order = await getOrder(orderId);
-  if (!order || order.userId !== operator.id) throw new Error("Order not found.");
+  if (!order || order.userId !== operator.id) {
+    return { ok: false, error: "Order not found." };
+  }
 
   const patch: Partial<{
     supplierOrderId: string | null;
@@ -86,7 +88,7 @@ export async function updateOrderFulfillment(
     const check = validateSupplierOrderId(input.supplierOrderId, {
       practice: isPracticeOrder(order),
     });
-    if (!check.ok) throw new Error(check.error);
+    if (!check.ok) return { ok: false, error: check.error };
     patch.supplierOrderId = check.value;
   }
 
@@ -95,7 +97,7 @@ export async function updateOrderFulfillment(
     const carrier = input.carrier ?? order.carrier ?? "";
     if (tracking.trim() || carrier.trim()) {
       const check = validateTracking(tracking, carrier);
-      if (!check.ok) throw new Error(check.error);
+      if (!check.ok) return { ok: false, error: check.error };
       patch.trackingNumber = check.tracking;
       patch.carrier = check.carrier;
     } else {
@@ -112,7 +114,9 @@ export async function updateOrderFulfillment(
       "delivered",
       "refunded",
     ]);
-    if (!allowed.has(input.fulfillmentStatus)) throw new Error("Invalid fulfillment status.");
+    if (!allowed.has(input.fulfillmentStatus)) {
+      return { ok: false, error: "Invalid fulfillment status." };
+    }
     patch.fulfillmentStatus = input.fulfillmentStatus;
     if (input.fulfillmentStatus === "pending_batch") {
       patch.supplierOrderId = null;
@@ -122,7 +126,7 @@ export async function updateOrderFulfillment(
       patch.trackingNumber = null;
       patch.carrier = null;
       if (!patch.supplierOrderId && !order.supplierOrderId) {
-        throw new Error("Enter the supplier order id before marking placed.");
+        return { ok: false, error: "Enter the supplier order id before marking placed." };
       }
     }
   }
@@ -134,7 +138,7 @@ export async function updateOrderFulfillment(
   revalidatePath("/fulfillment");
   revalidatePath("/ops");
   revalidatePath("/");
-  return { ok: true as const };
+  return { ok: true };
 }
 
 export async function deletePracticeOrder(orderId: string) {

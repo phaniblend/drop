@@ -7,9 +7,29 @@ import { Button, Card, CardHeader, Field, inputClass } from "./ui";
 export const STRIPE_KEYS_PROMPT = "seto-stripe-keys-prompt";
 export const STRIPE_KEYS_SKIPPED = "seto-stripe-keys-skipped";
 
+function stripeKeysSkipped() {
+  if (typeof window === "undefined") return true;
+  try {
+    if (window.localStorage.getItem(STRIPE_KEYS_SKIPPED) === "1") return true;
+    if (document.cookie.split("; ").includes(`${STRIPE_KEYS_SKIPPED}=1`)) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function rememberStripeKeysSkipped() {
+  try {
+    window.localStorage.setItem(STRIPE_KEYS_SKIPPED, "1");
+    document.cookie = `${STRIPE_KEYS_SKIPPED}=1; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
+}
+
 export function promptStoreStripeKeys() {
   if (typeof window === "undefined") return;
-  if (window.localStorage.getItem(STRIPE_KEYS_SKIPPED) === "1") return;
+  if (stripeKeysSkipped()) return;
   window.dispatchEvent(new Event(STRIPE_KEYS_PROMPT));
 }
 
@@ -132,10 +152,10 @@ export function StripeKeysPrompt({
       setOpen(false);
       return;
     }
-    if (window.localStorage.getItem(STRIPE_KEYS_SKIPPED) === "1") return;
+    if (stripeKeysSkipped()) return;
     if (autoOpen) setOpen(true);
     function onPrompt() {
-      if (window.localStorage.getItem(STRIPE_KEYS_SKIPPED) === "1") return;
+      if (stripeKeysSkipped()) return;
       setOpen(true);
     }
     window.addEventListener(STRIPE_KEYS_PROMPT, onPrompt);
@@ -143,7 +163,7 @@ export function StripeKeysPrompt({
   }, [live, autoOpen]);
 
   function dismiss() {
-    window.localStorage.setItem(STRIPE_KEYS_SKIPPED, "1");
+    rememberStripeKeysSkipped();
     setOpen(false);
   }
 

@@ -36,6 +36,21 @@ export function suggestedRetail(cost: number, shipping: number, multiplier = 3) 
   return retailEnding((cost + shipping) * multiplier);
 }
 
+/** True when a saved retail looks hand-tuned vs (cost+ship)×markup (within ~8%). */
+export function pricesMatchMarkup(
+  retail: number,
+  cost: number,
+  shipping: number,
+  markup: number,
+  tol = 0.08,
+) {
+  if (!(retail > 0) || !(cost > 0) || !(markup > 0)) return false;
+  const ship = shipping > 0 ? shipping : 0;
+  const expected = retailEnding((cost + ship) * markup);
+  if (!(expected > 0)) return false;
+  return Math.abs(retail - expected) / expected <= tol || Math.abs(retail - (cost + ship) * markup) / retail <= tol;
+}
+
 export function unitMargin(retail: number, cost: number, shipping: number) {
   const cogs = cost + shipping;
   const fee = processorFee(retail);

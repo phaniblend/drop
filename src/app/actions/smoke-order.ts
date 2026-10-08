@@ -54,7 +54,13 @@ export async function createPracticeOrder() {
   });
 
   const { shopperVariantLabel } = await import("@/lib/shopper-copy");
-  const option = variant?.variantName ? shopperVariantLabel(variant.variantName) : "";
+  const variantIndex = variant
+    ? Math.max(
+        0,
+        product.variants.findIndex((v) => v.id === variant.id),
+      )
+    : 0;
+  const option = variant?.variantName ? shopperVariantLabel(variant.variantName, variantIndex) : "";
   const titleBase = product.cleanTitle || product.rawTitle;
   await db.insert(orderItems).values({
     id: nid("itm"),

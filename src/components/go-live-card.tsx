@@ -97,12 +97,16 @@ export function GoLiveCard({
           onClick={() =>
             start(async () => {
               setSmokeMsg("");
-              const res = await createPracticeOrder();
-              if ("error" in res && res.error) {
-                setSmokeMsg(res.error);
-                return;
+              try {
+                const res = await createPracticeOrder();
+                if ("error" in res && res.error) {
+                  setSmokeMsg(res.error);
+                  return;
+                }
+                setSmokeMsg(`Created ${res.orderNumber} — open Fulfill and walk tracking.`);
+              } catch {
+                setSmokeMsg("Could not create a practice order. Refresh and try again.");
               }
-              setSmokeMsg(`Created ${res.orderNumber} — open Fulfill and walk tracking.`);
             })
           }
         >

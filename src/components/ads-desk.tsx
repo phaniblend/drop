@@ -403,7 +403,7 @@ export function AdsDesk({
                   <p className="font-medium text-ink">{explainVerdict(whyByAdset[c.adSetId].verdict)}</p>
                   <p className="font-mono text-[10px] text-faint">
                     {whyByAdset[c.adSetId].formulaVersion} ·{" "}
-                    {new Date(whyByAdset[c.adSetId].evaluatedAtUtc).toLocaleString()}
+                    {whyByAdset[c.adSetId].evaluatedAtUtc.slice(0, 16).replace("T", " ")} UTC
                   </p>
                   <ul className="list-disc space-y-1 pl-4">
                     {whyByAdset[c.adSetId].reasonCodes.map((code) => (
